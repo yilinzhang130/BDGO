@@ -1,0 +1,50 @@
+// ═══════════════════════════════════════════
+// BD Go — Auth token & user storage (localStorage)
+// ═══════════════════════════════════════════
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  provider: string;
+  created_at?: string;
+}
+
+const TOKEN_KEY = "bdgo.auth.token";
+const USER_KEY = "bdgo.auth.user";
+
+function isBrowser(): boolean {
+  return typeof window !== "undefined" && typeof localStorage !== "undefined";
+}
+
+export function getToken(): string | null {
+  if (!isBrowser()) return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getUser(): AuthUser | null {
+  if (!isBrowser()) return null;
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setAuth(token: string, user: AuthUser): void {
+  if (!isBrowser()) return;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function clearAuth(): void {
+  if (!isBrowser()) return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+export function isLoggedIn(): boolean {
+  return !!getToken();
+}

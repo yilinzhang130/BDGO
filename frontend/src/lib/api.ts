@@ -1,4 +1,22 @@
+import { getToken, clearAuth } from "./auth";
+
 const BASE = "/api";
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
+function handle401(res: Response): void {
+  if (res.status === 401) {
+    clearAuth();
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
+  }
+}
 
 async function get<T = any>(path: string, params?: Record<string, string | number>): Promise<T> {
   const url = new URL(path, window.location.origin);
@@ -7,7 +25,8 @@ async function get<T = any>(path: string, params?: Record<string, string | numbe
       if (v !== "" && v !== undefined && v !== null) url.searchParams.set(k, String(v));
     });
   }
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { headers: authHeaders() });
+  handle401(res);
   if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
   return res.json();
 }
@@ -20,9 +39,10 @@ export const globalSearch = (q: string, limit = 5) =>
 export async function chatStream(message: string, sessionId: string, fileIds: string[] = []): Promise<Response> {
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ message, session_id: sessionId, file_ids: fileIds }),
   });
+  handle401(res);
   if (!res.ok) throw new Error(`Chat failed: ${res.status}`);
   return res;
 }
@@ -85,9 +105,10 @@ export async function updateRecord(
 ) {
   const res = await fetch(`${BASE}/write/${encodeURIComponent(table)}/${encodeURIComponent(pk)}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ fields, pk2: pk2 || null }),
   });
+  handle401(res);
   if (!res.ok) throw new Error(`Update failed: ${res.status}`);
   return res.json();
 }
@@ -97,9 +118,10 @@ export async function deleteRecord(
 ) {
   const res = await fetch(`${BASE}/write/${encodeURIComponent(table)}/${encodeURIComponent(pk)}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ pk2: pk2 || null }),
   });
+  handle401(res);
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
   return res.json();
 }
@@ -108,9 +130,10 @@ export async function deleteRecord(
 export async function runTask(agent: string, message: string): Promise<{ task_id: string; status: string }> {
   const res = await fetch(`${BASE}/tasks/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ agent, message }),
   });
+  handle401(res);
   if (!res.ok) throw new Error(`Task failed: ${res.status}`);
   return res.json();
 }
@@ -123,7 +146,12 @@ export async function uploadBP(file: File, company?: string): Promise<any> {
   const form = new FormData();
   form.append("file", file);
   if (company) form.append("company", company);
-  const res = await fetch(`${BASE}/upload/bp`, { method: "POST", body: form });
+  const res = await fetch(`${BASE}/upload/bp`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: form,
+  });
+  handle401(res);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Upload failed: ${res.status} ${body}`);
@@ -137,9 +165,10 @@ export const fetchReportServices = () => get(`${BASE}/reports/list`);
 export async function generateReport(slug: string, params: Record<string, any>): Promise<any> {
   const res = await fetch(`${BASE}/reports/generate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ slug, params }),
   });
+  handle401(res);
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
     throw new Error(detail.detail || `Report generation failed: ${res.status}`);
@@ -157,9 +186,10 @@ export function reportDownloadUrl(taskId: string, format: string): string {
 export async function renameCompany(oldName: string, newName: string): Promise<any> {
   const res = await fetch(`${BASE}/write/rename-company/${encodeURIComponent(oldName)}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ new_name: newName }),
   });
+  handle401(res);
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
     throw new Error(detail.detail || `Rename failed: ${res.status}`);

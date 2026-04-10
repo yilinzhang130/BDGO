@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useSessionStore } from "@/lib/sessions";
+import { useAuth } from "@/components/AuthProvider";
 import { SessionList } from "./SessionList";
 
 interface NavItem {
@@ -48,6 +49,36 @@ function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+function SidebarFooter() {
+  const { user, logout } = useAuth();
+  const initial = user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U";
+  const displayName = user?.name || user?.email || "User";
+
+  return (
+    <div className="sidebar-footer">
+      {user?.avatar_url ? (
+        <img
+          src={user.avatar_url}
+          alt={displayName}
+          className="avatar"
+          style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+        />
+      ) : (
+        <div className="avatar">{initial}</div>
+      )}
+      <div className="user-name">{displayName}</div>
+      <button
+        className="icon-btn"
+        aria-label="Logout"
+        title="Logout"
+        onClick={logout}
+      >
+        {"\u2192"}
+      </button>
     </div>
   );
 }
@@ -100,13 +131,7 @@ export function Sidebar() {
         <NavGroup label="Tools" items={TOOLS} />
       </div>
 
-      <div className="sidebar-footer">
-        <div className="avatar">U</div>
-        <div className="user-name">User</div>
-        <button className="icon-btn" aria-label="Settings" title="Settings">
-          {"\u2699"}
-        </button>
-      </div>
+      <SidebarFooter />
     </aside>
   );
 }
