@@ -6,10 +6,13 @@ Keep secrets/endpoints/paths in one place so rotation is a single-file change.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
 from fastapi import HTTPException
+
+_logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────
 # LLM endpoints
@@ -19,10 +22,9 @@ MINIMAX_URL = os.environ.get(
     "MINIMAX_URL",
     "https://api.minimaxi.com/anthropic/v1/messages",
 )
-MINIMAX_KEY = os.environ.get(
-    "MINIMAX_API_KEY",
-    "sk-cp-ZCX3QqqgveWIUJdbn8u6N-SMTWJfKBr-BuUVaaO5jxlH5c6ArI24AfBPXqQqu-HmbUxXis9OLBf9EOyuBV8URHNVSQFmzcAfkI4zrTA8VTDa36M_m4900aQ",
-)
+MINIMAX_KEY = os.environ.get("MINIMAX_API_KEY", "")
+if not MINIMAX_KEY:
+    _logger.warning("MINIMAX_API_KEY is not set — LLM-dependent endpoints will fail")
 MINIMAX_MODEL = os.environ.get("MINIMAX_MODEL", "MiniMax-M1-80k")
 MINIMAX_ANTHROPIC_VERSION = "2023-06-01"
 
@@ -30,8 +32,22 @@ MINIMAX_ANTHROPIC_VERSION = "2023-06-01"
 # Paths
 # ─────────────────────────────────────────────────────────────
 
-BP_DIR = Path(os.path.expanduser("~/.openclaw/workspace/BP"))
-REPORTS_DIR = Path(os.path.expanduser("~/.openclaw/workspace/Reports"))
+CRM_DB_PATH = os.environ.get(
+    "CRM_DB_PATH",
+    os.path.expanduser("~/.openclaw/workspace/crm-database/crm.db"),
+)
+GUIDELINES_DB_PATH = os.environ.get(
+    "GUIDELINES_DB_PATH",
+    os.path.expanduser("~/.openclaw/workspace/guidelines/guidelines.db"),
+)
+BP_DIR = Path(os.environ.get(
+    "BP_DIR",
+    os.path.expanduser("~/.openclaw/workspace/BP"),
+))
+REPORTS_DIR = Path(os.environ.get(
+    "REPORTS_DIR",
+    os.path.expanduser("~/.openclaw/workspace/Reports"),
+))
 
 
 # ─────────────────────────────────────────────────────────────

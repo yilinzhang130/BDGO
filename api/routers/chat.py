@@ -396,7 +396,7 @@ def _tool_search_global(q, limit=5):
 import os
 import sqlite3 as _sqlite3
 
-_GUIDELINES_DB = os.path.expanduser("~/.openclaw/workspace/guidelines/guidelines.db")
+from config import GUIDELINES_DB_PATH as _GUIDELINES_DB
 
 
 def _guidelines_query(sql: str, params: tuple = ()) -> list[dict]:

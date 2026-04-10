@@ -11,8 +11,9 @@ if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
 import crm_db  # noqa: E402
+import config  # noqa: E402
 
-DB_PATH = crm_db.DB_PATH
+DB_PATH = config.CRM_DB_PATH
 
 # Table → primary key mapping
 PK_MAP: dict[str, str | tuple[str, str]] = {
