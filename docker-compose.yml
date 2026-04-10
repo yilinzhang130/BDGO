@@ -1,0 +1,65 @@
+# ── BD Go — Docker Compose ──
+# Usage:
+#   cp .env.example .env   # fill in secrets
+#   docker compose up -d --build
+
+services:
+  # ── FastAPI backend ──
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - CRM_DB_PATH=/data/crm.db
+      - GUIDELINES_DB_PATH=/data/guidelines.db
+      - BP_DIR=/data/BP
+      - REPORTS_DIR=/data/Reports
+    volumes:
+      - ./data/crm.db:/data/crm.db:ro
+      - ./data/guidelines.db:/data/guidelines.db:ro
+      - ./data/BP:/data/BP
+      - ./data/Reports:/data/Reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── PostgreSQL (auth, sessions, app state) ──
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: bdgo
+      POSTGRES_USER: bdgo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bdgo"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    # Postgres is internal-only; no host port binding.
+    # If you need direct access for debugging: uncomment below.
+    # ports:
+    #   - "5432:5432"
+
+  # ── Nginx reverse proxy ──
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      # - "443:443"  # uncomment when HTTPS certs are ready
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # - ./nginx/certs:/etc/nginx/certs:ro  # uncomment for HTTPS
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

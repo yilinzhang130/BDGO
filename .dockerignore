@@ -1,0 +1,15 @@
+node_modules
+frontend
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+.env
+.env.*
+data/
+nginx/
+scripts/
+*.md
+.claude/
+.vscode/
