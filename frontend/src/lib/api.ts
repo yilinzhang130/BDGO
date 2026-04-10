@@ -123,12 +123,9 @@ export async function uploadBP(file: File, company?: string): Promise<any> {
   const form = new FormData();
   form.append("file", file);
   if (company) form.append("company", company);
-  console.log("[api] uploadBP ->", `${BASE}/upload/bp`, "file:", file.name);
   const res = await fetch(`${BASE}/upload/bp`, { method: "POST", body: form });
-  console.log("[api] uploadBP status:", res.status, res.statusText);
   if (!res.ok) {
     const body = await res.text();
-    console.error("[api] uploadBP error body:", body);
     throw new Error(`Upload failed: ${res.status} ${body}`);
   }
   return res.json();

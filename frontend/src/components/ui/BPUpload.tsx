@@ -35,15 +35,12 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
     if (!file) { setError("No file selected"); return; }
     setUploading(true);
     setError("");
-    console.log("[BPUpload] uploading:", file.name, file.size, "company:", company);
     try {
       const res = await uploadBP(file, company);
-      console.log("[BPUpload] upload result:", res);
       setResult(res);
       setStage("uploaded");
       if (onUploaded) onUploaded(res.filename);
     } catch (e: any) {
-      console.error("[BPUpload] upload error:", e);
       setError(e.message || "Upload failed");
     } finally {
       setUploading(false);

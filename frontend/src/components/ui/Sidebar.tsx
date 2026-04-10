@@ -101,8 +101,8 @@ export function Sidebar() {
       </div>
 
       <div className="sidebar-footer">
-        <div className="avatar">P</div>
-        <div className="user-name">Peter</div>
+        <div className="avatar">U</div>
+        <div className="user-name">User</div>
         <button className="icon-btn" aria-label="Settings" title="Settings">
           {"\u2699"}
         </button>
