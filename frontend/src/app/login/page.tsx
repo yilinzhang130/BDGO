@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
 type Tab = "login" | "register";
@@ -49,8 +49,38 @@ export default function LoginPage() {
     }
   };
 
+  // Load Google Identity Services via useEffect (must be before any conditional returns)
+  const googleInitRef = useRef(false);
+  useEffect(() => {
+    if (googleInitRef.current) return;
+    googleInitRef.current = true;
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = () => {
+      const google = (window as any).google;
+      if (!google?.accounts?.id) return;
+      google.accounts.id.initialize({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
+        callback: async (response: any) => {
+          if (response.credential) {
+            setSubmitting(true);
+            setError("");
+            try {
+              await loginWithGoogle(response.credential);
+            } catch (err: any) {
+              setError(err.message || "Google login failed");
+            } finally {
+              setSubmitting(false);
+            }
+          }
+        },
+      });
+    };
+    document.head.appendChild(script);
+  }, [loginWithGoogle]);
+
   const handleGoogleLogin = () => {
-    // Load Google Identity Services and trigger sign-in
     if (typeof window === "undefined") return;
     const google = (window as any).google;
     if (!google?.accounts?.id) {
@@ -77,32 +107,6 @@ export default function LoginPage() {
 
   return (
     <>
-      {/* Google Identity Services script */}
-      <script
-        src="https://accounts.google.com/gsi/client"
-        async
-        onLoad={() => {
-          const google = (window as any).google;
-          if (!google?.accounts?.id) return;
-          google.accounts.id.initialize({
-            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
-            callback: async (response: any) => {
-              if (response.credential) {
-                setSubmitting(true);
-                setError("");
-                try {
-                  await loginWithGoogle(response.credential);
-                } catch (err: any) {
-                  setError(err.message || "Google login failed");
-                } finally {
-                  setSubmitting(false);
-                }
-              }
-            },
-          });
-        }}
-      />
-
       <div style={styles.wrapper}>
         <div style={styles.card}>
           {/* Logo */}

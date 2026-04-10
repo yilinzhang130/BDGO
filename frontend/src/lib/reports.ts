@@ -135,8 +135,9 @@ function getSnapshot(): CompletedReport[] {
   return state;
 }
 
+const _serverSnapshot: CompletedReport[] = [];
 function getServerSnapshot(): CompletedReport[] {
-  return [];
+  return _serverSnapshot;
 }
 
 export function useReportsStore() {

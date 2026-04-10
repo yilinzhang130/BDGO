@@ -431,8 +431,9 @@ function getSnapshot(): StoreState {
   return state;
 }
 
+const _serverSnapshot: StoreState = { sessions: [], activeId: null, _hydrated: false };
 function getServerSnapshot(): StoreState {
-  return { sessions: [], activeId: null, _hydrated: false };
+  return _serverSnapshot;
 }
 
 export function useSessionStore() {
