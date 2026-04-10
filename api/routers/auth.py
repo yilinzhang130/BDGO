@@ -189,8 +189,10 @@ def google_login(body: GoogleLoginRequest):
 
     token_info = resp.json()
 
-    # Verify audience matches our client ID (if configured)
-    if config.GOOGLE_CLIENT_ID and token_info.get("aud") != config.GOOGLE_CLIENT_ID:
+    # Verify audience matches our client ID (REQUIRED for security)
+    if not config.GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google login not configured (GOOGLE_CLIENT_ID not set)")
+    if token_info.get("aud") != config.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=401, detail="Google token audience mismatch")
 
     email = token_info.get("email", "").lower()

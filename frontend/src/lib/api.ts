@@ -280,7 +280,10 @@ export async function deleteEntity(sessionId: string, entityId: string): Promise
 // Reports History
 // ═══════════════════════════════════════════
 
-export const fetchReportsHistory = () => get<any[]>(`${BASE}/reports/history`);
+export async function fetchReportsHistory(): Promise<any[]> {
+  const resp = await get<{ history: any[] }>(`${BASE}/reports/history`);
+  return resp.history || [];
+}
 
 export async function deleteReportHistory(id: string): Promise<void> {
   const res = await fetch(`${BASE}/reports/history/${encodeURIComponent(id)}`, {

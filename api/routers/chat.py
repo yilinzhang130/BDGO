@@ -495,6 +495,13 @@ def _tool_count_by(table, group_by):
     physical = table_map.get(table, table)
     if table not in table_map:
         return {"error": f"Invalid table: {table}"}
+    # Validate column name against actual table columns to prevent SQL injection
+    try:
+        cols = [r["name"] for r in query(f'PRAGMA table_info("{physical}")')]
+    except Exception:
+        cols = []
+    if group_by not in cols:
+        return {"error": f"Invalid column '{group_by}' for table '{table}'"}
     sql = f'SELECT "{group_by}" as value, COUNT(*) as count FROM "{physical}" WHERE "{group_by}" IS NOT NULL AND "{group_by}" != \'\' GROUP BY "{group_by}" ORDER BY count DESC LIMIT 50'
     try:
         return query(sql)

@@ -201,15 +201,15 @@ def list_report_history(user: dict = Depends(get_current_user)):
     return {"history": results}
 
 
-@router.delete("/history/{history_id}")
-def delete_report_history(history_id: int, user: dict = Depends(get_current_user)):
-    """Delete a single report history entry (user-scoped)."""
+@router.delete("/history/{task_id}")
+def delete_report_history(task_id: str, user: dict = Depends(get_current_user)):
+    """Delete a single report history entry by task_id (user-scoped)."""
     conn = database.get_connection()
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM report_history WHERE id = %s AND user_id = %s",
-                (history_id, user["id"]),
+                "DELETE FROM report_history WHERE task_id = %s AND user_id = %s",
+                (task_id, user["id"]),
             )
             deleted = cur.rowcount
         conn.commit()

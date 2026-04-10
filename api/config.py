@@ -19,7 +19,10 @@ _logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-production")
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
+if not JWT_SECRET:
+    _logger.warning("JWT_SECRET is not set — using insecure default (DO NOT use in production)")
+    JWT_SECRET = "dev-secret-DO-NOT-USE-IN-PRODUCTION"
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 
 # ─────────────────────────────────────────────────────────────
