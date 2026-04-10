@@ -1,8 +1,8 @@
 """Chat streaming endpoint — MiniMax API with tool use + document attachments."""
 
-import json, logging
+import json, logging, uuid
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from db import query, query_one, count
@@ -13,12 +13,132 @@ from config import (
     MINIMAX_MODEL as MODEL,
     MINIMAX_URL,
 )
+import database
+from auth import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Session history: {session_id: [messages]}
-_sessions: dict[str, list[dict]] = {}
+
+# ---------------------------------------------------------------------------
+# Postgres-backed session helpers
+# ---------------------------------------------------------------------------
+
+def _gen_msg_id() -> str:
+    return uuid.uuid4().hex[:12]
+
+
+def _ensure_session(session_id: str, user_id: str) -> None:
+    """Create the session row if it doesn't exist yet."""
+    conn = database.get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM sessions WHERE id = %s", (session_id,))
+            if not cur.fetchone():
+                cur.execute(
+                    "INSERT INTO sessions (id, user_id, title) VALUES (%s, %s, %s)",
+                    (session_id, user_id, "New Chat"),
+                )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _load_history(session_id: str) -> list[dict]:
+    """Load the last 20 messages for a session from Postgres.
+
+    Messages are stored with role + content.  For assistant messages the
+    content column holds a JSON-encoded list of content blocks (text /
+    tool_use).  For user messages with tool_results, the content column
+    holds the JSON-encoded list.
+    """
+    conn = database.get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT role, content, tools_json FROM messages "
+                "WHERE session_id = %s ORDER BY created_at ASC",
+                (session_id,),
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    history: list[dict] = []
+    for r in rows[-20:]:
+        content = r["content"]
+        # Try parsing JSON content (structured content blocks / tool results)
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, list):
+                history.append({"role": r["role"], "content": parsed})
+                continue
+        except (json.JSONDecodeError, TypeError):
+            pass
+        history.append({"role": r["role"], "content": content})
+    return history
+
+
+def _save_message(session_id: str, role: str, content, tools_json: str | None = None,
+                  attachments_json: str | None = None) -> None:
+    """Persist a single message to Postgres."""
+    if isinstance(content, (list, dict)):
+        content_str = json.dumps(content, ensure_ascii=False, default=str)
+    else:
+        content_str = str(content) if content else ""
+
+    conn = database.get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO messages (id, session_id, role, content, tools_json, attachments_json) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (_gen_msg_id(), session_id, role, content_str, tools_json, attachments_json),
+            )
+            cur.execute(
+                "UPDATE sessions SET updated_at = NOW() WHERE id = %s",
+                (session_id,),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        logger.exception("Failed to save message for session %s", session_id)
+    finally:
+        conn.close()
+
+
+def _save_entities(session_id: str, entities: list[dict]) -> None:
+    """Upsert context entities extracted from tool results."""
+    if not entities:
+        return
+    conn = database.get_connection()
+    try:
+        with conn.cursor() as cur:
+            for e in entities:
+                fields_json = json.dumps(e.get("fields", []), ensure_ascii=False) if e.get("fields") else None
+                cur.execute(
+                    """INSERT INTO context_entities (id, session_id, entity_type, title, subtitle, fields_json, href)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (id) DO UPDATE SET
+                           entity_type = EXCLUDED.entity_type,
+                           title = EXCLUDED.title,
+                           subtitle = EXCLUDED.subtitle,
+                           fields_json = EXCLUDED.fields_json,
+                           href = EXCLUDED.href,
+                           added_at = NOW()""",
+                    (e.get("id"), session_id, e.get("entity_type", ""),
+                     e.get("title", ""), e.get("subtitle"),
+                     fields_json, e.get("href")),
+                )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        logger.exception("Failed to save entities for session %s", session_id)
+    finally:
+        conn.close()
 
 SYSTEM_PROMPT = """你是 BD Go，生物医药BD智能助手。你可以访问以下只读工具：
 
@@ -826,6 +946,8 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
     file_ids: list[str] = []
+    # user_id is injected by the endpoint, not sent by the client
+    user_id: str | None = None
 
 
 async def _call_minimax_stream(client: httpx.AsyncClient, messages: list, tool_results_buffer: list):
@@ -921,12 +1043,18 @@ async def _call_minimax_stream(client: httpx.AsyncClient, messages: list, tool_r
 
 async def _stream_chat(req: ChatRequest):
     """Main chat handler: tool-use loop with streaming."""
-    session_key = req.session_id
-    if session_key not in _sessions:
-        _sessions[session_key] = []
-    history = _sessions[session_key]
+    session_id = req.session_id
+    user_id = req.user_id
+
+    # Ensure session exists in Postgres (auto-create if needed)
+    if user_id:
+        _ensure_session(session_id, user_id)
+
+    # Load history from Postgres instead of in-memory dict
+    history = _load_history(session_id)
 
     user_text = req.message
+    attachments_json = None
     if req.file_ids:
         attachment_parts = []
         for fid in req.file_ids:
@@ -935,10 +1063,17 @@ async def _stream_chat(req: ChatRequest):
                 attachment_parts.append(f"\n\n[附件内容: {fid}]\n{extracted}")
         if attachment_parts:
             user_text = req.message + "".join(attachment_parts)
+        attachments_json = json.dumps(req.file_ids)
 
     history.append({"role": "user", "content": user_text})
     if len(history) > 20:
         history[:] = history[-20:]
+
+    # Persist the user message
+    _save_message(session_id, "user", user_text, attachments_json=attachments_json)
+
+    # Collect entities across all tool-call rounds for persistence
+    all_entities: list[dict] = []
 
     try:
         async with httpx.AsyncClient(timeout=300) as client:
@@ -967,6 +1102,7 @@ async def _stream_chat(req: ChatRequest):
 
                 if final_stop_reason == "tool_use" and tool_results_buffer:
                     tool_results_msg = []
+                    tool_events = []
                     for tu in tool_results_buffer:
                         try:
                             inp = json.loads(tu["input_json"] or "{}")
@@ -975,19 +1111,38 @@ async def _stream_chat(req: ChatRequest):
                         result_str = _execute_tool(tu["name"], inp)
                         yield f"data: {json.dumps({'type': 'tool_result', 'name': tu['name']})}\n\n"
 
+                        # Collect tool event for persistence
+                        tool_events.append({
+                            "name": tu["name"],
+                            "input": inp,
+                            "result_preview": result_str[:500],
+                        })
+
                         # Emit context_entity events for each extracted entity
                         for entity in _extract_context_entities(tu["name"], result_str):
                             yield f"data: {json.dumps(entity, ensure_ascii=False)}\n\n"
+                            all_entities.append(entity)
 
                         tool_results_msg.append({
                             "type": "tool_result",
                             "tool_use_id": tu["id"],
                             "content": result_str,
                         })
+
+                    # Persist the assistant message (with tool calls) and tool results
+                    tools_json = json.dumps(tool_events, ensure_ascii=False, default=str)
+                    _save_message(session_id, "assistant", final_content, tools_json=tools_json)
+                    _save_message(session_id, "user", tool_results_msg)
+
                     history.append({"role": "user", "content": tool_results_msg})
                     continue
                 else:
+                    # Final assistant text (no more tool calls) — persist it
+                    _save_message(session_id, "assistant", final_content)
                     break
+
+        # Persist all extracted context entities
+        _save_entities(session_id, all_entities)
 
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
@@ -1001,7 +1156,8 @@ async def _stream_chat(req: ChatRequest):
 
 
 @router.post("")
-async def chat_stream(req: ChatRequest):
+async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
+    req.user_id = user["id"]
     return StreamingResponse(
         _stream_chat(req),
         media_type="text/event-stream",

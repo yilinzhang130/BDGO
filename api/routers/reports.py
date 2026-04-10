@@ -10,14 +10,17 @@ Endpoints:
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+import database
+from auth import get_current_user
 from config import REPORTS_DIR, safe_path_within
 from services import REPORT_SERVICES, get_service, list_services
 from services.report_builder import (
@@ -32,13 +35,45 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _save_report_history(user_id: str, task_id: str, slug: str, task: dict) -> None:
+    """Save a completed report to the report_history table."""
+    result = task.get("result") or {}
+    title = result.get("meta", {}).get("title") or slug
+    markdown_preview = (result.get("markdown") or "")[:2000]
+    files_json = json.dumps(result.get("files", []), ensure_ascii=False, default=str)
+    meta_json = json.dumps(result.get("meta", {}), ensure_ascii=False, default=str)
+
+    conn = database.get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO report_history (user_id, task_id, slug, title, markdown_preview, files_json, meta_json) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (user_id, task_id, slug, title, markdown_preview, files_json, meta_json),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        logger.exception("Failed to save report history for task %s", task_id)
+    finally:
+        conn.close()
+
+
 class GenerateRequest(BaseModel):
     slug: str
     params: dict = {}
 
 
+def _execute_and_persist(task_id: str, service, params: dict, user_id: str | None) -> None:
+    """Execute a report task and save to history on success."""
+    execute_task(task_id, service, params)
+    task = get_task(task_id)
+    if task and task["status"] == "completed" and user_id:
+        _save_report_history(user_id, task_id, task.get("slug", ""), task)
+
+
 @router.post("/generate")
-def generate_report(req: GenerateRequest):
+def generate_report(req: GenerateRequest, user: dict = Depends(get_current_user)):
     """Run a report service.
 
     - sync services: runs inline in the request thread, returns result in response
@@ -55,14 +90,15 @@ def generate_report(req: GenerateRequest):
         raise HTTPException(status_code=400, detail=f"Invalid params: {e}")
 
     task_id = create_task(req.slug, req.params)
+    user_id = user["id"]
 
     if service.mode == "sync":
-        execute_task(task_id, service, req.params)
+        _execute_and_persist(task_id, service, req.params, user_id)
         return get_task(task_id)
     else:
         thread = threading.Thread(
-            target=execute_task,
-            args=(task_id, service, req.params),
+            target=_execute_and_persist,
+            args=(task_id, service, req.params, user_id),
             daemon=True,
         )
         thread.start()
@@ -128,3 +164,60 @@ def download_report(task_id: str, format: str):
         filename=match["filename"],
         media_type=media_type,
     )
+
+
+# ---------------------------------------------------------------------------
+# Report history (Postgres-backed)
+# ---------------------------------------------------------------------------
+
+@router.get("/history")
+def list_report_history(user: dict = Depends(get_current_user)):
+    """List the user's completed reports from Postgres (limit 50, newest first)."""
+    conn = database.get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, task_id, slug, title, markdown_preview, files_json, meta_json, created_at "
+                "FROM report_history WHERE user_id = %s "
+                "ORDER BY created_at DESC LIMIT 50",
+                (user["id"],),
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    results = []
+    for r in rows:
+        entry = dict(r)
+        entry["created_at"] = str(entry["created_at"]) if entry.get("created_at") else None
+        # Parse JSON fields back to objects for the API response
+        for jf in ("files_json", "meta_json"):
+            if entry.get(jf):
+                try:
+                    entry[jf] = json.loads(entry[jf])
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        results.append(entry)
+    return {"history": results}
+
+
+@router.delete("/history/{history_id}")
+def delete_report_history(history_id: int, user: dict = Depends(get_current_user)):
+    """Delete a single report history entry (user-scoped)."""
+    conn = database.get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM report_history WHERE id = %s AND user_id = %s",
+                (history_id, user["id"]),
+            )
+            deleted = cur.rowcount
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="History entry not found")
+    return {"ok": True}
