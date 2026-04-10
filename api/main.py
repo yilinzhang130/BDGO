@@ -4,10 +4,12 @@ CRM Dashboard API — FastAPI backend wrapping crm_db.
 
 import os
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from auth import get_current_user
 from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports
+from routers import auth as auth_router
 
 app = FastAPI(title="OpenClaw CRM Dashboard API", version="0.1.0")
 
@@ -23,19 +25,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
-app.include_router(companies.router, prefix="/api/companies", tags=["companies"])
-app.include_router(assets.router, prefix="/api/assets", tags=["assets"])
-app.include_router(clinical.router, prefix="/api/clinical", tags=["clinical"])
-app.include_router(deals.router, prefix="/api/deals", tags=["deals"])
-app.include_router(write.router, prefix="/api/write", tags=["write"])
-app.include_router(ip.router, prefix="/api/ip", tags=["ip"])
-app.include_router(buyers.router, prefix="/api/buyers", tags=["buyers"])
-app.include_router(upload.router, prefix="/api", tags=["upload"])
-app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"])
-app.include_router(search.router, prefix="/api/search", tags=["search"])
-app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
-app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
+# Auth router — no auth dependency (handles its own authentication)
+app.include_router(auth_router.router, prefix="/api/auth", tags=["auth"])
+
+# All other routers — protected by Bearer token auth
+_auth = [Depends(get_current_user)]
+
+app.include_router(stats.router, prefix="/api/stats", tags=["stats"], dependencies=_auth)
+app.include_router(companies.router, prefix="/api/companies", tags=["companies"], dependencies=_auth)
+app.include_router(assets.router, prefix="/api/assets", tags=["assets"], dependencies=_auth)
+app.include_router(clinical.router, prefix="/api/clinical", tags=["clinical"], dependencies=_auth)
+app.include_router(deals.router, prefix="/api/deals", tags=["deals"], dependencies=_auth)
+app.include_router(write.router, prefix="/api/write", tags=["write"], dependencies=_auth)
+app.include_router(ip.router, prefix="/api/ip", tags=["ip"], dependencies=_auth)
+app.include_router(buyers.router, prefix="/api/buyers", tags=["buyers"], dependencies=_auth)
+app.include_router(upload.router, prefix="/api", tags=["upload"], dependencies=_auth)
+app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"], dependencies=_auth)
+app.include_router(search.router, prefix="/api/search", tags=["search"], dependencies=_auth)
+app.include_router(chat.router, prefix="/api/chat", tags=["chat"], dependencies=_auth)
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"], dependencies=_auth)
 
 
 @app.get("/api/health")

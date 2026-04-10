@@ -15,6 +15,14 @@ from fastapi import HTTPException
 _logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────
+# Auth / database
+# ─────────────────────────────────────────────────────────────
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-production")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+
+# ─────────────────────────────────────────────────────────────
 # LLM endpoints
 # ─────────────────────────────────────────────────────────────
 
