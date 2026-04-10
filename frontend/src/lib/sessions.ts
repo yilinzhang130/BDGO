@@ -1,6 +1,16 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import {
+  fetchSessions,
+  fetchSession,
+  createSessionAPI,
+  renameSessionAPI,
+  deleteSessionAPI,
+  postMessage,
+  postEntity,
+  deleteEntity,
+} from "./api";
 
 // ═══════════════════════════════════════════
 // Types
@@ -51,20 +61,18 @@ export interface ChatSession {
 }
 
 // ═══════════════════════════════════════════
-// Store (module-level, localStorage-backed)
+// Store (module-level, server-backed with local cache)
 // ═══════════════════════════════════════════
 
-const STORAGE_KEY = "bdgo.sessions.v1";
 const ACTIVE_KEY = "bdgo.sessions.active";
-const MAX_SESSIONS = 50;
-const MAX_MESSAGES_PER_SESSION = 200;
 
 interface StoreState {
   sessions: ChatSession[];
   activeId: string | null;
+  _hydrated: boolean;
 }
 
-let state: StoreState = { sessions: [], activeId: null };
+let state: StoreState = { sessions: [], activeId: null, _hydrated: false };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -75,61 +83,123 @@ function isBrowser() {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
 }
 
-function load(): StoreState {
-  if (!isBrowser()) return { sessions: [], activeId: null };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const sessions: ChatSession[] = raw ? JSON.parse(raw) : [];
-    const activeId = localStorage.getItem(ACTIVE_KEY);
-    return { sessions, activeId };
-  } catch {
-    return { sessions: [], activeId: null };
+function setLocalState(next: Partial<StoreState>) {
+  state = { ...state, ...next };
+  // Persist activeId locally (instant restore on reload)
+  if (isBrowser()) {
+    if (state.activeId) localStorage.setItem(ACTIVE_KEY, state.activeId);
+    else localStorage.removeItem(ACTIVE_KEY);
   }
-}
-
-function persist() {
-  if (!isBrowser()) return;
-  try {
-    // Cap messages per session before persisting
-    const trimmed = state.sessions.map((s) => ({
-      ...s,
-      messages: s.messages.slice(-MAX_MESSAGES_PER_SESSION),
-    }));
-    // Cap total sessions by updatedAt
-    const sorted = [...trimmed].sort((a, b) => b.updatedAt - a.updatedAt);
-    const capped = sorted.slice(0, MAX_SESSIONS);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(capped));
-    if (state.activeId) {
-      localStorage.setItem(ACTIVE_KEY, state.activeId);
-    } else {
-      localStorage.removeItem(ACTIVE_KEY);
-    }
-  } catch (e) {
-    // Quota exceeded — drop oldest sessions and retry
-    console.warn("Session persist failed, trimming:", e);
-    state.sessions = state.sessions.slice(-20);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sessions));
-    } catch { /* give up */ }
-  }
-}
-
-function setState(next: StoreState) {
-  state = next;
-  persist();
   emit();
 }
 
-// Initial load (in browser only)
-if (isBrowser()) {
-  state = load();
-  // Cross-tab sync via storage event
-  window.addEventListener("storage", (e) => {
-    if (e.key === STORAGE_KEY || e.key === ACTIVE_KEY) {
-      state = load();
-      emit();
-    }
+function touchSession(id: string, mutator: (s: ChatSession) => ChatSession) {
+  setLocalState({
+    sessions: state.sessions.map((s) =>
+      s.id === id ? { ...mutator(s), updatedAt: Date.now() } : s,
+    ),
   });
+}
+
+// Fire-and-forget helper for background server calls
+function bg(promise: Promise<any>, label: string) {
+  promise.catch((err) => console.error(`[sessions] ${label}:`, err));
+}
+
+// ═══════════════════════════════════════════
+// Server hydration
+// ═══════════════════════════════════════════
+
+function mapServerSession(raw: any): ChatSession {
+  return {
+    id: raw.id,
+    title: raw.title || "New Chat",
+    createdAt: new Date(raw.created_at).getTime(),
+    updatedAt: new Date(raw.updated_at).getTime(),
+    messages: (raw.messages || []).map((m: any) => ({
+      id: m.id,
+      role: m.role as Role,
+      content: m.content || "",
+      tools: m.tools_json ? JSON.parse(m.tools_json) : undefined,
+      attachments: m.attachments_json ? JSON.parse(m.attachments_json) : undefined,
+      streaming: false,
+      createdAt: new Date(m.created_at || raw.created_at).getTime(),
+    })),
+    contextEntities: (raw.context_entities || []).map((e: any) => ({
+      id: e.id,
+      entityType: e.entity_type as EntityType,
+      title: e.title,
+      subtitle: e.subtitle || undefined,
+      fields: e.fields_json ? JSON.parse(e.fields_json) : [],
+      href: e.href || undefined,
+      addedAt: new Date(e.created_at || raw.created_at).getTime(),
+    })),
+  };
+}
+
+function mapServerSessionSummary(raw: any): ChatSession {
+  return {
+    id: raw.id,
+    title: raw.title || "New Chat",
+    createdAt: new Date(raw.created_at).getTime(),
+    updatedAt: new Date(raw.updated_at).getTime(),
+    messages: [],
+    contextEntities: [],
+  };
+}
+
+let hydratePromise: Promise<void> | null = null;
+
+function hydrateFromServer() {
+  if (hydratePromise) return hydratePromise;
+  hydratePromise = (async () => {
+    try {
+      const list = await fetchSessions();
+      const sessions = list.map(mapServerSessionSummary);
+      // Restore activeId from localStorage
+      const savedActive = isBrowser() ? localStorage.getItem(ACTIVE_KEY) : null;
+      const activeId =
+        savedActive && sessions.some((s) => s.id === savedActive)
+          ? savedActive
+          : sessions.length > 0
+            ? sessions[0].id
+            : null;
+      setLocalState({ sessions, activeId, _hydrated: true });
+
+      // Eagerly load the active session's full data
+      if (activeId) {
+        loadSessionDetail(activeId);
+      }
+    } catch (err) {
+      console.error("[sessions] hydrate failed:", err);
+      setLocalState({ _hydrated: true });
+    }
+  })();
+  return hydratePromise;
+}
+
+const loadedSessionIds = new Set<string>();
+
+async function loadSessionDetail(id: string) {
+  if (loadedSessionIds.has(id)) return;
+  loadedSessionIds.add(id);
+  try {
+    const raw = await fetchSession(id);
+    const full = mapServerSession(raw);
+    setLocalState({
+      sessions: state.sessions.map((s) => (s.id === id ? full : s)),
+    });
+  } catch (err) {
+    console.error(`[sessions] load detail ${id}:`, err);
+    loadedSessionIds.delete(id);
+  }
+}
+
+// Initial hydration
+if (isBrowser()) {
+  // Restore activeId immediately for fast first paint
+  state.activeId = localStorage.getItem(ACTIVE_KEY);
+  hydrateFromServer();
 }
 
 // ═══════════════════════════════════════════
@@ -157,23 +227,47 @@ export function getActiveId(): string | null {
 }
 
 export function setActiveId(id: string | null) {
-  setState({ ...state, activeId: id });
+  setLocalState({ activeId: id });
+  // Load full session data if we haven't yet
+  if (id) loadSessionDetail(id);
 }
 
 export function createSession(title = "New Chat"): ChatSession {
   const now = Date.now();
+  const tempId = genId();
   const session: ChatSession = {
-    id: genId(),
+    id: tempId,
     title,
     createdAt: now,
     updatedAt: now,
     messages: [],
     contextEntities: [],
   };
-  setState({
+  // Optimistic: add locally immediately
+  setLocalState({
     sessions: [session, ...state.sessions],
     activeId: session.id,
   });
+  loadedSessionIds.add(tempId);
+
+  // Server: create and update the ID if server assigns a different one
+  bg(
+    createSessionAPI(title).then((res) => {
+      if (res.id && res.id !== tempId) {
+        const serverId = res.id;
+        loadedSessionIds.delete(tempId);
+        loadedSessionIds.add(serverId);
+        setLocalState({
+          sessions: state.sessions.map((s) =>
+            s.id === tempId ? { ...s, id: serverId } : s,
+          ),
+          activeId: state.activeId === tempId ? serverId : state.activeId,
+        });
+        session.id = serverId;
+      }
+    }),
+    "createSession",
+  );
   return session;
 }
 
@@ -185,25 +279,19 @@ export function deleteSession(id: string) {
       ? [...remaining].sort((a, b) => b.updatedAt - a.updatedAt)[0].id
       : null;
   }
-  setState({ sessions: remaining, activeId: nextActive });
+  setLocalState({ sessions: remaining, activeId: nextActive });
+  loadedSessionIds.delete(id);
+  bg(deleteSessionAPI(id), "deleteSession");
 }
 
 export function renameSession(id: string, title: string) {
-  setState({
-    ...state,
+  const cleaned = title.trim() || "New Chat";
+  setLocalState({
     sessions: state.sessions.map((s) =>
-      s.id === id ? { ...s, title: title.trim() || "New Chat", updatedAt: Date.now() } : s,
+      s.id === id ? { ...s, title: cleaned, updatedAt: Date.now() } : s,
     ),
   });
-}
-
-function touchSession(id: string, mutator: (s: ChatSession) => ChatSession) {
-  setState({
-    ...state,
-    sessions: state.sessions.map((s) =>
-      s.id === id ? { ...mutator(s), updatedAt: Date.now() } : s,
-    ),
-  });
+  bg(renameSessionAPI(id, cleaned), "renameSession");
 }
 
 export function addMessage(sessionId: string, msg: ChatMessage) {
@@ -211,6 +299,19 @@ export function addMessage(sessionId: string, msg: ChatMessage) {
     ...s,
     messages: [...s.messages, msg],
   }));
+
+  // Only persist non-streaming user messages immediately
+  if (msg.role === "user") {
+    bg(
+      postMessage(sessionId, {
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        attachments_json: msg.attachments ? JSON.stringify(msg.attachments) : undefined,
+      }),
+      "addMessage",
+    );
+  }
 }
 
 export function appendAssistantChunk(
@@ -218,6 +319,7 @@ export function appendAssistantChunk(
   msgId: string,
   chunk: string,
 ) {
+  // Local-only during streaming — saved on markMessageDone
   touchSession(sessionId, (s) => ({
     ...s,
     messages: s.messages.map((m) =>
@@ -246,11 +348,26 @@ export function markMessageDone(sessionId: string, msgId: string) {
       m.id === msgId ? { ...m, streaming: false } : m,
     ),
   }));
+
+  // Persist the completed assistant message to server
+  const session = getSession(sessionId);
+  const msg = session?.messages.find((m) => m.id === msgId);
+  if (msg && msg.role === "assistant") {
+    bg(
+      postMessage(sessionId, {
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        tools_json: msg.tools ? JSON.stringify(msg.tools) : undefined,
+        attachments_json: msg.attachments ? JSON.stringify(msg.attachments) : undefined,
+      }),
+      "markMessageDone",
+    );
+  }
 }
 
 export function addContextEntity(sessionId: string, entity: ContextEntity) {
   touchSession(sessionId, (s) => {
-    // Dedup by entity.id — replace if exists to keep latest fields
     const existing = s.contextEntities.findIndex((e) => e.id === entity.id);
     let next: ContextEntity[];
     if (existing >= 0) {
@@ -261,6 +378,17 @@ export function addContextEntity(sessionId: string, entity: ContextEntity) {
     }
     return { ...s, contextEntities: next };
   });
+  bg(
+    postEntity(sessionId, {
+      id: entity.id,
+      entity_type: entity.entityType,
+      title: entity.title,
+      subtitle: entity.subtitle,
+      fields_json: JSON.stringify(entity.fields),
+      href: entity.href,
+    }),
+    "addContextEntity",
+  );
 }
 
 export function removeContextEntity(sessionId: string, entityId: string) {
@@ -268,10 +396,17 @@ export function removeContextEntity(sessionId: string, entityId: string) {
     ...s,
     contextEntities: s.contextEntities.filter((e) => e.id !== entityId),
   }));
+  bg(deleteEntity(sessionId, entityId), "removeContextEntity");
 }
 
 export function clearContextEntities(sessionId: string) {
+  const session = getSession(sessionId);
+  const entityIds = session?.contextEntities.map((e) => e.id) || [];
   touchSession(sessionId, (s) => ({ ...s, contextEntities: [] }));
+  // Delete each entity on server
+  for (const eid of entityIds) {
+    bg(deleteEntity(sessionId, eid), "clearContextEntities");
+  }
 }
 
 export function autoTitleFromFirstMessage(sessionId: string) {
@@ -297,7 +432,7 @@ function getSnapshot(): StoreState {
 }
 
 function getServerSnapshot(): StoreState {
-  return { sessions: [], activeId: null };
+  return { sessions: [], activeId: null, _hydrated: false };
 }
 
 export function useSessionStore() {

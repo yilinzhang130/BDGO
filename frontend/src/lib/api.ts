@@ -199,3 +199,94 @@ export async function renameCompany(oldName: string, newName: string): Promise<a
 
 export const fetchDistinct = (table: string, column: string) =>
   get(`${BASE}/write/distinct/${encodeURIComponent(table)}/${encodeURIComponent(column)}`);
+
+// ═══════════════════════════════════════════
+// Sessions
+// ═══════════════════════════════════════════
+
+export const fetchSessions = () => get<any[]>(`${BASE}/sessions`);
+
+export const fetchSession = (id: string) => get<any>(`${BASE}/sessions/${id}`);
+
+export async function createSessionAPI(title?: string): Promise<any> {
+  const res = await fetch(`${BASE}/sessions`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ title }),
+  });
+  handle401(res);
+  if (!res.ok) throw new Error(`Create session failed: ${res.status}`);
+  return res.json();
+}
+
+export async function renameSessionAPI(id: string, title: string): Promise<any> {
+  const res = await fetch(`${BASE}/sessions/${id}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ title }),
+  });
+  handle401(res);
+  if (!res.ok) throw new Error(`Rename session failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteSessionAPI(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/sessions/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  handle401(res);
+  if (!res.ok) throw new Error(`Delete session failed: ${res.status}`);
+}
+
+export async function postMessage(
+  sessionId: string,
+  msg: { id: string; role: string; content: string; tools_json?: string; attachments_json?: string },
+): Promise<any> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}/messages`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(msg),
+  });
+  handle401(res);
+  if (!res.ok) throw new Error(`Post message failed: ${res.status}`);
+  return res.json();
+}
+
+export async function postEntity(
+  sessionId: string,
+  entity: { id: string; entity_type: string; title: string; subtitle?: string; fields_json?: string; href?: string },
+): Promise<any> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}/entities`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(entity),
+  });
+  handle401(res);
+  if (!res.ok) throw new Error(`Post entity failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteEntity(sessionId: string, entityId: string): Promise<void> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}/entities/${encodeURIComponent(entityId)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  handle401(res);
+  if (!res.ok) throw new Error(`Delete entity failed: ${res.status}`);
+}
+
+// ═══════════════════════════════════════════
+// Reports History
+// ═══════════════════════════════════════════
+
+export const fetchReportsHistory = () => get<any[]>(`${BASE}/reports/history`);
+
+export async function deleteReportHistory(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/reports/history/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  handle401(res);
+  if (!res.ok) throw new Error(`Delete report failed: ${res.status}`);
+}
