@@ -1,0 +1,99 @@
+"""Company endpoints."""
+
+from fastapi import APIRouter, HTTPException, Query
+from urllib.parse import unquote
+from db import paginate, query, query_one
+
+router = APIRouter()
+
+
+@router.get("")
+def list_companies(
+    q: str = Query("", description="Search company name"),
+    country: str = Query("", description="Filter by country"),
+    type: str = Query("", description="Filter by company type"),
+    priority: str = Query("", description="Filter by BD priority"),
+    tracked: str = Query("", description="Filter by tracking status"),
+    sort: str = Query("客户名称", description="Sort column"),
+    order: str = Query("asc", description="asc or desc"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+):
+    conditions = []
+    params: list = []
+
+    if q:
+        conditions.append('("客户名称" LIKE ? OR "英文名" LIKE ? OR "中文名" LIKE ?)')
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+    if country:
+        conditions.append('"所处国家" = ?')
+        params.append(country)
+    if type:
+        conditions.append('"客户类型" = ?')
+        params.append(type)
+    if priority:
+        conditions.append('"BD跟进优先级" = ?')
+        params.append(priority)
+    if tracked:
+        conditions.append('"追踪状态" = ?')
+        params.append(tracked)
+
+    where = " AND ".join(conditions) if conditions else ""
+    # Validate sort column (prevent injection)
+    allowed_sorts = {"客户名称", "所处国家", "客户类型", "公司质量评分", "BD跟进优先级", "核心产品的阶段", "市值/估值", "追踪状态"}
+    sort_col = sort if sort in allowed_sorts else "客户名称"
+    order_dir = "DESC" if order.lower() == "desc" else "ASC"
+
+    return paginate(
+        "公司",
+        where=where,
+        params=tuple(params),
+        order_by=f'"{sort_col}" {order_dir}',
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/{name}")
+def get_company(name: str):
+    name = unquote(name)
+    row = query_one('SELECT * FROM "公司" WHERE "客户名称" = ?', (name,))
+    if not row:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return row
+
+
+@router.get("/{name}/assets")
+def get_company_assets(name: str, page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)):
+    name = unquote(name)
+    return paginate(
+        "资产",
+        where='"所属客户" = ?',
+        params=(name,),
+        order_by='"临床阶段" ASC',
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/{name}/trials")
+def get_company_trials(name: str, page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=500)):
+    name = unquote(name)
+    return paginate(
+        "临床",
+        where='"公司名称" = ?',
+        params=(name,),
+        order_by='"数据状态" ASC',
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/{name}/deals")
+def get_company_deals(name: str):
+    name = unquote(name)
+    rows = query(
+        'SELECT * FROM "交易" WHERE "买方公司" = ? OR "卖方/合作方" = ? ORDER BY "宣布日期" DESC',
+        (name, name),
+    )
+    return rows

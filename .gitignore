@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.next/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+.env.*
+
+# Runtime
+*.db-journal
+*.db-wal
+*.log
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Build
+dist/
+build/
+
+# Reports output (generated files, not source)
+api/reports_output/
