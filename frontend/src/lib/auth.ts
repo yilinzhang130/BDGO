@@ -2,6 +2,8 @@
 // BD Go — Auth token & user storage (localStorage)
 // ═══════════════════════════════════════════
 
+import { isBrowser } from "./utils";
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -13,10 +15,6 @@ export interface AuthUser {
 
 const TOKEN_KEY = "bdgo.auth.token";
 const USER_KEY = "bdgo.auth.user";
-
-function isBrowser(): boolean {
-  return typeof window !== "undefined" && typeof localStorage !== "undefined";
-}
 
 export function getToken(): string | null {
   if (!isBrowser()) return null;

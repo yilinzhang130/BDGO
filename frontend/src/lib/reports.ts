@@ -36,18 +36,12 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
-function isBrowser() {
-  return typeof window !== "undefined" && typeof localStorage !== "undefined";
-}
+import { isBrowser, bg } from "./utils";
+import { getToken } from "./auth";
 
 function setLocalState(next: CompletedReport[]) {
   state = next;
   emit();
-}
-
-// Fire-and-forget helper
-function bg(promise: Promise<any>, label: string) {
-  promise.catch((err) => console.error(`[reports] ${label}:`, err));
 }
 
 // ═══════════════════════════════════════════
@@ -76,23 +70,13 @@ function mapServerReport(raw: any): CompletedReport {
 async function hydrateFromServer() {
   try {
     const list = await fetchReportsHistory();
-    const reports = list.map(mapServerReport);
-    setLocalState(reports);
+    setLocalState(list.map(mapServerReport));
   } catch (err) {
     console.error("[reports] hydrate failed:", err);
   }
 }
 
-async function refetch() {
-  try {
-    const list = await fetchReportsHistory();
-    setLocalState(list.map(mapServerReport));
-  } catch (err) {
-    console.error("[reports] refetch failed:", err);
-  }
-}
-
-if (isBrowser()) {
+if (isBrowser() && getToken()) {
   hydrateFromServer();
 }
 
@@ -102,7 +86,7 @@ if (isBrowser()) {
 
 export function addCompletedReport(_report: CompletedReport) {
   // The backend auto-saves on report completion, so just refetch
-  bg(refetch(), "addCompletedReport");
+  bg(hydrateFromServer(), "addCompletedReport");
 }
 
 export function removeCompletedReport(taskId: string) {

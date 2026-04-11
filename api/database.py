@@ -1,14 +1,19 @@
 """
-database.py — Postgres connection for the auth/users database.
+database.py — Postgres connection pool for the auth/users database.
 
 Separate from db.py which handles CRM SQLite (read-only).
-Uses psycopg2 with a simple connection helper and auto-creates
-the users table on first call.
+Uses psycopg2 ThreadedConnectionPool for efficient connection reuse.
 """
 
+from __future__ import annotations
+
 import logging
+import threading
+from contextlib import contextmanager
+
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 
 import config
 
@@ -78,38 +83,85 @@ CREATE TABLE IF NOT EXISTS report_history (
 CREATE INDEX IF NOT EXISTS idx_report_history_user ON report_history(user_id);
 """
 
+# ---------------------------------------------------------------------------
+# Connection pool (lazy-initialised, thread-safe)
+# ---------------------------------------------------------------------------
+
+_pool: psycopg2.pool.ThreadedConnectionPool | None = None
+_pool_lock = threading.Lock()
 _tables_initialised = False
 
 
-def get_connection():
-    """Return a new Postgres connection (caller must close it).
+def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
+    """Lazy-init the connection pool on first use."""
+    global _pool, _tables_initialised
 
-    Uses RealDictCursor so rows come back as plain dicts.
-    Auto-creates tables on the very first call.
-    """
-    global _tables_initialised
+    if _pool is not None:
+        return _pool
 
-    if not config.DATABASE_URL:
-        raise RuntimeError(
-            "DATABASE_URL is not set — cannot connect to auth database"
+    with _pool_lock:
+        if _pool is not None:
+            return _pool
+
+        if not config.DATABASE_URL:
+            raise RuntimeError(
+                "DATABASE_URL is not set — cannot connect to auth database"
+            )
+
+        _pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=2,
+            maxconn=10,
+            dsn=config.DATABASE_URL,
+            cursor_factory=psycopg2.extras.RealDictCursor,
         )
 
-    conn = psycopg2.connect(
-        config.DATABASE_URL,
-        cursor_factory=psycopg2.extras.RealDictCursor,
-    )
+        if not _tables_initialised:
+            conn = _pool.getconn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(_SCHEMA_SQL)
+                conn.commit()
+                _tables_initialised = True
+                _logger.info("Auth database tables initialised")
+            except Exception:
+                conn.rollback()
+                _logger.exception("Failed to initialise auth tables")
+                raise
+            finally:
+                _pool.putconn(conn)
+
+        return _pool
+
+
+def get_connection():
+    """Borrow a connection from the pool (caller must return it via close or use transaction())."""
+    pool = _get_pool()
+    conn = pool.getconn()
     conn.autocommit = False
-
-    if not _tables_initialised:
-        try:
-            with conn.cursor() as cur:
-                cur.execute(_SCHEMA_SQL)
-            conn.commit()
-            _tables_initialised = True
-            _logger.info("Auth database tables initialised")
-        except Exception:
-            conn.rollback()
-            _logger.exception("Failed to initialise auth tables")
-            raise
-
     return conn
+
+
+def put_connection(conn):
+    """Return a connection to the pool."""
+    pool = _get_pool()
+    pool.putconn(conn)
+
+
+@contextmanager
+def transaction():
+    """Context manager that borrows a connection, yields a cursor, and auto-commits/rollbacks.
+
+    Usage:
+        with transaction() as cur:
+            cur.execute("INSERT INTO ...")
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            yield cur
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        put_connection(conn)

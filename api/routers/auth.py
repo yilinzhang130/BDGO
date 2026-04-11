@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 import auth as auth_mod
 import config
-import database
+from database import transaction
 
 _logger = logging.getLogger(__name__)
 
@@ -60,16 +60,7 @@ class UserResponse(BaseModel):
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _user_dict(row: dict) -> dict:
-    """Normalise a DB row into a JSON-safe user dict."""
-    d = dict(row)
-    d["id"] = str(d["id"])
-    if d.get("created_at"):
-        d["created_at"] = d["created_at"].isoformat()
-    if d.get("last_login"):
-        d["last_login"] = d["last_login"].isoformat()
-    d.pop("hashed_password", None)
-    return d
+from auth import serialize_user_row as _user_dict
 
 
 # ---------------------------------------------------------------------------
@@ -89,31 +80,18 @@ def register(body: RegisterRequest):
 
     hashed = auth_mod.hash_password(body.password)
 
-    conn = database.get_connection()
-    try:
-        with conn.cursor() as cur:
-            # Check existing
-            cur.execute("SELECT id FROM users WHERE email = %s", (body.email.lower(),))
-            if cur.fetchone():
-                raise HTTPException(status_code=409, detail="Email already registered")
+    with transaction() as cur:
+        cur.execute("SELECT id FROM users WHERE email = %s", (body.email.lower(),))
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="Email already registered")
 
-            cur.execute(
-                """INSERT INTO users (email, name, hashed_password, provider)
-                   VALUES (%s, %s, %s, 'email')
-                   RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
-                (body.email.lower(), body.name.strip(), hashed),
-            )
-            user = _user_dict(cur.fetchone())
-        conn.commit()
-    except HTTPException:
-        conn.rollback()
-        raise
-    except Exception:
-        conn.rollback()
-        _logger.exception("Registration failed")
-        raise HTTPException(status_code=500, detail="Registration failed")
-    finally:
-        conn.close()
+        cur.execute(
+            """INSERT INTO users (email, name, hashed_password, provider)
+               VALUES (%s, %s, %s, 'email')
+               RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
+            (body.email.lower(), body.name.strip(), hashed),
+        )
+        user = _user_dict(cur.fetchone())
 
     token = auth_mod.create_token(user["id"], user["email"])
     return {"token": token, "user": user}
@@ -122,43 +100,25 @@ def register(body: RegisterRequest):
 @router.post("/login", response_model=AuthResponse)
 def login(body: LoginRequest):
     """Authenticate with email + password."""
-    conn = database.get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, email, name, avatar_url, hashed_password, provider, created_at, last_login "
-                "FROM users WHERE email = %s",
-                (body.email.lower(),),
-            )
-            row = cur.fetchone()
+    with transaction() as cur:
+        cur.execute(
+            "SELECT id, email, name, avatar_url, hashed_password, provider, created_at, last_login "
+            "FROM users WHERE email = %s",
+            (body.email.lower(),),
+        )
+        row = cur.fetchone()
 
         if not row:
             raise HTTPException(status_code=401, detail="Invalid email or password")
-
         if not row["hashed_password"]:
             raise HTTPException(
                 status_code=401,
                 detail="This account uses Google sign-in. Please log in with Google.",
             )
-
         if not auth_mod.verify_password(body.password, row["hashed_password"]):
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        # Update last_login
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE users SET last_login = NOW() WHERE id = %s", (row["id"],)
-            )
-        conn.commit()
-    except HTTPException:
-        conn.rollback()
-        raise
-    except Exception:
-        conn.rollback()
-        _logger.exception("Login failed")
-        raise HTTPException(status_code=500, detail="Login failed")
-    finally:
-        conn.close()
+        cur.execute("UPDATE users SET last_login = NOW() WHERE id = %s", (row["id"],))
 
     user = _user_dict(row)
     token = auth_mod.create_token(user["id"], user["email"])
@@ -202,41 +162,26 @@ def google_login(body: GoogleLoginRequest):
     if not email:
         raise HTTPException(status_code=400, detail="Google token missing email")
 
-    conn = database.get_connection()
-    try:
-        with conn.cursor() as cur:
-            # Upsert: create if not exists, update avatar/last_login if exists
-            cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-            existing = cur.fetchone()
+    with transaction() as cur:
+        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+        existing = cur.fetchone()
 
-            if existing:
-                cur.execute(
-                    """UPDATE users
-                       SET avatar_url = COALESCE(%s, avatar_url),
-                           last_login = NOW()
-                       WHERE email = %s
-                       RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
-                    (avatar, email),
-                )
-            else:
-                cur.execute(
-                    """INSERT INTO users (email, name, avatar_url, provider)
-                       VALUES (%s, %s, %s, 'google')
-                       RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
-                    (email, name, avatar),
-                )
-
-            user = _user_dict(cur.fetchone())
-        conn.commit()
-    except HTTPException:
-        conn.rollback()
-        raise
-    except Exception:
-        conn.rollback()
-        _logger.exception("Google login failed")
-        raise HTTPException(status_code=500, detail="Google login failed")
-    finally:
-        conn.close()
+        if existing:
+            cur.execute(
+                """UPDATE users
+                   SET avatar_url = COALESCE(%s, avatar_url), last_login = NOW()
+                   WHERE email = %s
+                   RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
+                (avatar, email),
+            )
+        else:
+            cur.execute(
+                """INSERT INTO users (email, name, avatar_url, provider)
+                   VALUES (%s, %s, %s, 'google')
+                   RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
+                (email, name, avatar),
+            )
+        user = _user_dict(cur.fetchone())
 
     token = auth_mod.create_token(user["id"], user["email"])
     return {"token": token, "user": user}

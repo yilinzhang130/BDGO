@@ -11,6 +11,8 @@ import {
   postEntity,
   deleteEntity,
 } from "./api";
+import { isBrowser, bg } from "./utils";
+import { getToken } from "./auth";
 
 // ═══════════════════════════════════════════
 // Types
@@ -79,10 +81,6 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
-function isBrowser() {
-  return typeof window !== "undefined" && typeof localStorage !== "undefined";
-}
-
 function setLocalState(next: Partial<StoreState>) {
   state = { ...state, ...next };
   // Persist activeId locally (instant restore on reload)
@@ -99,11 +97,6 @@ function touchSession(id: string, mutator: (s: ChatSession) => ChatSession) {
       s.id === id ? { ...mutator(s), updatedAt: Date.now() } : s,
     ),
   });
-}
-
-// Fire-and-forget helper for background server calls
-function bg(promise: Promise<any>, label: string) {
-  promise.catch((err) => console.error(`[sessions] ${label}:`, err));
 }
 
 // ═══════════════════════════════════════════
@@ -195,11 +188,10 @@ async function loadSessionDetail(id: string) {
   }
 }
 
-// Initial hydration
+// Initial hydration (skip API call if not logged in to avoid guaranteed 401)
 if (isBrowser()) {
-  // Restore activeId immediately for fast first paint
   state.activeId = localStorage.getItem(ACTIVE_KEY);
-  hydrateFromServer();
+  if (getToken()) hydrateFromServer();
 }
 
 // ═══════════════════════════════════════════

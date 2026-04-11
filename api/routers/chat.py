@@ -13,7 +13,7 @@ from config import (
     MINIMAX_MODEL as MODEL,
     MINIMAX_URL,
 )
-import database
+from database import transaction
 from auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -24,27 +24,15 @@ router = APIRouter()
 # Postgres-backed session helpers
 # ---------------------------------------------------------------------------
 
-def _gen_msg_id() -> str:
-    return uuid.uuid4().hex[:12]
-
-
 def _ensure_session(session_id: str, user_id: str) -> None:
     """Create the session row if it doesn't exist yet."""
-    conn = database.get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id FROM sessions WHERE id = %s", (session_id,))
-            if not cur.fetchone():
-                cur.execute(
-                    "INSERT INTO sessions (id, user_id, title) VALUES (%s, %s, %s)",
-                    (session_id, user_id, "New Chat"),
-                )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    with transaction() as cur:
+        cur.execute("SELECT id FROM sessions WHERE id = %s", (session_id,))
+        if not cur.fetchone():
+            cur.execute(
+                "INSERT INTO sessions (id, user_id, title) VALUES (%s, %s, %s)",
+                (session_id, user_id, "New Chat"),
+            )
 
 
 def _load_history(session_id: str) -> list[dict]:
@@ -55,20 +43,19 @@ def _load_history(session_id: str) -> list[dict]:
     tool_use).  For user messages with tool_results, the content column
     holds the JSON-encoded list.
     """
-    conn = database.get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT role, content, tools_json FROM messages "
-                "WHERE session_id = %s ORDER BY created_at ASC",
-                (session_id,),
-            )
-            rows = cur.fetchall()
-    finally:
-        conn.close()
+    with transaction() as cur:
+        cur.execute(
+            "SELECT role, content, tools_json FROM messages "
+            "WHERE session_id = %s ORDER BY created_at DESC LIMIT 20",
+            (session_id,),
+        )
+        rows = cur.fetchall()
+
+    # Rows come back newest-first; reverse to chronological order.
+    rows.reverse()
 
     history: list[dict] = []
-    for r in rows[-20:]:
+    for r in rows:
         content = r["content"]
         # Try parsing JSON content (structured content blocks / tool results)
         try:
@@ -90,55 +77,48 @@ def _save_message(session_id: str, role: str, content, tools_json: str | None = 
     else:
         content_str = str(content) if content else ""
 
-    conn = database.get_connection()
     try:
-        with conn.cursor() as cur:
+        with transaction() as cur:
             cur.execute(
                 "INSERT INTO messages (id, session_id, role, content, tools_json, attachments_json) "
                 "VALUES (%s, %s, %s, %s, %s, %s)",
-                (_gen_msg_id(), session_id, role, content_str, tools_json, attachments_json),
+                (uuid.uuid4().hex[:12], session_id, role, content_str, tools_json, attachments_json),
             )
             cur.execute(
                 "UPDATE sessions SET updated_at = NOW() WHERE id = %s",
                 (session_id,),
             )
-        conn.commit()
     except Exception:
-        conn.rollback()
         logger.exception("Failed to save message for session %s", session_id)
-    finally:
-        conn.close()
 
 
 def _save_entities(session_id: str, entities: list[dict]) -> None:
     """Upsert context entities extracted from tool results."""
     if not entities:
         return
-    conn = database.get_connection()
     try:
-        with conn.cursor() as cur:
-            for e in entities:
-                fields_json = json.dumps(e.get("fields", []), ensure_ascii=False) if e.get("fields") else None
-                cur.execute(
-                    """INSERT INTO context_entities (id, session_id, entity_type, title, subtitle, fields_json, href)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)
-                       ON CONFLICT (id) DO UPDATE SET
-                           entity_type = EXCLUDED.entity_type,
-                           title = EXCLUDED.title,
-                           subtitle = EXCLUDED.subtitle,
-                           fields_json = EXCLUDED.fields_json,
-                           href = EXCLUDED.href,
-                           added_at = NOW()""",
-                    (e.get("id"), session_id, e.get("entity_type", ""),
-                     e.get("title", ""), e.get("subtitle"),
-                     fields_json, e.get("href")),
-                )
-        conn.commit()
+        with transaction() as cur:
+            params = [
+                (e.get("id"), session_id, e.get("entity_type", ""),
+                 e.get("title", ""), e.get("subtitle"),
+                 json.dumps(e.get("fields", []), ensure_ascii=False) if e.get("fields") else None,
+                 e.get("href"))
+                for e in entities
+            ]
+            cur.executemany(
+                """INSERT INTO context_entities (id, session_id, entity_type, title, subtitle, fields_json, href)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (id) DO UPDATE SET
+                       entity_type = EXCLUDED.entity_type,
+                       title = EXCLUDED.title,
+                       subtitle = EXCLUDED.subtitle,
+                       fields_json = EXCLUDED.fields_json,
+                       href = EXCLUDED.href,
+                       added_at = NOW()""",
+                params,
+            )
     except Exception:
-        conn.rollback()
         logger.exception("Failed to save entities for session %s", session_id)
-    finally:
-        conn.close()
 
 SYSTEM_PROMPT = """你是 BD Go，生物医药BD智能助手。你可以访问以下只读工具：
 

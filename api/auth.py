@@ -72,31 +72,32 @@ def _extract_bearer(authorization: str | None) -> str:
     return parts[1]
 
 
+def serialize_user_row(row: dict) -> dict:
+    """Normalise a Postgres user row into a JSON-safe dict (shared helper)."""
+    d = dict(row)
+    d["id"] = str(d["id"])
+    if d.get("created_at"):
+        d["created_at"] = d["created_at"].isoformat()
+    if d.get("last_login"):
+        d["last_login"] = d["last_login"].isoformat()
+    d.pop("hashed_password", None)
+    return d
+
+
 def _lookup_user(user_id: str) -> dict:
     """Fetch user row from Postgres by id. Returns dict or raises 401."""
-    conn = database.get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, email, name, avatar_url, provider, created_at, last_login "
-                "FROM users WHERE id = %s",
-                (user_id,),
-            )
-            row = cur.fetchone()
-    finally:
-        conn.close()
+    from database import transaction
+    with transaction() as cur:
+        cur.execute(
+            "SELECT id, email, name, avatar_url, provider, created_at, last_login "
+            "FROM users WHERE id = %s",
+            (user_id,),
+        )
+        row = cur.fetchone()
 
     if not row:
         raise HTTPException(status_code=401, detail="User not found")
-
-    # Convert UUID and datetime to str for JSON serialisation
-    user = dict(row)
-    user["id"] = str(user["id"])
-    if user.get("created_at"):
-        user["created_at"] = user["created_at"].isoformat()
-    if user.get("last_login"):
-        user["last_login"] = user["last_login"].isoformat()
-    return user
+    return serialize_user_row(row)
 
 
 def get_current_user(authorization: str = Header(None)) -> dict:
