@@ -82,9 +82,9 @@ export default function DashboardPage() {
                 cx="50%"
                 cy="50%"
                 outerRadius={110}
-                label={(props: Record<string, unknown>) =>
-                  `${props.name ?? ""} ${((props.percent as number) * 100).toFixed(0)}%`
-                }
+                label={((props: any) =>
+                  `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`
+                ) as any}
                 labelLine={false}
               >
                 {byCountry.slice(0, 10).map((_, i) => (
@@ -123,8 +123,8 @@ export default function DashboardPage() {
               dataKey="size"
               nameKey="name"
               stroke="#fff"
-              content={({ x, y, width, height, name, size }: any) => {
-                if (width < 50 || height < 30) return null;
+              content={(({ x, y, width, height, name, size }: any) => {
+                if (width < 50 || height < 30) return <g />;
                 return (
                   <g>
                     <rect x={x} y={y} width={width} height={height} fill={indicationColorMap[name] || "#64748b"} stroke="#fff" />
@@ -136,7 +136,7 @@ export default function DashboardPage() {
                     </text>
                   </g>
                 );
-              }}
+              }) as any}
             />
           </ResponsiveContainer>
         </div>
@@ -170,9 +170,9 @@ export default function DashboardPage() {
                 cx="50%"
                 cy="50%"
                 outerRadius={110}
-                label={({ type, percent }) =>
-                  percent > 0.03 ? `${type} ${(percent * 100).toFixed(0)}%` : ""
-                }
+                label={((props: any) =>
+                  (props.percent ?? 0) > 0.03 ? `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%` : ""
+                ) as any}
                 labelLine={false}
               >
                 {byType.map((_, i) => (

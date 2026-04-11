@@ -21,7 +21,7 @@ export function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const doSearch = useCallback(async (query: string) => {
     if (query.length < 1) { setResults(null); setOpen(false); return; }
@@ -86,10 +86,10 @@ export function GlobalSearch() {
                       className="search-result"
                       onClick={() => navigate(item.link)}
                     >
-                      <span className="search-result-primary">{cols[0]}</span>
+                      <span className="search-result-primary">{String(cols[0])}</span>
                       {cols.length > 1 && (
                         <span className="search-result-secondary">
-                          {cols.slice(1).join(" · ")}
+                          {cols.slice(1).map(String).join(" · ")}
                         </span>
                       )}
                     </div>

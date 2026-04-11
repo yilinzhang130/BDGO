@@ -12,7 +12,9 @@ WORKDIR /app
 
 # Install Python deps first (better layer caching)
 COPY api/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    -i https://mirrors.cloud.tencent.com/pypi/simple/ \
+    --trusted-host mirrors.cloud.tencent.com
 
 # Copy application code (includes api/crm_db.py which is bundled into the repo)
 COPY api/ /app/api/
