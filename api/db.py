@@ -5,6 +5,7 @@ Supports both SQLite and PostgreSQL backends via crm_db.
 """
 
 import os, sys, re, math
+from fastapi import HTTPException
 
 # Import crm_db from the workspace scripts directory
 _scripts_dir = os.path.expanduser("~/.openclaw/workspace/scripts")
@@ -287,15 +288,20 @@ def rename_company(old_name: str, new_name: str) -> bool:
         conn.close()
 
 
+_SAFE_COLUMN_RE = re.compile(r'^[\w\u4e00-\u9fff()/\s·\-]+$')
+
+
 def distinct_values(table: str, column: str, limit: int = 500) -> list[dict]:
     """Return distinct values + counts for a column."""
+    if not _SAFE_COLUMN_RE.match(column):
+        raise HTTPException(status_code=400, detail="Invalid column name")
     physical = crm_db._TABLE_ALIAS.get(table, table)
     ph = _ph()
     return query(
         f'''SELECT COALESCE(NULLIF("{column}", ''), 'Unknown') AS value,
                    COUNT(*) AS count
             FROM "{physical}"
-            GROUP BY value
+            GROUP BY "{column}"
             ORDER BY count DESC
             LIMIT {ph}''',
         (limit,),
