@@ -47,6 +47,8 @@ CRM_DB_PATH = os.environ.get(
     "CRM_DB_PATH",
     os.path.expanduser("~/.openclaw/workspace/crm-database/crm.db"),
 )
+CRM_BACKEND = os.environ.get("CRM_BACKEND", "sqlite").lower()
+CRM_PG_DSN = os.environ.get("CRM_PG_DSN", "dbname=openclaw_crm")
 GUIDELINES_DB_PATH = os.environ.get(
     "GUIDELINES_DB_PATH",
     os.path.expanduser("~/.openclaw/workspace/guidelines/guidelines.db"),

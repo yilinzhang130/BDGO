@@ -13,6 +13,9 @@ __pycache__/
 *.db-journal
 *.db-wal
 *.log
+*.db
+*.sqlite3
+data/
 
 # OS
 .DS_Store

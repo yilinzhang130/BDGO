@@ -14,15 +14,8 @@ WORKDIR /app
 COPY api/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code (includes api/crm_db.py which is bundled into the repo)
 COPY api/ /app/api/
-
-# Copy crm_db.py into api/ so db.py can import it without sys.path hacks.
-# In production the Docker image ships with the module alongside the app code.
-# The original sys.path.insert in db.py adds ~/.openclaw/workspace/scripts which
-# won't exist in the container, so placing crm_db.py directly in api/ makes it
-# importable from the working directory.
-COPY workspace/scripts/crm_db.py /app/api/crm_db.py
 
 WORKDIR /app/api
 
