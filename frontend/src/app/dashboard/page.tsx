@@ -82,8 +82,8 @@ export default function DashboardPage() {
                 cx="50%"
                 cy="50%"
                 outerRadius={110}
-                label={({ name, percent }: { name: string; percent: number }) =>
-                  `${name} ${(percent * 100).toFixed(0)}%`
+                label={(props: Record<string, unknown>) =>
+                  `${props.name ?? ""} ${((props.percent as number) * 100).toFixed(0)}%`
                 }
                 labelLine={false}
               >
