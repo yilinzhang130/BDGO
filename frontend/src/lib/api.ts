@@ -121,6 +121,10 @@ export const fetchIP = (params: Record<string, string | number>) =>
 export const fetchPatent = (id: string) =>
   get(`${BASE}/ip/${encodeURIComponent(id)}`);
 
+// Catalysts
+export const fetchCatalysts = (params: Record<string, string | number>) =>
+  get(`${BASE}/catalysts`, params);
+
 // Buyers (MNC Profiles)
 export const fetchBuyers = (params: Record<string, string | number>) =>
   get(`${BASE}/buyers`, params);

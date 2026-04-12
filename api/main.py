@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from auth import get_current_user
-from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports
+from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports, catalysts
 from routers import auth as auth_router
 from routers import sessions as sessions_router
 
@@ -46,6 +46,7 @@ app.include_router(search.router, prefix="/api/search", tags=["search"], depende
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"], dependencies=_auth)
 app.include_router(sessions_router.router, prefix="/api/sessions", tags=["sessions"], dependencies=_auth)
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"], dependencies=_auth)
+app.include_router(catalysts.router, prefix="/api/catalysts", tags=["catalysts"], dependencies=_auth)
 
 
 @app.get("/api/health")

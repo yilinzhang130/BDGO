@@ -27,6 +27,7 @@ const NEWS: NavItem[] = [
 
 const TOOLS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "\u25A6" },
+  { href: "/catalysts", label: "Catalysts", icon: "\u25C9" },
   { href: "/upload", label: "Upload", icon: "\u25B3" },
   { href: "/reports", label: "Reports", icon: "\u25A4" },
 ];
