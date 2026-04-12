@@ -974,30 +974,124 @@ input, textarea, select { font-family: inherit; }
   box-shadow: var(--shadow-md);
 }
 
-/* Tool call indicators */
-.tool-indicators {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 0.6rem;
+/* ── Tool Steps Panel ── */
+.tool-steps-panel {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.8rem;
+}
+.tool-steps-panel.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.tool-steps-panel.completed {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 4%, transparent);
 }
 
-.tool-indicator {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
+.tool-steps-header {
+  all: unset;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.2rem 0.5rem;
-  background: var(--bg-subtle);
-  border-radius: 4px;
-  width: fit-content;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+.tool-steps-header:hover { background: var(--bg-hover); }
+.tool-steps-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
-.tool-indicator.running { color: var(--accent); }
-.tool-indicator.done { color: var(--green); }
+/* Spinning indicator */
+.tool-steps-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: tool-spin 0.7s linear infinite;
+}
+@keyframes tool-spin {
+  to { transform: rotate(360deg); }
+}
 
-.tool-indicator-dot { font-size: 0.65rem; }
+.tool-steps-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tool-steps-chevron {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  transition: transform 0.15s;
+  transform: rotate(0deg);
+}
+.tool-steps-chevron.open {
+  transform: rotate(90deg);
+}
+
+.tool-steps-list {
+  border-top: 1px solid var(--border);
+  padding: 0.3rem 0;
+}
+
+.tool-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  transition: color 0.15s;
+}
+.tool-step.done { color: var(--text-primary); }
+
+.tool-step-icon { font-size: 0.85rem; flex-shrink: 0; }
+.tool-step-label { flex: 1; }
+
+.tool-step-status {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.tool-step-done-icon {
+  color: var(--green);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tool-step-running-icon {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: tool-spin 0.7s linear infinite;
+}
 
 /* Attachment chip */
 .attachment-chip {
