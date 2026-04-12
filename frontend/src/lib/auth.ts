@@ -11,6 +11,12 @@ export interface AuthUser {
   avatar_url: string | null;
   provider: string;
   created_at?: string;
+  last_login?: string;
+  company?: string;
+  title?: string;
+  phone?: string;
+  bio?: string;
+  preferences_json?: string;
 }
 
 const TOKEN_KEY = "bdgo.auth.token";

@@ -34,6 +34,15 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ProfileUpdateRequest(BaseModel):
+    name: str | None = None
+    company: str | None = None
+    title: str | None = None
+    phone: str | None = None
+    bio: str | None = None
+    preferences_json: str | None = None
+
+
 class GoogleLoginRequest(BaseModel):
     id_token: str
 
@@ -51,6 +60,11 @@ class UserResponse(BaseModel):
     provider: str
     created_at: str
     last_login: str | None
+    company: str | None = None
+    title: str | None = None
+    phone: str | None = None
+    bio: str | None = None
+    preferences_json: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +143,36 @@ def login(body: LoginRequest):
 def me(user: dict = Depends(auth_mod.get_current_user)):
     """Return the currently authenticated user."""
     return user
+
+
+@router.put("/profile")
+def update_profile(body: ProfileUpdateRequest, user: dict = Depends(auth_mod.get_current_user)):
+    """Update the current user's profile fields."""
+    # Build SET clause dynamically from non-None fields
+    updates: list[str] = []
+    values: list[str] = []
+
+    for field in ("name", "company", "title", "phone", "bio", "preferences_json"):
+        val = getattr(body, field)
+        if val is not None:
+            updates.append(f"{field} = %s")
+            values.append(val.strip() if isinstance(val, str) else val)
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    values.append(user["id"])  # for WHERE clause
+
+    with transaction() as cur:
+        cur.execute(
+            f"UPDATE users SET {', '.join(updates)} WHERE id = %s "
+            "RETURNING id, email, name, avatar_url, provider, created_at, last_login, "
+            "company, title, phone, bio, preferences_json",
+            tuple(values),
+        )
+        updated = _user_dict(cur.fetchone())
+
+    return updated
 
 
 @router.post("/google", response_model=AuthResponse)

@@ -28,7 +28,6 @@ const NEWS: NavItem[] = [
 const TOOLS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "\u25A6" },
   { href: "/catalysts", label: "Catalysts", icon: "\u25C9" },
-  { href: "/upload", label: "Upload", icon: "\u25B3" },
   { href: "/reports", label: "Reports", icon: "\u25A4" },
 ];
 
@@ -61,17 +60,19 @@ function SidebarFooter() {
 
   return (
     <div className="sidebar-footer">
-      {user?.avatar_url ? (
-        <img
-          src={user.avatar_url}
-          alt={displayName}
-          className="avatar"
-          style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
-        />
-      ) : (
-        <div className="avatar">{initial}</div>
-      )}
-      <div className="user-name">{displayName}</div>
+      <Link href="/profile" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}>
+        {user?.avatar_url ? (
+          <img
+            src={user.avatar_url}
+            alt={displayName}
+            className="avatar"
+            style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+          />
+        ) : (
+          <div className="avatar">{initial}</div>
+        )}
+        <div className="user-name">{displayName}</div>
+      </Link>
       <button
         className="icon-btn"
         aria-label="Logout"

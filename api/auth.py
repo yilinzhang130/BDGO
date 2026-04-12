@@ -89,7 +89,8 @@ def _lookup_user(user_id: str) -> dict:
     from database import transaction
     with transaction() as cur:
         cur.execute(
-            "SELECT id, email, name, avatar_url, provider, created_at, last_login "
+            "SELECT id, email, name, avatar_url, provider, created_at, last_login, "
+            "company, title, phone, bio, preferences_json "
             "FROM users WHERE id = %s",
             (user_id,),
         )

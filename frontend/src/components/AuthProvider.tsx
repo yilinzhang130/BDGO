@@ -29,6 +29,7 @@ interface AuthContextValue {
   register: (email: string, password: string, name: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -155,6 +156,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [router],
   );
 
+  const refreshUser = useCallback(async () => {
+    const stored = getToken();
+    if (!stored) return;
+    const res = await fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${stored}` },
+    });
+    if (!res.ok) return;
+    const u: AuthUser = await res.json();
+    setUser(u);
+    setAuth(stored, u);
+  }, []);
+
   const logout = useCallback(() => {
     clearAuth();
     setUser(null);
@@ -164,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, loginWithGoogle, logout }}
+      value={{ user, token, loading, login, register, loginWithGoogle, logout, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

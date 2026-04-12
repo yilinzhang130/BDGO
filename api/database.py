@@ -81,6 +81,23 @@ CREATE TABLE IF NOT EXISTS report_history (
     created_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_report_history_user ON report_history(user_id);
+
+-- Profile fields (added via ALTER TABLE for compatibility with existing DBs)
+DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN company VARCHAR(255);
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN title VARCHAR(255);
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN phone VARCHAR(50);
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN bio TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN preferences_json TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 """
 
 # ---------------------------------------------------------------------------

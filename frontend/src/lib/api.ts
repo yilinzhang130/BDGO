@@ -59,6 +59,10 @@ async function del(path: string): Promise<void> {
   if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
 }
 
+// Auth / Profile
+export const updateProfile = (fields: Record<string, string>) =>
+  put(`${BASE}/auth/profile`, fields);
+
 // Global Search
 export const globalSearch = (q: string, limit = 5) =>
   get(`${BASE}/search/global`, { q, limit });
