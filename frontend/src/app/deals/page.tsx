@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { fetchDeals, fetchDealsByType } from "@/lib/api";
 import {
@@ -22,6 +22,14 @@ const COLUMNS = [
 ];
 
 export default function DealsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-gray-500">Loading deals...</div>}>
+      <DealsContent />
+    </Suspense>
+  );
+}
+
+function DealsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [data, setData] = useState<any>(null);
