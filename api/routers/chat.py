@@ -1,6 +1,7 @@
 """Chat streaming endpoint — MiniMax API with tool use + document attachments."""
 
 import json, logging, uuid
+from pathlib import Path
 import httpx
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
