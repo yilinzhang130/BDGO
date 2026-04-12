@@ -49,7 +49,7 @@ export function useAuth(): AuthContextValue {
 // Provider
 // ═══════════════════════════════════════════
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/"];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
