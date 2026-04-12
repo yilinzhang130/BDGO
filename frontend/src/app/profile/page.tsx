@@ -132,7 +132,7 @@ const twoColStyle: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 
 export default function ProfilePage() {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   // Personal info state
@@ -161,12 +161,13 @@ export default function ProfilePage() {
   const showToast = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
   }, []);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const handleSavePersonal = async () => {
     setSavingPersonal(true);
     try {
-      await updateProfile({ name, company, title, phone, bio });
-      await refreshUser();
+      const updated = await updateProfile({ name, company, title, phone, bio });
+      updateUser(updated);
       showToast("Profile updated", "success");
     } catch (err: any) {
       showToast(err.message || "Failed to update profile", "error");
@@ -178,8 +179,8 @@ export default function ProfilePage() {
   const handleSavePreferences = async () => {
     setSavingPrefs(true);
     try {
-      await updateProfile({ preferences_json: preferences });
-      await refreshUser();
+      const updated = await updateProfile({ preferences_json: preferences });
+      updateUser(updated);
       showToast("AI preferences saved", "success");
     } catch (err: any) {
       showToast(err.message || "Failed to save preferences", "error");
@@ -202,7 +203,7 @@ export default function ProfilePage() {
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px 80px" }}>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={dismissToast} />}
 
       {/* Page header */}
       <div style={{ marginBottom: 32 }}>

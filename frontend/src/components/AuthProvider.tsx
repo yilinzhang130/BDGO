@@ -30,6 +30,7 @@ interface AuthContextValue {
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateUser: (u: AuthUser) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -168,6 +169,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(stored, u);
   }, []);
 
+  const updateUser = useCallback((u: AuthUser) => {
+    const stored = getToken();
+    setUser(u);
+    if (stored) setAuth(stored, u);
+  }, []);
+
   const logout = useCallback(() => {
     clearAuth();
     setUser(null);
@@ -177,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, loginWithGoogle, logout, refreshUser }}
+      value={{ user, token, loading, login, register, loginWithGoogle, logout, refreshUser, updateUser }}
     >
       {children}
     </AuthContext.Provider>

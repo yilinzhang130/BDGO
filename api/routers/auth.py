@@ -74,7 +74,7 @@ class UserResponse(BaseModel):
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-from auth import serialize_user_row as _user_dict
+from auth import serialize_user_row as _user_dict, _USER_COLUMNS
 
 
 # ---------------------------------------------------------------------------
@@ -100,9 +100,9 @@ def register(body: RegisterRequest):
             raise HTTPException(status_code=409, detail="Email already registered")
 
         cur.execute(
-            """INSERT INTO users (email, name, hashed_password, provider)
+            f"""INSERT INTO users (email, name, hashed_password, provider)
                VALUES (%s, %s, %s, 'email')
-               RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
+               RETURNING {_USER_COLUMNS}""",
             (body.email.lower(), body.name.strip(), hashed),
         )
         user = _user_dict(cur.fetchone())
@@ -116,7 +116,7 @@ def login(body: LoginRequest):
     """Authenticate with email + password."""
     with transaction() as cur:
         cur.execute(
-            "SELECT id, email, name, avatar_url, hashed_password, provider, created_at, last_login "
+            f"SELECT hashed_password, {_USER_COLUMNS} "
             "FROM users WHERE email = %s",
             (body.email.lower(),),
         )
@@ -166,8 +166,7 @@ def update_profile(body: ProfileUpdateRequest, user: dict = Depends(auth_mod.get
     with transaction() as cur:
         cur.execute(
             f"UPDATE users SET {', '.join(updates)} WHERE id = %s "
-            "RETURNING id, email, name, avatar_url, provider, created_at, last_login, "
-            "company, title, phone, bio, preferences_json",
+            f"RETURNING {_USER_COLUMNS}",
             tuple(values),
         )
         updated = _user_dict(cur.fetchone())
@@ -212,17 +211,17 @@ def google_login(body: GoogleLoginRequest):
 
         if existing:
             cur.execute(
-                """UPDATE users
+                f"""UPDATE users
                    SET avatar_url = COALESCE(%s, avatar_url), last_login = NOW()
                    WHERE email = %s
-                   RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
+                   RETURNING {_USER_COLUMNS}""",
                 (avatar, email),
             )
         else:
             cur.execute(
-                """INSERT INTO users (email, name, avatar_url, provider)
+                f"""INSERT INTO users (email, name, avatar_url, provider)
                    VALUES (%s, %s, %s, 'google')
-                   RETURNING id, email, name, avatar_url, provider, created_at, last_login""",
+                   RETURNING {_USER_COLUMNS}""",
                 (email, name, avatar),
             )
         user = _user_dict(cur.fetchone())

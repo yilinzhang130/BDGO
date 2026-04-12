@@ -84,14 +84,18 @@ def serialize_user_row(row: dict) -> dict:
     return d
 
 
+_USER_COLUMNS = (
+    "id, email, name, avatar_url, provider, created_at, last_login, "
+    "company, title, phone, bio, preferences_json"
+)
+
+
 def _lookup_user(user_id: str) -> dict:
     """Fetch user row from Postgres by id. Returns dict or raises 401."""
     from database import transaction
     with transaction() as cur:
         cur.execute(
-            "SELECT id, email, name, avatar_url, provider, created_at, last_login, "
-            "company, title, phone, bio, preferences_json "
-            "FROM users WHERE id = %s",
+            f"SELECT {_USER_COLUMNS} FROM users WHERE id = %s",
             (user_id,),
         )
         row = cur.fetchone()
