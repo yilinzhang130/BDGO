@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
 
 type Tab = "login" | "register";
@@ -10,7 +10,7 @@ function validateEmail(email: string): boolean {
 }
 
 export default function LoginPage() {
-  const { login, register, loginWithGoogle, loading: authLoading } = useAuth();
+  const { login, register, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,52 +49,6 @@ export default function LoginPage() {
     }
   };
 
-  // Load Google Identity Services and render the official button
-  const googleBtnRef = useRef<HTMLDivElement>(null);
-  const googleInitRef = useRef(false);
-  useEffect(() => {
-    if (googleInitRef.current) return;
-    googleInitRef.current = true;
-
-    const initGoogle = () => {
-      const google = (window as any).google;
-      if (!google?.accounts?.id || !googleBtnRef.current) return;
-      google.accounts.id.initialize({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
-        callback: async (response: any) => {
-          if (response.credential) {
-            setSubmitting(true);
-            setError("");
-            try {
-              await loginWithGoogle(response.credential);
-            } catch (err: any) {
-              setError(err.message || "Google login failed");
-            } finally {
-              setSubmitting(false);
-            }
-          }
-        },
-      });
-      google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: "outline",
-        size: "large",
-        width: googleBtnRef.current.offsetWidth || 328,
-        text: "signin_with",
-      });
-    };
-
-    if ((window as any).google?.accounts?.id) {
-      initGoogle();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.onload = initGoogle;
-      document.head.appendChild(script);
-    }
-  }, [loginWithGoogle]);
-
-  // Show nothing while AuthProvider checks initial token
   if (authLoading) {
     return (
       <div style={styles.wrapper}>
@@ -106,106 +60,81 @@ export default function LoginPage() {
   }
 
   return (
-    <>
-      <div style={styles.wrapper}>
-        <div style={styles.card}>
-          {/* Logo */}
-          <div style={styles.logoSection}>
-            <img
-              src="/logo.png"
-              alt="BD Go"
-              style={styles.logo}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
-            <h1 style={styles.title}>BD Go</h1>
-            <p style={styles.subtitle}>Biotech BD Intelligence Platform</p>
-          </div>
-
-          {/* Tab switcher */}
-          <div style={styles.tabs}>
-            <button
-              style={{
-                ...styles.tab,
-                ...(tab === "login" ? styles.tabActive : {}),
-              }}
-              onClick={() => { setTab("login"); setError(""); }}
-            >
-              登录
-            </button>
-            <button
-              style={{
-                ...styles.tab,
-                ...(tab === "register" ? styles.tabActive : {}),
-              }}
-              onClick={() => { setTab("register"); setError(""); }}
-            >
-              注册
-            </button>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} style={styles.form}>
-            {tab === "register" && (
-              <input
-                type="text"
-                placeholder="Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={styles.input}
-                autoComplete="name"
-              />
-            )}
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={styles.input}
-              autoComplete="email"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={styles.input}
-              autoComplete={tab === "login" ? "current-password" : "new-password"}
-            />
-
-            {error && <div style={styles.error}>{error}</div>}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              style={{
-                ...styles.submitBtn,
-                ...(submitting ? styles.submitBtnDisabled : {}),
-              }}
-            >
-              {submitting ? "..." : tab === "login" ? "登录" : "注册"}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div style={styles.divider}>
-            <span style={styles.dividerLine} />
-            <span style={styles.dividerText}>or</span>
-            <span style={styles.dividerLine} />
-          </div>
-
-          {/* Google sign-in — rendered by Google Identity Services SDK */}
-          <div ref={googleBtnRef} style={styles.googleBtnContainer} />
+    <div style={styles.wrapper}>
+      <div style={styles.card}>
+        {/* Logo */}
+        <div style={styles.logoSection}>
+          <img
+            src="/logo.png"
+            alt="BD Go"
+            style={styles.logo}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+          <h1 style={styles.title}>BD Go</h1>
+          <p style={styles.subtitle}>Biotech BD Intelligence Platform</p>
         </div>
+
+        {/* Tab switcher */}
+        <div style={styles.tabs}>
+          <button
+            style={{ ...styles.tab, ...(tab === "login" ? styles.tabActive : {}) }}
+            onClick={() => { setTab("login"); setError(""); }}
+          >
+            登录
+          </button>
+          <button
+            style={{ ...styles.tab, ...(tab === "register" ? styles.tabActive : {}) }}
+            onClick={() => { setTab("register"); setError(""); }}
+          >
+            注册
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={styles.form}>
+          {tab === "register" && (
+            <input
+              type="text"
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={styles.input}
+              autoComplete="name"
+            />
+          )}
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={styles.input}
+            autoComplete="email"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={styles.input}
+            autoComplete={tab === "login" ? "current-password" : "new-password"}
+          />
+
+          {error && <div style={styles.error}>{error}</div>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{ ...styles.submitBtn, ...(submitting ? styles.submitBtnDisabled : {}) }}
+          >
+            {submitting ? "..." : tab === "login" ? "登录" : "注册"}
+          </button>
+        </form>
       </div>
-    </>
+    </div>
   );
 }
-
-// ═══════════════════════════════════════════
-// Inline styles using CSS variable values
-// ═══════════════════════════════════════════
 
 const styles: Record<string, React.CSSProperties> = {
   wrapper: {
@@ -306,26 +235,6 @@ const styles: Record<string, React.CSSProperties> = {
   submitBtnDisabled: {
     opacity: 0.6,
     cursor: "not-allowed",
-  },
-  divider: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    margin: "20px 0",
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    background: "var(--border)",
-  },
-  dividerText: {
-    fontSize: 12,
-    color: "var(--text-muted)",
-  },
-  googleBtnContainer: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "center",
   },
   loadingDot: {
     width: 24,
