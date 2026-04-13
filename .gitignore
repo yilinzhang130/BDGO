@@ -30,3 +30,4 @@ build/
 
 # Reports output (generated files, not source)
 api/reports_output/
+.vercel

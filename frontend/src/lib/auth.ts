@@ -52,3 +52,20 @@ export function clearAuth(): void {
 export function isLoggedIn(): boolean {
   return !!getToken();
 }
+
+// ═══════════════════════════════════════════
+// Structured preferences (stored as JSON in preferences_json)
+// ═══════════════════════════════════════════
+
+export interface UserPreferences {
+  show_database_nav?: boolean;
+}
+
+export function parsePreferences(user: AuthUser | null): UserPreferences {
+  if (!user?.preferences_json) return {};
+  try {
+    return JSON.parse(user.preferences_json) as UserPreferences;
+  } catch {
+    return {};
+  }
+}

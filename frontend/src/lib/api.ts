@@ -237,3 +237,32 @@ export async function fetchReportsHistory(): Promise<any[]> {
 
 export const deleteReportHistory = (id: string) =>
   del(`${BASE}/reports/history/${encodeURIComponent(id)}`);
+
+// ═══════════════════════════════════════════
+// Watchlist
+// ═══════════════════════════════════════════
+
+export const fetchWatchlist = (params: Record<string, string | number>) =>
+  get(`${BASE}/watchlist`, params);
+
+export const addToWatchlist = (body: { entity_type: string; entity_key: string; notes?: string }) =>
+  post(`${BASE}/watchlist`, body);
+
+export const removeFromWatchlist = (id: number) =>
+  del(`${BASE}/watchlist/${id}`);
+
+export const checkWatchlist = (entity_type: string, entity_key: string) =>
+  get<{ watched: boolean; id?: number }>(`${BASE}/watchlist/check`, { entity_type, entity_key });
+
+// ═══════════════════════════════════════════
+// Report Sharing
+// ═══════════════════════════════════════════
+
+export const createShareLink = (taskId: string) =>
+  post<{ token: string; url: string }>(`${BASE}/reports/share`, { task_id: taskId });
+
+export async function fetchSharedReport(token: string): Promise<{ title: string; markdown_preview: string; files: { filename: string; format: string; size: number; download_url: string }[]; created_at: string | null }> {
+  const res = await fetch(`${BASE}/reports/share/${token}`);
+  if (!res.ok) throw new Error(`Share fetch failed: ${res.status}`);
+  return res.json();
+}

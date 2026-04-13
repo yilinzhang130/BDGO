@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchReportServices, reportDownloadUrl } from "@/lib/api";
+import { fetchReportServices, reportDownloadUrl, createShareLink } from "@/lib/api";
 import { useReportsStore, removeCompletedReport, type CompletedReport } from "@/lib/reports";
 import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
 
@@ -224,6 +224,21 @@ function ServiceCard({
 
 function HistoryRow({ report }: { report: CompletedReport }) {
   const age = formatAge(report.createdAt);
+  const [shareState, setShareState] = useState<"idle" | "loading" | "copied">("idle");
+
+  const handleShare = async () => {
+    setShareState("loading");
+    try {
+      const { token } = await createShareLink(report.taskId);
+      const shareUrl = `${window.location.origin}/share/${token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setShareState("copied");
+      setTimeout(() => setShareState("idle"), 2000);
+    } catch {
+      setShareState("idle");
+    }
+  };
+
   return (
     <div
       className="card"
@@ -282,6 +297,24 @@ function HistoryRow({ report }: { report: CompletedReport }) {
             ⬇ .{f.format}
           </a>
         ))}
+        <button
+          onClick={handleShare}
+          disabled={shareState === "loading"}
+          style={{
+            padding: "0.3rem 0.7rem",
+            background: shareState === "copied" ? "#059669" : "none",
+            border: `1px solid ${shareState === "copied" ? "#059669" : "var(--border)"}`,
+            color: shareState === "copied" ? "#fff" : "var(--text-muted)",
+            cursor: shareState === "loading" ? "wait" : "pointer",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.72rem",
+            fontWeight: 500,
+            transition: "all 0.15s",
+          }}
+          title="Copy share link"
+        >
+          {shareState === "copied" ? "Copied!" : shareState === "loading" ? "..." : "\uD83D\uDD17"}
+        </button>
         <button
           onClick={() => {
             if (confirm(`Remove "${report.title}" from history? (File stays on disk.)`)) {

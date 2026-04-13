@@ -10,8 +10,9 @@ export function RootShell({ children }: { children: React.ReactNode }) {
   // Landing and login pages render without sidebar chrome.
   const isLogin = pathname === "/login";
   const isLanding = pathname === "/";
+  const isShare = pathname.startsWith("/share");
 
-  if (isLogin || isLanding) return <>{children}</>;
+  if (isLogin || isLanding || isShare) return <>{children}</>;
   if (isChat) return <>{children}</>;
 
   return (

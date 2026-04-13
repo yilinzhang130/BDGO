@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useSessionStore } from "@/lib/sessions";
 import { useAuth } from "@/components/AuthProvider";
+import { parsePreferences } from "@/lib/auth";
 import { SessionList } from "./SessionList";
 
 interface NavItem {
@@ -27,6 +28,7 @@ const NEWS: NavItem[] = [
 
 const TOOLS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "\u25A6" },
+  { href: "/watchlist", label: "Watchlist", icon: "\u2606" },
   { href: "/catalysts", label: "Catalysts", icon: "\u25C9" },
   { href: "/reports", label: "Reports", icon: "\u25A4" },
 ];
@@ -88,7 +90,9 @@ function SidebarFooter() {
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
   const { createSession } = useSessionStore();
+  const showDatabase = parsePreferences(user).show_database_nav === true;
   // Start with fallback; only show real logo after we've verified it loads
   const [logoReady, setLogoReady] = useState(false);
 
@@ -128,8 +132,8 @@ export function Sidebar() {
           <div className="nav-section-label">Recent</div>
           <SessionList />
         </div>
-        <NavGroup label="Database" items={DATABASE} />
-        <NavGroup label="News" items={NEWS} />
+        {showDatabase && <NavGroup label="Database" items={DATABASE} />}
+        {showDatabase && <NavGroup label="News" items={NEWS} />}
         <NavGroup label="Tools" items={TOOLS} />
       </div>
 

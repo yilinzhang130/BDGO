@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { updateProfile } from "@/lib/api";
+import { parsePreferences, type UserPreferences } from "@/lib/auth";
 
 // ---------------------------------------------------------------------------
 // Toast
@@ -147,6 +148,10 @@ export default function ProfilePage() {
   const [preferences, setPreferences] = useState("");
   const [savingPrefs, setSavingPrefs] = useState(false);
 
+  // Display preferences state
+  const [showDatabaseNav, setShowDatabaseNav] = useState(false);
+  const [savingDisplay, setSavingDisplay] = useState(false);
+
   // Populate from user
   useEffect(() => {
     if (!user) return;
@@ -156,6 +161,7 @@ export default function ProfilePage() {
     setPhone(user.phone || "");
     setBio(user.bio || "");
     setPreferences(user.preferences_json || "");
+    setShowDatabaseNav(parsePreferences(user).show_database_nav === true);
   }, [user]);
 
   const showToast = useCallback((message: string, type: "success" | "error") => {
@@ -186,6 +192,24 @@ export default function ProfilePage() {
       showToast(err.message || "Failed to save preferences", "error");
     } finally {
       setSavingPrefs(false);
+    }
+  };
+
+  const handleToggleDatabaseNav = async (checked: boolean) => {
+    setShowDatabaseNav(checked);
+    setSavingDisplay(true);
+    try {
+      let existing: UserPreferences = {};
+      try { existing = JSON.parse(preferences) as UserPreferences; } catch { /* use empty */ }
+      const merged = JSON.stringify({ ...existing, show_database_nav: checked });
+      const updated = await updateProfile({ preferences_json: merged });
+      updateUser(updated);
+      showToast(checked ? "Database navigation enabled" : "Database navigation hidden", "success");
+    } catch (err: any) {
+      setShowDatabaseNav(!checked); // revert
+      showToast(err.message || "Failed to save display preference", "error");
+    } finally {
+      setSavingDisplay(false);
     }
   };
 
@@ -313,6 +337,54 @@ export default function ProfilePage() {
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button style={btnPrimaryStyle} onClick={handleSavePreferences} disabled={savingPrefs}>
             {savingPrefs ? "Saving..." : "Save Preferences"}
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Display Preferences ─── */}
+      <div style={sectionStyle}>
+        <div style={sectionTitleStyle}>Display Preferences</div>
+        <div style={sectionDescStyle}>Customize your navigation and interface layout.</div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>Show Database & Deals in sidebar</div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>
+              Display data tables (Companies, Assets, Clinical, Patents, Buyers, Deals) in the navigation.
+              Turn off for a cleaner chat-focused experience.
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={showDatabaseNav}
+            disabled={savingDisplay}
+            onClick={() => handleToggleDatabaseNav(!showDatabaseNav)}
+            style={{
+              position: "relative",
+              width: 44,
+              height: 24,
+              borderRadius: 12,
+              border: "none",
+              background: showDatabaseNav ? "#2563eb" : "#d1d5db",
+              cursor: savingDisplay ? "wait" : "pointer",
+              transition: "background 0.2s",
+              flexShrink: 0,
+              marginLeft: 16,
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: 2,
+                left: showDatabaseNav ? 22 : 2,
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: "#fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                transition: "left 0.2s",
+              }}
+            />
           </button>
         </div>
       </div>

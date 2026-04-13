@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import json
 import logging
+import secrets
 import threading
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -33,6 +34,22 @@ from services.report_builder import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+MEDIA_TYPE_MAP = {
+    "md": "text/markdown; charset=utf-8",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pdf": "application/pdf",
+}
+
+
+def _parse_files_json(raw) -> list:
+    if not raw:
+        return []
+    try:
+        return json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
 def _save_report_history(user_id: str, task_id: str, slug: str, task: dict) -> None:
@@ -146,13 +163,7 @@ def download_report(task_id: str, format: str):
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="File missing on disk")
 
-    media_type_map = {
-        "md": "text/markdown; charset=utf-8",
-        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "pdf": "application/pdf",
-    }
-    media_type = media_type_map.get(format, "application/octet-stream")
+    media_type = MEDIA_TYPE_MAP.get(format, "application/octet-stream")
 
     return FileResponse(
         path=str(filepath),
@@ -203,3 +214,110 @@ def delete_report_history(task_id: str, user: dict = Depends(get_current_user)):
     if not deleted:
         raise HTTPException(status_code=404, detail="History entry not found")
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Report sharing (public links)
+# ---------------------------------------------------------------------------
+
+class ShareRequest(BaseModel):
+    task_id: str
+
+
+@router.post("/share")
+def create_share_link(req: ShareRequest, request: Request, user: dict = Depends(get_current_user)):
+    """Create a public share link for a completed report."""
+    base_url = str(request.base_url).rstrip("/")
+
+    with transaction() as cur:
+        # Return existing share if one already exists
+        cur.execute(
+            "SELECT token FROM report_shares WHERE task_id = %s AND user_id = %s",
+            (req.task_id, user["id"]),
+        )
+        existing = cur.fetchone()
+        if existing:
+            token = existing["token"]
+            return {"token": token, "url": f"{base_url}/share/{token}"}
+
+        # Look up report from history
+        cur.execute(
+            "SELECT title, files_json, markdown_preview FROM report_history "
+            "WHERE task_id = %s AND user_id = %s",
+            (req.task_id, user["id"]),
+        )
+        report = cur.fetchone()
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found in history")
+
+        token = secrets.token_hex(16)
+        cur.execute(
+            "INSERT INTO report_shares (token, task_id, user_id, title, files_json, markdown_preview) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (token, req.task_id, user["id"], report["title"], report["files_json"], report["markdown_preview"]),
+        )
+
+    return {"token": token, "url": f"{base_url}/share/{token}"}
+
+
+@router.get("/share/{token}")
+def get_shared_report(token: str):
+    """Public endpoint — get report metadata by share token. No auth required."""
+    with transaction() as cur:
+        cur.execute(
+            "SELECT task_id, title, files_json, markdown_preview, created_at "
+            "FROM report_shares WHERE token = %s",
+            (token,),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Share link not found or expired")
+
+    files = [
+        {
+            "filename": f["filename"],
+            "format": f["format"],
+            "size": f.get("size", 0),
+            "download_url": f"/api/reports/share/{token}/download/{f['format']}",
+        }
+        for f in _parse_files_json(row["files_json"])
+    ]
+
+    return {
+        "title": row["title"],
+        "markdown_preview": row["markdown_preview"] or "",
+        "files": files,
+        "created_at": str(row["created_at"]) if row.get("created_at") else None,
+    }
+
+
+@router.get("/share/{token}/download/{format}")
+def download_shared_report(token: str, format: str):
+    """Public endpoint — download a shared report file. No auth required."""
+    with transaction() as cur:
+        cur.execute(
+            "SELECT task_id, files_json FROM report_shares WHERE token = %s",
+            (token,),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Share link not found")
+
+    match = next((f for f in _parse_files_json(row["files_json"]) if f["format"] == format), None)
+    if not match:
+        raise HTTPException(status_code=404, detail=f"No {format} file in this report")
+
+    task_dir = REPORTS_DIR / row["task_id"]
+    filepath = safe_path_within(task_dir, match["filename"])
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail="File missing on disk")
+
+    media_type = MEDIA_TYPE_MAP.get(format, "application/octet-stream")
+
+    return FileResponse(
+        path=str(filepath),
+        filename=match["filename"],
+        media_type=media_type,
+    )

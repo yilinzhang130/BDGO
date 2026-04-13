@@ -7,6 +7,7 @@ import { phaseBadgeClass, resultBadgeClass, parseNum } from "@/lib/utils";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AgentButton } from "@/components/ui/AgentButton";
+import { WatchlistButton } from "@/components/ui/WatchlistButton";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip,
@@ -139,7 +140,10 @@ export default function AssetDetailPage() {
       <div className="detail-header">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <h1>{name}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <WatchlistButton entityType="asset" entityKey={name} size={22} />
+              <h1 style={{ margin: 0 }}>{name}</h1>
+            </div>
             <div className="meta">
               <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => router.push(`/companies/${encodeURIComponent(company)}`)}>
                 {company}

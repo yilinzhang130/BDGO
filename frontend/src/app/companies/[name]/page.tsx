@@ -8,6 +8,7 @@ import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { BPUpload } from "@/components/ui/BPUpload";
 import { AgentButton } from "@/components/ui/AgentButton";
+import { WatchlistButton } from "@/components/ui/WatchlistButton";
 
 interface Section { title: string; fields: [string, string][]; defaultOpen?: boolean; }
 
@@ -145,13 +146,16 @@ export default function CompanyDetailPage() {
                 />
               </div>
             ) : (
-              <h1
-                onClick={() => { setDraftName(name); setEditingName(true); }}
-                style={{ cursor: "pointer" }}
-                title="Click to rename"
-              >
-                {name} <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", opacity: 0.5 }}>&#9998;</span>
-              </h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <WatchlistButton entityType="company" entityKey={name} size={22} />
+                <h1
+                  onClick={() => { setDraftName(name); setEditingName(true); }}
+                  style={{ cursor: "pointer", margin: 0 }}
+                  title="Click to rename"
+                >
+                  {name} <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", opacity: 0.5 }}>&#9998;</span>
+                </h1>
+              </div>
             )}
             <div className="meta">
               {company["客户类型"] && <span>{company["客户类型"]}</span>}

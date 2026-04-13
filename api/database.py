@@ -98,6 +98,29 @@ EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN
     ALTER TABLE users ADD COLUMN preferences_json TEXT;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS report_shares (
+    id SERIAL PRIMARY KEY,
+    token VARCHAR(32) UNIQUE NOT NULL,
+    task_id VARCHAR(12) NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255),
+    files_json TEXT,
+    markdown_preview TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_report_shares_token ON report_shares(token);
+
+CREATE TABLE IF NOT EXISTS user_watchlists (
+    id SERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    entity_type VARCHAR(20) NOT NULL,
+    entity_key VARCHAR(255) NOT NULL,
+    notes TEXT,
+    added_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, entity_type, entity_key)
+);
+CREATE INDEX IF NOT EXISTS idx_watchlist_user ON user_watchlists(user_id);
 """
 
 # ---------------------------------------------------------------------------
