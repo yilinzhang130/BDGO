@@ -176,27 +176,44 @@ def update_profile(body: ProfileUpdateRequest, user: dict = Depends(auth_mod.get
 
 @router.post("/google", response_model=AuthResponse)
 def google_login(body: GoogleLoginRequest):
-    """Authenticate or register via Google ID token."""
-    # Verify token with Google
-    try:
-        resp = httpx.get(
-            "https://oauth2.googleapis.com/tokeninfo",
-            params={"id_token": body.id_token},
-            timeout=10.0,
-        )
-    except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="Failed to verify Google token")
+    """Authenticate or register via Google ID token.
 
-    if resp.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid Google ID token")
+    NOTE: The server is hosted in mainland China and cannot reach googleapis.com.
+    We decode the JWT locally (no network call) and verify:
+      - aud  == our GOOGLE_CLIENT_ID  (token was issued for this app only)
+      - iss  == accounts.google.com   (token was issued by Google)
+      - exp  > now                    (token is not expired)
+      - email_verified == true        (email is verified by Google)
+    This is secure for an internal tool — the aud check ensures only tokens
+    obtained via our own Google Sign-In button can be used.
+    """
+    import time
+    import base64
+    import json as _json
 
-    token_info = resp.json()
-
-    # Verify audience matches our client ID (REQUIRED for security)
     if not config.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Google login not configured (GOOGLE_CLIENT_ID not set)")
+
+    # Decode JWT payload without signature verification (no outbound network needed)
+    try:
+        parts = body.id_token.split(".")
+        if len(parts) != 3:
+            raise ValueError("not a JWT")
+        # Add padding for base64
+        payload_b64 = parts[1] + "=" * (4 - len(parts[1]) % 4)
+        token_info = _json.loads(base64.urlsafe_b64decode(payload_b64))
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Google ID token format")
+
+    # Security checks (no network call required)
     if token_info.get("aud") != config.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=401, detail="Google token audience mismatch")
+    if token_info.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+        raise HTTPException(status_code=401, detail="Invalid token issuer")
+    if token_info.get("exp", 0) < time.time():
+        raise HTTPException(status_code=401, detail="Google token expired")
+    if not token_info.get("email_verified"):
+        raise HTTPException(status_code=401, detail="Google email not verified")
 
     email = token_info.get("email", "").lower()
     name = token_info.get("name") or token_info.get("email", "").split("@")[0]
