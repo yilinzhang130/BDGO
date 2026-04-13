@@ -10,6 +10,7 @@ Adding a new report:
 from services.report_builder import ReportService
 from services.reports.buyer_profile import BuyerProfileService
 from services.reports.clinical_guidelines import ClinicalGuidelinesService
+from services.reports.commercial_assessment import CommercialAssessmentService
 from services.reports.disease_landscape import DiseaseLandscapeService
 from services.reports.ip_landscape import IPLandscapeService
 from services.reports.paper_analysis import PaperAnalysisService
@@ -19,6 +20,7 @@ REPORT_SERVICES: dict[str, ReportService] = {
     PaperAnalysisService.slug: PaperAnalysisService(),
     BuyerProfileService.slug: BuyerProfileService(),
     ClinicalGuidelinesService.slug: ClinicalGuidelinesService(),
+    CommercialAssessmentService.slug: CommercialAssessmentService(),
     DiseaseLandscapeService.slug: DiseaseLandscapeService(),
     IPLandscapeService.slug: IPLandscapeService(),
     TargetRadarService.slug: TargetRadarService(),
