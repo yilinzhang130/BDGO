@@ -21,7 +21,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from services.helpers import docx_builder
+from services.helpers import docx_builder, search
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 
 # ── Guidelines DB access ─────────────────────────────────────
@@ -170,152 +170,211 @@ class DiseaseLandscapeInput(BaseModel):
 # Prompts
 # ─────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """你是 BD Go 平台的赛道研究主管。你的任务：基于 CRM 四表数据 + 最新网络检索，
-撰写一份面向 BD 专业读者的赛道竞争格局调研报告。
-
-读者场景：BD 在评估一个疾病领域的整体格局，要判断未满足需求、资产空白、买方集中度和交易机会。
+CHAPTER_SYSTEM_PROMPT = """你是 BD Go 平台的赛道研究主管，正在逐章撰写一份 {disease_display} 赛道竞争格局调研报告。
 
 硬规则：
-1. **数据说话** — 所有结论必须引用 CRM 数据或网络来源（标注 [CRM] 或 [Web]）
-2. **中美欧三视角** — 每个章节覆盖全球格局，不要只写一个市场
-3. **表格优于纯文字** — 已批准药物对比、管线对比、催化剂时间线、近期交易必须用表格
-4. **洞察优于罗列** — 每章结尾 1-2 句 BD 视角判断（"so what"）
-5. **中文为主**，靶点/MOA/机构名保留英文
-6. **数据缺失直接说** — 不要编造。标注 "[CRM 数据稀疏]" 或 "[未获取相关信息]"
-7. **严格按 8 章结构输出** — 不要增减章节，不要写前言，直接输出 markdown
+1. **只写被要求的这一章**，直接输出 markdown，不要加前言或总结
+2. **数据说话** — 结论引用 CRM 数据或网络来源，标注 [CRM] 或 [Web]
+3. **中美欧三视角** — 覆盖全球格局
+4. **表格优于纯文字** — 对比数据必须用表格
+5. **洞察优于罗列** — 每章结尾 1-2 句 BD 视角判断（"so what"）
+6. **中文为主**，靶点/MOA/机构名保留英文
+7. **数据缺失直接说** — 标注 "[CRM 数据稀疏]" 或 "[未获取相关信息]"，不要编造
 """
 
+# ── Chapter prompt templates ──────────────────────────────
 
-REPORT_PROMPT = """以下是 **{disease_display}** 赛道的 CRM 四表查询结果 + 网络检索结果。
-请按 8 章结构撰写一份 ~3500 字的赛道竞争格局调研报告。
+_CH1_PROMPT = """
+## 任务：撰写第一章 文献综述（目标 ~1200 字）
 
-═════════════════════════════════════════════
-## CRM 数据概览
-═════════════════════════════════════════════
+内容要求：
+- 近 2 年重要综述和临床研究（标题+期刊+年份，引用 [Web]）
+- 发病机制最新理解与治疗范式变迁
+- 中美欧三视角的疾病负担概述
 
-**资产表** ({n_assets} 个资产样本，按阶段优先级排序):
-{assets_block}
+{context_block}
 
-**公司表** ({n_companies} 家相关公司):
-{companies_block}
+### 前几章要点（上下文连贯性，不要重复）
+{running_summary}
 
-**临床试验表** ({n_trials} 条相关试验样本):
-{trials_block}
+直接以 `## 第一章 文献综述` 开头输出 markdown：
+"""
 
-**交易表** ({n_deals} 笔相关交易，按日期倒序):
-{deals_block}
+_CH2_PROMPT = """
+## 任务：撰写第二章 已批准药物（目标 ~1200 字）
 
-═════════════════════════════════════════════
-## 临床指南数据（来自 Guidelines DB）
-═════════════════════════════════════════════
-{guidelines_block}
+内容要求：
+- 按机制/代际分类；关键疗效数据（ORR/PFS/OS）；中美欧获批状态和年销售额
+- **必须包含表格**：
 
-═════════════════════════════════════════════
-## 网络检索结果
-═════════════════════════════════════════════
-{web_block}
-
-═════════════════════════════════════════════
-## 输出格式
-═════════════════════════════════════════════
-
-严格按下面的 markdown 模板输出（不要加前言，不要用代码块包裹整体，直接输出）：
-
-```
-# {disease_display} 赛道竞争格局调研
-
-> **生成日期**: {today} | **分析师**: BD Go (赛道研究) | **数据源**: CRM ({n_assets} 个资产, {n_trials} 条临床, {n_deals} 笔交易) + Tavily Web Search
-
-## Executive Summary
-
-（3-5 条核心发现，每条一句话，带证据来源 [CRM] / [Web]）
-
-- 发现 1...
-- 发现 2...
-
-## 1. 已批准药物 (Approved Landscape)
-
-（按机制/代际分类；关键疗效 ORR/PFS/OS；中美欧获批状态）
-
-| 药物名 | 公司 | 靶点/MOA | 获批年份 | 关键数据 | 市场表现 |
+| 药物名 | 公司 | 靶点/MOA | 获批年份 | 关键数据 | 年销售额($B) |
 |---|---|---|---|---|---|
-| ... | ... | ... | ... | ... | ... |
 
-（段落：这个赛道的治疗范式变迁 + so what）
+- 段落：治疗范式变迁 + so what
 
-## 2. 在研管线 (Pipeline Analysis)
+{context_block}
 
-（Phase 3 → Phase 2 → Phase 1 分层叙事，重点是晚期；中国 biotech vs 全球对比）
+### 前几章要点
+{running_summary}
+
+直接以 `## 第二章 已批准药物` 开头输出 markdown：
+"""
+
+_CH3_PROMPT = """
+## 任务：撰写第三章 在研管线 Phase 3（目标 ~1000 字）
+
+内容要求：
+- Phase 3 / NDA / BLA 阶段资产详细分析
+- **必须包含表格**：
 
 | 药物名 | 公司 | 靶点-MOA | 阶段 | 差异化 | 关键数据/里程碑 |
 |---|---|---|---|---|---|
-| ... | ... | ... | ... | ... | ... |
 
-（段落：谁是领头羊 + 谁是黑马 + so what）
+- 分析：谁是领头羊 + 预计何时获批
 
-## 3. 关键催化剂 (Catalysts — 未来 24 个月)
+{context_block}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第三章 在研管线（Phase 3 晚期资产）` 开头输出 markdown：
+"""
+
+_CH4_PROMPT = """
+## 任务：撰写第四章 在研管线 Phase 1/2 + 中国 biotech（目标 ~1000 字）
+
+内容要求：
+- Phase 1/2 资产分析；中国 biotech 管线 vs 全球管线对比
+- **必须包含表格**：
+
+| 药物名 | 公司 | 靶点-MOA | 阶段 | 国家 | 差异化亮点 |
+|---|---|---|---|---|---|
+
+- 黑马候选 + so what
+
+{context_block}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第四章 在研管线（Phase 1/2 + 中国 biotech）` 开头输出 markdown：
+"""
+
+_CH5_PROMPT = """
+## 任务：撰写第五章 关键催化剂（目标 ~800 字）
+
+内容要求：
+- 未来 24 个月 PDUFA 日期、Phase 3 读出、中国 NMPA 审评、重要学术会议
+- **必须包含表格**：
 
 | 预计日期 | 事件 | 公司 | 资产 | BD 含义 |
 |---|---|---|---|---|
-| ... | ... | ... | ... | ... |
 
-（段落：这些催化剂对赛道的结构性影响）
+- 段落：这些催化剂对赛道结构的影响
 
-## 4. 治疗指南 (Treatment Guidelines)
+{context_block}
 
-（**必须使用上方"临床指南数据"中的推荐和生物标志物，不要自行编造指南内容**）
+### 前几章要点
+{running_summary}
 
-### 4.1 分治疗线推荐
+直接以 `## 第五章 关键催化剂` 开头输出 markdown：
+"""
+
+_CH6_PROMPT = """
+## 任务：撰写第六章 治疗指南（目标 ~1200 字）
+
+内容要求（**必须使用下方指南数据库数据，不要自行编造**）：
+- 分治疗线推荐（一线→二线→三线）
+- 生物标志物检测
+- US (NCCN) / EU (ESMO) / 中国 (CSCO/CDE) 覆盖
+- 指南更新趋势
+
+**必须包含两个表格**：
+表格1 — 分治疗线推荐：
 
 | 治疗线 | 推荐等级 | 药物 | 药物类型 | 适应条件 | 疗效概述 | 来源 |
 |---|---|---|---|---|---|---|
-（从 Guidelines DB 数据填充，按一线→二线→三线排列）
 
-### 4.2 生物标志物检测
+表格2 — 生物标志物：
 
 | 标志物 | 检测方法 | 阳性阈值 | 临床意义 |
 |---|---|---|---|
-（从 Guidelines DB 数据填充）
 
-### 4.3 指南来源
+{context_block}
 
-- 美国 (NCCN) / 欧洲 (ESMO) / 中国 (CSCO/CDE)
-- 指南更新趋势 + 标准治疗方案变化
+### 前几章要点
+{running_summary}
 
-（段落：指南推荐对 BD 的含义 — 哪些药已是标准治疗，哪些线上还有 unmet need）
+直接以 `## 第六章 治疗指南` 开头输出 markdown：
+"""
 
-## 5. 未满足需求 (Unmet Needs)
+_CH7_PROMPT = """
+## 任务：撰写第七章 未满足需求（目标 ~1500 字）
 
-（当前治疗的局限: 疗效 / 安全性 / 可及性 / 依从性; 在研管线对未满足需求的覆盖率; 哪些空白最大 → BD 机会）
+内容要求：
+- 当前治疗局限（疗效/安全性/可及性/依从性）
+- 在研管线覆盖了哪些未满足需求，哪些仍空白
+- 患者分层：哪些亚群最缺治疗
+- 最大 BD 机会所在
 
-## 6. 新兴靶点 (Emerging Targets)
+{context_block}
 
-（近 2 年文献中的新靶点 / 新机制; 早期管线验证情况; 生信支持——如 GWAS、proteomics、单细胞）
+### 前几章要点
+{running_summary}
 
-## 7. 技术平台 (Modalities & Platforms)
+直接以 `## 第七章 未满足需求` 开头输出 markdown：
+"""
 
-（ADC / 双抗 / 细胞治疗 / 基因治疗 / mRNA / 小分子 在这个赛道的应用和代表公司）
+_CH8_PROMPT = """
+## 任务：撰写第八章 新兴靶点 & 技术平台（目标 ~1200 字）
 
-## 8. BD 战略启示 (BD Implications)
+内容要求：
+- 近 2 年文献中的新靶点/新机制（标注 [Web]）
+- 生信/组学证据（GWAS、proteomics、单细胞测序）
+- 有前景的药物模态（ADC/双抗/细胞治疗/基因治疗/mRNA/小分子）
+- 平台型公司和技术差异化
 
-**买方候选**（谁在这个赛道最积极买？从交易表推断）:
-- ...
+{context_block}
 
-**资产空白**（卖方机会在哪？未满足需求 × 当前管线覆盖的差集）:
-- ...
+### 前几章要点
+{running_summary}
 
-**近期交易 comps**:
+直接以 `## 第八章 新兴靶点 & 技术平台` 开头输出 markdown：
+"""
 
-| 日期 | 买方 | 卖方 | 资产 | 阶段 | 首付款 | 总额 |
-|---|---|---|---|---|---|---|
-| ... | ... | ... | ... | ... | ... | ... |
+_CH9_PROMPT = """
+## 任务：撰写第九章 立项评分矩阵（目标 ~1000 字）
 
-## Bottom Line
+内容要求（**基于前八章的具体事实给出量化评分，每个分数必须附一句话依据**）：
 
-（3 句话：这个赛道现在值不值得进入 + 最有 BD 价值的切入点 + 最需要规避的雷区）
-```
+**9.1 赛道吸引力评分（6维）**
 
-**最后提醒**：直接开始输出 markdown，不要加任何前言。"""
+| 评分维度 | 权重 | 评分(1-5) | 加权分 | 评分依据 |
+|---------|------|----------|--------|---------|
+| 市场规模 | 20% | /5 | | TAM>$10B=5 |
+| 未满足需求 | 25% | /5 | | 严重空白=5 |
+| 竞争拥挤度 | 15% | /5 | | 竞品越少越高 |
+| 科学成熟度 | 15% | /5 | | 靶点已验证=5 |
+| BD交易活跃度 | 15% | /5 | | 近2年>5笔=5 |
+| 中国市场机会 | 10% | /5 | | 大量未覆盖患者=5 |
+| **赛道总分** | 100% | — | **/5.0** | |
+
+赛道评级：≥4.0 🟢高吸引力 / 3.0-3.9 🟡有选择性机会 / <3.0 🔴吸引力有限
+
+**9.2 资产优先级排名**
+
+| 排名 | 靶点/资产 | 公司 | 阶段 | 科学验证/5 | 差异化/5 | 竞争窗口/5 | 商业潜力/5 | IP空间/5 | 可交易性/5 | 综合/30 | Tier |
+|------|---------|------|------|-----------|---------|-----------|-----------|---------|-----------|--------|------|
+
+Tier 1(≥25): 立刻启动 | Tier 2(20-24): 重点关注 | Tier 3(15-19): 机会性 | Tier 4(<15): 不建议
+
+**9.3 BD 后续行动清单**（P0/P1/P2 优先级，具体资产/靶点，建议时限）
+
+### 所有前章要点（评分依据来源）
+{running_summary}
+
+直接以 `## 第九章 立项评分矩阵` 开头输出 markdown：
+"""
 
 
 # ─────────────────────────────────────────────────────────────
@@ -365,7 +424,7 @@ class DiseaseLandscapeService(ReportService):
     input_model = DiseaseLandscapeInput
     mode = "async"
     output_formats = ["docx", "md"]
-    estimated_seconds = 180
+    estimated_seconds = 600
     category = "research"
     field_rules = {}
 
@@ -374,10 +433,9 @@ class DiseaseLandscapeService(ReportService):
         inp = DiseaseLandscapeInput(**params)
         max_assets = max(10, min(inp.max_crm_assets, 60))
 
-        # 1. Resolve disease → enum + keyword
+        # Phase 1: Resolve disease → enum + keyword
         enum, keyword, display = _resolve_disease(inp.disease)
         if inp.specific_indication:
-            # User explicitly narrowed — keyword takes precedence for filtering
             keyword = inp.specific_indication.strip().lower()
             display = f"{display} — {inp.specific_indication}"
         if not enum and not keyword:
@@ -385,13 +443,12 @@ class DiseaseLandscapeService(ReportService):
 
         ctx.log(f"Resolved: enum={enum or '(sub-indication mode)'} keyword={keyword or '(none)'}")
 
-        # 2. CRM queries
+        # Phase 2: CRM queries
         ctx.log("Querying CRM four tables...")
         assets = self._query_assets(ctx, enum, keyword, max_assets)
         companies = self._query_companies(ctx, enum, keyword)
         trials = self._query_clinical(ctx, keyword, limit=20)
         deals = self._query_deals(ctx, keyword, limit=10)
-        # 2b. Query guidelines DB
         guidelines_recs = _guidelines_query(
             '''SELECT r."治疗线", r."推荐等级", r."证据级别", r."药物", r."药物类型",
                       r."适应条件", r."疗效概述", g."指南来源", g."版本"
@@ -405,14 +462,13 @@ class DiseaseLandscapeService(ReportService):
             'SELECT "标志物", "检测方法", "阳性阈值", "临床意义" FROM "生物标志物" WHERE "疾病" LIKE ? LIMIT 20',
             (f"%{keyword or enum}%",),
         )
-
         ctx.log(
             f"CRM: {len(assets)} assets, {len(companies)} companies, "
             f"{len(trials)} trials, {len(deals)} deals | "
             f"Guidelines: {len(guidelines_recs)} recs, {len(guidelines_biomarkers)} biomarkers"
         )
 
-        # 3. Web search augmentation
+        # Phase 2b: Web search
         web_results: list[dict] = []
         if inp.include_web_search:
             ctx.log("Running Tavily web searches (4 queries)...")
@@ -421,33 +477,172 @@ class DiseaseLandscapeService(ReportService):
         else:
             ctx.log("Web search disabled — CRM-only mode")
 
-        # 4. Build prompt
-        ctx.log("Generating 8-chapter report via LLM...")
-        prompt = REPORT_PROMPT.format(
-            disease_display=display,
-            today=datetime.date.today().isoformat(),
-            n_assets=len(assets),
-            n_companies=len(companies),
-            n_trials=len(trials),
-            n_deals=len(deals),
-            assets_block=self._format_assets(assets),
-            companies_block=self._format_companies(companies),
-            trials_block=self._format_trials(trials),
-            deals_block=self._format_deals(deals),
-            guidelines_block=self._format_guidelines(guidelines_recs, guidelines_biomarkers),
-            web_block=format_web_results(web_results, inp.include_web_search),
+        # Pre-format shared data blocks
+        assets_block = self._format_assets(assets)
+        companies_block = self._format_companies(companies)
+        trials_block = self._format_trials(trials)
+        deals_block = self._format_deals(deals)
+        guidelines_block = self._format_guidelines(guidelines_recs, guidelines_biomarkers)
+        web_block = format_web_results(web_results, inp.include_web_search)
+        today = datetime.date.today().isoformat()
+
+        # Shared context block injected into every chapter prompt
+        shared_context = (
+            f"**疾病**: {display} | **日期**: {today}\n\n"
+            f"**资产数据** ({len(assets)} 个，按阶段优先级):\n{assets_block}\n\n"
+            f"**公司数据** ({len(companies)} 家):\n{companies_block}\n\n"
+            f"**临床试验** ({len(trials)} 条):\n{trials_block}\n\n"
+            f"**交易数据** ({len(deals)} 笔):\n{deals_block}\n\n"
+            f"**指南数据**:\n{guidelines_block}\n\n"
+            f"**网络检索结果**:\n{web_block}"
         )
 
-        markdown = ctx.llm(
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=8000,
-        )
+        system_prompt = CHAPTER_SYSTEM_PROMPT.format(disease_display=display)
 
-        if not markdown or len(markdown.strip()) < 300:
+        # Phase 3: Generate chapters one by one
+        chapter_texts: dict[int, str] = {}
+        running_summary = ""
+
+        # ── Chapter 1: 文献综述 ──
+        ctx.log("第一章：文献综述...")
+        ch1_prompt = _CH1_PROMPT.format(
+            context_block=shared_context,
+            running_summary=running_summary or "(无，这是第一章)",
+        )
+        chapter_texts[1] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch1_prompt}],
+            max_tokens=2500,
+        )
+        running_summary += f"\n\n【第一章 文献综述要点】{chapter_texts[1][:800]}"
+        ctx.log(f"第一章完成（{len(chapter_texts[1])}字）")
+
+        # ── Chapter 2: 已批准药物 ──
+        ctx.log("第二章：已批准药物...")
+        ch2_prompt = _CH2_PROMPT.format(
+            context_block=shared_context,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[2] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch2_prompt}],
+            max_tokens=2500,
+        )
+        running_summary += f"\n\n【第二章 已批准药物要点】{chapter_texts[2][:800]}"
+        ctx.log(f"第二章完成（{len(chapter_texts[2])}字）")
+
+        # ── Chapter 3: 在研管线 Phase 3 ──
+        ctx.log("第三章：在研管线 Phase 3...")
+        ch3_prompt = _CH3_PROMPT.format(
+            context_block=shared_context,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[3] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch3_prompt}],
+            max_tokens=2200,
+        )
+        running_summary += f"\n\n【第三章 Phase 3管线要点】{chapter_texts[3][:600]}"
+        ctx.log(f"第三章完成（{len(chapter_texts[3])}字）")
+
+        # ── Chapter 4: 在研管线 Phase 1/2 + 中国 biotech ──
+        ctx.log("第四章：在研管线 Phase 1/2 + 中国 biotech...")
+        ch4_prompt = _CH4_PROMPT.format(
+            context_block=shared_context,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[4] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch4_prompt}],
+            max_tokens=2200,
+        )
+        running_summary += f"\n\n【第四章 早期管线要点】{chapter_texts[4][:600]}"
+        ctx.log(f"第四章完成（{len(chapter_texts[4])}字）")
+
+        # ── Chapter 5: 关键催化剂 ──
+        ctx.log("第五章：关键催化剂...")
+        ch5_prompt = _CH5_PROMPT.format(
+            context_block=shared_context,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[5] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch5_prompt}],
+            max_tokens=1800,
+        )
+        running_summary += f"\n\n【第五章 催化剂要点】{chapter_texts[5][:500]}"
+        ctx.log(f"第五章完成（{len(chapter_texts[5])}字）")
+
+        # ── Chapter 6: 治疗指南 ──
+        ctx.log("第六章：治疗指南...")
+        ch6_prompt = _CH6_PROMPT.format(
+            context_block=shared_context,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[6] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch6_prompt}],
+            max_tokens=2500,
+        )
+        running_summary += f"\n\n【第六章 治疗指南要点】{chapter_texts[6][:500]}"
+        ctx.log(f"第六章完成（{len(chapter_texts[6])}字）")
+
+        # ── Chapter 7: 未满足需求 ──
+        ctx.log("第七章：未满足需求...")
+        ch7_prompt = _CH7_PROMPT.format(
+            context_block=shared_context,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[7] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch7_prompt}],
+            max_tokens=3000,
+        )
+        running_summary += f"\n\n【第七章 未满足需求要点】{chapter_texts[7][:600]}"
+        ctx.log(f"第七章完成（{len(chapter_texts[7])}字）")
+
+        # ── Chapter 8: 新兴靶点 & 技术平台 ──
+        ctx.log("第八章：新兴靶点 & 技术平台...")
+        ch8_prompt = _CH8_PROMPT.format(
+            context_block=shared_context,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[8] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch8_prompt}],
+            max_tokens=2500,
+        )
+        running_summary += f"\n\n【第八章 新兴靶点要点】{chapter_texts[8][:500]}"
+        ctx.log(f"第八章完成（{len(chapter_texts[8])}字）")
+
+        # ── Chapter 9: 立项评分矩阵 ──
+        ctx.log("第九章：立项评分矩阵...")
+        ch9_prompt = _CH9_PROMPT.format(
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[9] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch9_prompt}],
+            max_tokens=2500,
+        )
+        ctx.log(f"第九章完成（{len(chapter_texts[9])}字）")
+
+        # Phase 4: Merge chapters + header
+        header = (
+            f"# {display} 赛道竞争格局调研\n\n"
+            f"> **生成日期**: {today} | **分析师**: BD Go (赛道研究) | "
+            f"**数据源**: CRM ({len(assets)} 个资产, {len(trials)} 条临床, "
+            f"{len(deals)} 笔交易) + Tavily Web Search\n\n"
+        )
+        markdown = header + "\n\n".join(chapter_texts[i] for i in range(1, 10))
+
+        total_chars = len(markdown)
+        ctx.log(f"全部 9 章合并完成，总计约 {total_chars} 字")
+
+        if total_chars < 1000:
             raise RuntimeError("LLM returned empty or very short report")
 
-        # 5. Save markdown + render docx
+        # Phase 4b: Save markdown + render docx
         slug = safe_slug(display)
         md_filename = f"disease_landscape_{slug}.md"
         ctx.save_file(md_filename, markdown, format="md")
@@ -479,7 +674,8 @@ class DiseaseLandscapeService(ReportService):
                 "n_trials": len(trials),
                 "n_deals": len(deals),
                 "web_results_count": len(web_results),
-                "chapters": 8,
+                "chapters": 9,
+                "total_chars": total_chars,
             },
         )
 

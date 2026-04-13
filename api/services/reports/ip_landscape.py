@@ -25,7 +25,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from services.helpers import docx_builder
+from services.helpers import docx_builder, search
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
     ReportContext,
@@ -51,109 +51,177 @@ class IPLandscapeInput(BaseModel):
 # Prompts
 # ─────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """你是 BD Go 平台的专利情报分析师（代号：铁证）。你的任务：基于 CRM 专利数据 +
-网络检索，撰写一份面向 BD 专业读者的 IP 景观简报。
+CHAPTER_SYSTEM_PROMPT = """你是 BD Go 平台的专利情报分析师（代号：铁证），正在为 {query} 逐章撰写 IP 景观简报。
 
 读者场景：BD 在评估一个公司/资产/靶点的专利保护状况，判断 FTO 风险和交易时间窗口。
 
 硬规则：
-1. **专利号必标** — 每条结论都引用具体专利号
-2. **到期日必写** — 专利的到期日是 BD 最关注的时间线
-3. **风险分级** — 用 🔴高 / 🟡中 / 🟢低 标注每个关键专利的 FTO 风险
-4. **分管辖区** — 至少区分 US / EU / CN 三个法域
-5. **中文为主**，专利号/专利类型保留英文
-6. **不做法律意见** — 明确标注"本报告不构成法律意见，正式 FTO 需委托律所"
-7. **严格按 6 章输出**，不要加前言
+1. **只写被要求的这一章**，直接输出 markdown，不要加前言或总结
+2. **专利号必标** — 每条结论引用具体专利号（如有）
+3. **到期日必写** — 专利到期日是 BD 最关注的时间线
+4. **风险分级** — 用 🔴高 / 🟡中 / 🟢低 标注关键专利的 FTO 风险
+5. **分管辖区** — 至少区分 US / EU / CN 三个法域
+6. **中文为主**，专利号/专利类型保留英文
+7. **不做法律意见** — 本报告不构成法律意见，正式 FTO 需委托律所
 """
 
-REPORT_PROMPT = """以下是 **{query}** 相关的 CRM 专利数据 + 网络检索结果。
-请按 6 章结构撰写一份 ~3000 字的 IP 景观简报。
+# ── Chapter prompt templates ──────────────────────────────
 
-═════════════════════════════════════════════
-## CRM 专利数据 ({n_patents} 条专利)
-═════════════════════════════════════════════
+_IP_CH1_PROMPT = """
+## 任务：撰写第一章 执行摘要 & 风险概览（目标 ~600 字）
+
+内容要求：
+- 专利组合统计（总数/管辖区分布/类型分布）
+- 3-5 条核心发现，每条附具体专利号
+- 主要风险点概览（🔴🟡🟢 分级）
+- 免责声明：本报告不构成法律意见
+
+### 专利数据
 {patents_block}
 
-═════════════════════════════════════════════
-## 专利统计摘要
-═════════════════════════════════════════════
+### 统计摘要
 {stats_block}
 
-═════════════════════════════════════════════
-## 网络检索结果
-═════════════════════════════════════════════
-{web_block}
+### 前几章要点（上下文，不要重复）
+{running_summary}
 
-═════════════════════════════════════════════
-## 输出格式
-═════════════════════════════════════════════
-直接输出 markdown（不加前言，不包代码块）：
+直接以 `## 第一章 执行摘要 & 风险概览` 开头输出 markdown：
+"""
 
-```
-# {query} — IP Landscape Brief
+_IP_CH2_PROMPT = """
+## 任务：撰写第二章 专利组合全貌（目标 ~1000 字）
 
-> **生成日期**: {today} | **分析师**: BD Go (铁证) | **数据源**: CRM ({n_patents} 条专利) + Web
-> ⚠️ 本报告不构成法律意见。正式 FTO 需委托专业知识产权律所。
+内容要求：
+- 按专利类型分类（Drug Product / Drug Substance / Method of Use / 其他）
+- 按管辖区分布（US / EU / CN / JP / 其他）
+- 按状态分布（有效 / 审查中 / 已过期）
+- **必须包含统计表格**：
 
-## Executive Summary
-
-（3-5 条核心发现，每条带具体专利号）
-
-## 1. Patent Portfolio Overview
-
-（按专利类型分类 + 按管辖区分布 + 按状态统计）
-
-| 维度 | 分布 |
+| 维度 | 详情 |
 |---|---|
-| 总数 | ... |
-| 管辖区 | US: X / EU: X / CN: X / JP: X |
-| 状态 | 有效: X / 审查中: X / 已过期: X |
-| 专利类型 | Drug Product: X / Drug Substance: X / Use: X |
-| Orange Book | 是: X / 否: X |
+| 总专利数 | ... |
+| 管辖区分布 | US: X / EU: X / CN: X / JP: X |
+| 状态分布 | 有效: X / 审查中: X / 已过期: X |
+| 专利类型 | Drug Product: X / Substance: X / Use: X |
+| Orange Book 收录 | 是: X / 否: X |
 
-## 2. Expiry Timeline
+- 主要权利人排名表（每个持有人专利数、代表专利号）
 
-（按到期日排序的关键专利列表 + 到期窗口分析）
+### 专利数据
+{patents_block}
+
+### 统计摘要
+{stats_block}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第二章 专利组合全貌` 开头输出 markdown：
+"""
+
+_IP_CH3_PROMPT = """
+## 任务：撰写第三章 专利到期日历（目标 ~800 字）
+
+内容要求：
+- 按到期日排序的关键专利列表（重点：未来 5 年）
+- **必须包含表格**：
 
 | 到期日 | 专利号 | 持有人 | 关联资产 | 专利类型 | PTE延期 | BD 含义 |
 |---|---|---|---|---|---|---|
-| ... | ... | ... | ... | ... | ... | ... |
 
-（段落：最近 5 年的专利悬崖在哪？LOE 窗口对 generic/biosimilar 的影响）
+- LOE 窗口分析：专利悬崖在哪？仿制药/生物类似药可入场时间
+- 段落：到期时间线对 BD 决策的含义
 
-## 3. Key Patents Analysis
+### 专利数据（按到期日排序）
+{patents_block}
 
-（挑出 3-5 个最重要的专利，每个给出）:
-- **专利号**: ...
-- **持有人**: ...
-- **到期日**: ...
-- **覆盖范围**: ...（权利要求摘要，如有）
-- **FTO 风险**: 🔴高 / 🟡中 / 🟢低
-- **理由**: ...
+### 前几章要点
+{running_summary}
 
-## 4. Competitor Patent Landscape
+直接以 `## 第三章 专利到期日历` 开头输出 markdown：
+"""
 
-（在这个靶点/技术领域，还有哪些公司持有专利？专利壁垒高度？）
+_IP_CH4_PROMPT = """
+## 任务：撰写第四章 核心阻断专利（目标 ~1200 字）
 
-| 持有人 | 专利数 | 代表专利号 | 关联资产 | 管辖区 | 状态 |
+内容要求：
+- 挑选 3-5 个最重要/最高风险的专利逐一分析
+- 每个专利格式：
+  - **专利号**: ...
+  - **持有人**: ...
+  - **到期日**: ...
+  - **覆盖范围**: ...（权利要求摘要）
+  - **FTO 风险**: 🔴高 / 🟡中 / 🟢低
+  - **BD 含义**: ...
+- **必须包含风险汇总表格**：
+
+| 专利号 | 持有人 | 关联资产 | 到期日 | FTO风险 | 主要风险点 |
 |---|---|---|---|---|---|
-| ... | ... | ... | ... | ... | ... |
 
-## 5. Recent Developments
+### 专利数据（含权利要求摘要）
+{patents_block}
 
-（基于 Web Search：近 12 个月的专利诉讼、IPR/PTAB 挑战、和解协议、专利许可交易）
+### 前几章要点
+{running_summary}
 
-## 6. BD Implications
+直接以 `## 第四章 核心阻断专利` 开头输出 markdown：
+"""
 
-- **In-licensing 机会**: 哪些专利即将到期？可以在到期前达成 License 降低竞争？
-- **Out-licensing 价值**: 该专利组合的许可价值如何？
-- **Generic/Biosimilar 窗口**: 什么时候仿制药/生物类似药可以进入？
-- **规避策略提示**: 如果想避开核心专利，需要关注哪些技术路径？
+_IP_CH5_PROMPT = """
+## 任务：撰写第五章 竞争对手专利格局（目标 ~1000 字）
 
-## Bottom Line
+内容要求：
+- 在这个靶点/技术领域，各公司专利数量和布局策略
+- **必须包含表格**：
 
-3 句话：这个 IP 格局对 BD 的核心含义 + 推荐的下一步行动
-```
+| 持有人 | 专利数 | 代表专利号 | 关联资产 | 覆盖管辖区 | 技术分支 | 布局状态 |
+|---|---|---|---|---|---|---|
+
+- 分析：专利壁垒高度 + 谁掌握核心 IP + 竞争格局
+- 空白区域提示：哪些技术方向专利相对稀疏
+
+### 专利数据
+{patents_block}
+
+### 统计摘要（top holders）
+{stats_block}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第五章 竞争对手专利格局` 开头输出 markdown：
+"""
+
+_IP_CH6_PROMPT = """
+## 任务：撰写第六章 空白区域分析（目标 ~800 字）
+
+内容要求：
+- 哪些技术方向/靶点分支/适应症专利稀疏
+- 进入机会：专利空白 = BD 进入机会
+- 近期动态（基于 Web 检索）：专利诉讼/IPR/PTAB/和解/许可交易
+
+{web_block}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第六章 空白区域分析` 开头输出 markdown：
+"""
+
+_IP_CH7_PROMPT = """
+## 任务：撰写第七章 BD 战略建议（目标 ~600 字）
+
+内容要求（基于前六章综合判断）：
+- **In-licensing 机会**：哪些专利即将到期？到期前 License 策略
+- **Out-licensing 价值**：该专利组合的许可价值评估
+- **Generic/Biosimilar 窗口**：何时仿制药/生物类似药可入场
+- **规避策略提示**：如果想绕开核心专利，需要关注哪些技术路径
+- **Bottom Line**：3 句话 — IP 格局对 BD 的核心含义 + 推荐下一步行动
+
+### 所有前章要点（本章决策依据）
+{running_summary}
+
+直接以 `## 第七章 BD 战略建议` 开头输出 markdown：
 """
 
 
@@ -201,7 +269,7 @@ class IPLandscapeService(ReportService):
     input_model = IPLandscapeInput
     mode = "async"
     output_formats = ["docx", "md"]
-    estimated_seconds = 120
+    estimated_seconds = 500
     category = "analysis"
     field_rules = {}
 
@@ -214,7 +282,7 @@ class IPLandscapeService(ReportService):
 
         max_patents = max(10, min(inp.max_patents, 80))
 
-        # 1. Query CRM IP table
+        # Phase 1: Query CRM IP table
         ctx.log(f"Searching IP table for '{query}'...")
         patents = self._query_patents(ctx, query, inp.query_type, max_patents)
         ctx.log(f"Found {len(patents)} patents")
@@ -225,10 +293,10 @@ class IPLandscapeService(ReportService):
                 "Try enabling web search or using a different query."
             )
 
-        # 2. Compute stats
+        # Phase 2: Compute stats
         stats = self._compute_stats(patents)
 
-        # 3. Web search
+        # Phase 2b: Web search
         web_results: list[dict] = []
         if inp.include_web_search:
             ctx.log("Searching web for patent news...")
@@ -237,27 +305,133 @@ class IPLandscapeService(ReportService):
         else:
             ctx.log("Web search disabled")
 
-        # 4. LLM
-        ctx.log("Generating IP landscape report via LLM...")
-        prompt = REPORT_PROMPT.format(
-            query=query,
-            today=datetime.date.today().isoformat(),
-            n_patents=len(patents),
-            patents_block=self._format_patents(patents),
-            stats_block=self._format_stats(stats),
-            web_block=format_web_results(web_results, inp.include_web_search),
-        )
+        # Pre-format shared blocks
+        patents_block = self._format_patents(patents)
+        stats_block = self._format_stats(stats)
+        web_block = format_web_results(web_results, inp.include_web_search)
+        today = datetime.date.today().isoformat()
 
-        markdown = ctx.llm(
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=6000,
-        )
+        system_prompt = CHAPTER_SYSTEM_PROMPT.format(query=query)
 
-        if not markdown or len(markdown.strip()) < 200:
+        # Phase 3: Generate chapters one by one
+        chapter_texts: dict[int, str] = {}
+        running_summary = ""
+
+        # ── Chapter 1: 执行摘要 & 风险概览 ──
+        ctx.log("第一章：执行摘要 & 风险概览...")
+        ch1_prompt = _IP_CH1_PROMPT.format(
+            patents_block=patents_block,
+            stats_block=stats_block,
+            running_summary=running_summary or "(无，这是第一章)",
+        )
+        chapter_texts[1] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch1_prompt}],
+            max_tokens=1500,
+        )
+        running_summary += f"\n\n【第一章 执行摘要要点】{chapter_texts[1][:600]}"
+        ctx.log(f"第一章完成（{len(chapter_texts[1])}字）")
+
+        # ── Chapter 2: 专利组合全貌 ──
+        ctx.log("第二章：专利组合全貌...")
+        ch2_prompt = _IP_CH2_PROMPT.format(
+            patents_block=patents_block,
+            stats_block=stats_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[2] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch2_prompt}],
+            max_tokens=2200,
+        )
+        running_summary += f"\n\n【第二章 专利组合要点】{chapter_texts[2][:600]}"
+        ctx.log(f"第二章完成（{len(chapter_texts[2])}字）")
+
+        # ── Chapter 3: 专利到期日历 ──
+        ctx.log("第三章：专利到期日历...")
+        ch3_prompt = _IP_CH3_PROMPT.format(
+            patents_block=patents_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[3] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch3_prompt}],
+            max_tokens=1800,
+        )
+        running_summary += f"\n\n【第三章 到期日历要点】{chapter_texts[3][:600]}"
+        ctx.log(f"第三章完成（{len(chapter_texts[3])}字）")
+
+        # ── Chapter 4: 核心阻断专利 ──
+        ctx.log("第四章：核心阻断专利...")
+        ch4_prompt = _IP_CH4_PROMPT.format(
+            patents_block=patents_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[4] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch4_prompt}],
+            max_tokens=2500,
+        )
+        running_summary += f"\n\n【第四章 核心阻断专利要点】{chapter_texts[4][:600]}"
+        ctx.log(f"第四章完成（{len(chapter_texts[4])}字）")
+
+        # ── Chapter 5: 竞争对手专利格局 ──
+        ctx.log("第五章：竞争对手专利格局...")
+        ch5_prompt = _IP_CH5_PROMPT.format(
+            patents_block=patents_block,
+            stats_block=stats_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[5] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch5_prompt}],
+            max_tokens=2200,
+        )
+        running_summary += f"\n\n【第五章 竞争格局要点】{chapter_texts[5][:500]}"
+        ctx.log(f"第五章完成（{len(chapter_texts[5])}字）")
+
+        # ── Chapter 6: 空白区域分析 ──
+        ctx.log("第六章：空白区域分析...")
+        ch6_prompt = _IP_CH6_PROMPT.format(
+            web_block=web_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[6] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch6_prompt}],
+            max_tokens=1800,
+        )
+        running_summary += f"\n\n【第六章 空白区域要点】{chapter_texts[6][:500]}"
+        ctx.log(f"第六章完成（{len(chapter_texts[6])}字）")
+
+        # ── Chapter 7: BD 战略建议 ──
+        ctx.log("第七章：BD 战略建议...")
+        ch7_prompt = _IP_CH7_PROMPT.format(
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[7] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch7_prompt}],
+            max_tokens=1500,
+        )
+        ctx.log(f"第七章完成（{len(chapter_texts[7])}字）")
+
+        # Phase 4: Merge chapters + header
+        header = (
+            f"# {query} — IP Landscape Brief\n\n"
+            f"> **生成日期**: {today} | **分析师**: BD Go (铁证) | "
+            f"**数据源**: CRM ({len(patents)} 条专利) + Web\n"
+            f"> ⚠️ 本报告不构成法律意见。正式 FTO 需委托专业知识产权律所。\n\n"
+        )
+        markdown = header + "\n\n".join(chapter_texts[i] for i in range(1, 8))
+
+        total_chars = len(markdown)
+        ctx.log(f"全部 7 章合并完成，总计约 {total_chars} 字")
+
+        if total_chars < 500:
             raise RuntimeError("LLM returned empty or very short report")
 
-        # 5. Save
+        # Phase 4b: Save
         slug = safe_slug(query)
         md_filename = f"ip_landscape_{slug}.md"
         ctx.save_file(md_filename, markdown, format="md")
@@ -281,7 +455,8 @@ class IPLandscapeService(ReportService):
                 "n_patents": len(patents),
                 "web_results_count": len(web_results),
                 "stats": stats,
-                "chapters": 6,
+                "chapters": 7,
+                "total_chars": total_chars,
             },
         )
 

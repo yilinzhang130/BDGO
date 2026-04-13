@@ -32,9 +32,10 @@ set -euo pipefail
 LOCAL_GUIDELINES_DB="${HOME}/.openclaw/workspace/guidelines/guidelines.db"
 LOCAL_PG_DB="openclaw_crm"
 LOCAL_PG_DUMP="/opt/homebrew/opt/postgresql@17/bin/pg_dump"  # macOS Homebrew path
+LOCAL_PSQL="/opt/homebrew/opt/postgresql@17/bin/psql"
 
 REMOTE_USER="ubuntu"
-REMOTE_DATA_DIR='~/bdgo/data'
+REMOTE_DATA_DIR="/home/ubuntu/bdgo/data"
 REMOTE_CONTAINER="bdgo_backend"
 
 SSH_KEY=""  # Optional: path to SSH key (e.g. ~/.ssh/id_rsa_vm)
@@ -59,7 +60,7 @@ log() {
 die() { log "ERROR: $*"; exit 1; }
 
 ssh_cmd() {
-  local opts=(-o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o BatchMode=yes)
+  local opts=(-o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new)
   [[ -n "${SSH_KEY}" ]] && opts+=(-i "${SSH_KEY}")
   ssh "${opts[@]}" "${REMOTE_USER}@${VM_IP}" "$@"
 }
@@ -96,11 +97,11 @@ log "SSH OK"
 # ---------------------------------------------------------------------------
 log "--- CRM PostgreSQL sync ---"
 
-# Count local rows first
-declare -A LOCAL_COUNTS
+# Count local rows first (store as name=count pairs, bash 3 compatible)
+LOCAL_COUNTS_FILE="$(mktemp /tmp/sync_counts.XXXXXX)"
 for table in "${CRM_TABLES[@]}"; do
-  count="$(psql -d "${LOCAL_PG_DB}" -tAc "SELECT COUNT(*) FROM \"${table}\";" 2>/dev/null || echo "?")"
-  LOCAL_COUNTS["${table}"]="${count}"
+  count="$("${LOCAL_PSQL}" -h localhost -d "${LOCAL_PG_DB}" -tAc "SELECT COUNT(*) FROM \"${table}\";" 2>/dev/null || echo "?")"
+  echo "${table}=${count}" >> "${LOCAL_COUNTS_FILE}"
   log "  Local ${table}: ${count} rows"
 done
 
@@ -110,7 +111,7 @@ log "Dumping and restoring openclaw_crm via SSH pipe..."
   --clean --if-exists \
   --no-owner --no-privileges \
   | grep -v "^SET transaction_timeout" \
-  | ssh -o ConnectTimeout=15 -o BatchMode=yes \
+  | ssh -o ConnectTimeout=15 \
       ${SSH_KEY:+-i "${SSH_KEY}"} \
       "${REMOTE_USER}@${VM_IP}" \
       "sudo -u postgres psql -d openclaw_crm -q"
@@ -120,16 +121,16 @@ log "CRM dump+restore done"
 # Verify remote row counts
 log "Verifying remote row counts..."
 VERIFY_PASS=true
-for table in "${CRM_TABLES[@]}"; do
+while IFS='=' read -r table local_count; do
   remote_count="$(ssh_cmd "sudo -u postgres psql -d openclaw_crm -tAc \"SELECT COUNT(*) FROM \\\"${table}\\\";\"" 2>/dev/null || echo "?")"
-  local_count="${LOCAL_COUNTS[${table}]}"
   if [[ "${remote_count}" == "${local_count}" ]]; then
     log "  PASS  ${table}: ${local_count}"
   else
     log "  FAIL  ${table}: local=${local_count} remote=${remote_count}"
     VERIFY_PASS=false
   fi
-done
+done < "${LOCAL_COUNTS_FILE}"
+rm -f "${LOCAL_COUNTS_FILE}"
 [[ "${VERIFY_PASS}" == "true" ]] && log "All CRM counts match" || log "WARNING: count mismatch — check above"
 
 # ---------------------------------------------------------------------------
@@ -144,7 +145,7 @@ log "  Local guidelines.db: $(( LOCAL_G_SIZE / 1024 )) KB"
 # Backup existing on remote, then transfer
 ssh_cmd bash -s <<REMOTE_BACKUP
 set -e
-DATA=\$(eval echo "${REMOTE_DATA_DIR}")
+DATA="${REMOTE_DATA_DIR}"
 mkdir -p "\${DATA}"
 [ -f "\${DATA}/guidelines.db" ] && cp "\${DATA}/guidelines.db" "\${DATA}/guidelines.db.bak" || true
 echo "backup done"
@@ -152,9 +153,8 @@ REMOTE_BACKUP
 
 rsync -az \
   --checksum \
-  ${SSH_KEY:+-e "ssh -i ${SSH_KEY} -o BatchMode=yes"} \
   "${LOCAL_GUIDELINES_DB}" \
-  "${REMOTE_USER}@${VM_IP}:$(eval echo ${REMOTE_DATA_DIR})/"
+  "${REMOTE_USER}@${VM_IP}:${REMOTE_DATA_DIR}/"
 
 log "  Guidelines sync done"
 

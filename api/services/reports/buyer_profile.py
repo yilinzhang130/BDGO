@@ -45,108 +45,172 @@ class BuyerProfileInput(BaseModel):
 # Prompts
 # ─────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """你是 BD Go 平台的投行买方分析师。你的任务：根据 CRM 预聚合的买方情报 +
-最新网络检索结果，撰写一份面向 BD 专业读者的"买方需求画像简报"。
+CHAPTER_SYSTEM_PROMPT = """你是 BD Go 平台的投行买方分析师，正在为 {company} 逐章撰写买方需求画像简报。
 
 读者场景：BD 手里有资产要卖，想判断这家 MNC 会不会买、该怎么谈。
 
 硬规则：
-1. **数据说话** — 所有结论必须引用 CRM 数据或网络来源（标注 [CRM]、[Web]）
-2. **简洁投行风格** — 像资深 MD 写内部简报，不写营销软文
-3. **中文为主**，公司名/靶点/deal 类型保留英文
-4. **回答"so what"** — 每条发现都连接到 BD 行动建议
-5. **遇到数据缺失直接说** — 不要编造。标注 "[数据不足]" 比瞎写更专业
-6. **严格按指定的 6 章结构输出**，不要增减章节，不要加前言
+1. **只写被要求的这一章**，直接输出 markdown，不要加前言或总结
+2. **数据说话** — 结论引用 CRM 数据或网络来源，标注 [CRM] 或 [Web]
+3. **简洁投行风格** — 像资深 MD 写内部简报，不写营销软文
+4. **中文为主**，公司名/靶点/deal 类型保留英文
+5. **回答"so what"** — 每条发现都连接到 BD 行动建议
+6. **遇到数据缺失直接说** — 标注 "[数据不足]"，不要编造
 """
 
+# ── Chapter prompt templates ──────────────────────────────
 
-REPORT_PROMPT = """以下是 MNC 买方 **{company}** 的 CRM 预聚合情报 + 网络检索结果，请
-按指定的 6 章结构撰写一份 ~3500 字的 Word 简报。
+_BP_CH1_PROMPT = """
+## 任务：撰写第一章 公司概况 & 战略定位（目标 ~800 字）
 
-═════════════════════════════════════════════
-## CRM 情报 (来自 MNC画像 表)
-═════════════════════════════════════════════
+内容要求：
+- 基本信息：成立年份、总部、市值/年收入、主要股东
+- 战略重心：核心治疗领域、创新哲学（in-house vs BD驱动）
+- 核心管线概览（已上市旗舰产品 + 核心在研）
+- 引用 dna_summary、heritage_ta、innovation_philosophy、risk_appetite
+
 {crm_block}
 
-═════════════════════════════════════════════
-## 网络检索结果 (来自 Tavily)
-═════════════════════════════════════════════
+### 前几章要点（上下文，不要重复）
+{running_summary}
+
+直接以 `## 第一章 公司概况 & 战略定位` 开头输出 markdown：
+"""
+
+_BP_CH2_PROMPT = """
+## 任务：撰写第二章 管线分析 & 专利悬崖（目标 ~1200 字）
+
+内容要求：
+- 核心产品/管线按治疗领域分层叙述
+- 专利悬崖：未来 5 年 LOE 风险产品
+- **必须包含表格**：
+
+| 产品名 | 适应症 | 专利到期年 | 年销售额($B) | LOE风险评估 | 替代管线 |
+|---|---|---|---|---|---|
+
+- 分析：专利悬崖驱动的 BD 需求
+
+{crm_block}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第二章 管线分析 & 专利悬崖` 开头输出 markdown：
+"""
+
+_BP_CH3_PROMPT = """
+## 任务：撰写第三章 BD 历史 & 交易模式（目标 ~1200 字）
+
+内容要求：
+- 近 5 年重大交易（许可、收购、合作）；偏好阶段；付款结构
+- **必须包含表格**：
+
+| 交易年份 | 交易类型 | 对方 | 资产/靶点 | 阶段 | 首付款 | 总额 | 战略意图 |
+|---|---|---|---|---|---|---|---|
+
+- Deal type preference 分析（许可 vs 收购 vs 合作占比）
+- BD Pattern Theses 解读（每个 thesis 附 invest_m 金额）
+- Sunk Cost by TA 表格
+
+{crm_block}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第三章 BD 历史 & 交易模式` 开头输出 markdown：
+"""
+
+_BP_CH4_PROMPT = """
+## 任务：撰写第四章 管线空白 & 需求分析（目标 ~1200 字）
+
+内容要求：
+- 基于 commercial_capabilities + sunk_cost_by_ta 分析：哪些疾病领域缺货
+- **必须包含表格**：
+
+| 治疗领域 | 当前实力 | 已识别空白 | 优先需要什么 | So What |
+|---|---|---|---|---|
+
+- 至少覆盖 4-5 个治疗领域
+- 分析：这家 MNC 最迫切的 BD 缺口在哪
+
+{crm_block}
+
+{focus_note}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第四章 管线空白 & 需求分析` 开头输出 markdown：
+"""
+
+_BP_CH5_PROMPT = """
+## 任务：撰写第五章 中国 BD 机会矩阵（目标 ~1000 字）
+
+内容要求：
+- 中国资产与这家 MNC 需求的匹配分析
+- **必须包含评分表格**（基于前四章的管线空白分析）：
+
+| 资产类型/治疗领域 | 需求匹配度(1-5) | 战略契合度(1-5) | 竞争激烈度(1-5，越低越好) | 综合评分 | 推荐优先级 |
+|---|---|---|---|---|---|
+
+- Top 3 中国 BD 机会详细说明（每个给出：为什么这家 MNC 会买、怎么谈、什么时机）
+
+{crm_block}
+
+### 前几章要点
+{running_summary}
+
+直接以 `## 第五章 中国 BD 机会矩阵` 开头输出 markdown：
+"""
+
+_BP_CH6_PROMPT = """
+## 任务：撰写第六章 高管画像 & 决策人（目标 ~800 字）
+
+内容要求：
+- CEO / CSO / Head of BD 背景、公开表态和 BD 倾向
+- 格式：姓名 — 背景 — 公开表态（引述 + BD 含义）
+- 决策流程：谁拍板、典型决策周期
+- 基于 Web 近期新闻
+
+{crm_block}
+
 {web_block}
 
-═════════════════════════════════════════════
-## 输出格式
-═════════════════════════════════════════════
-严格按下面的 markdown 模板输出（不要加任何前言、不要用代码块包裹、直接输出 markdown）：
+### 前几章要点
+{running_summary}
 
-```
-# {company} — Buyer Intelligence Brief
+直接以 `## 第六章 高管画像 & 决策人` 开头输出 markdown：
+"""
 
-> **生成日期**: {today} | **分析师**: BD Go (探针) | **数据源**: CRM + Web Search
+_BP_CH7_PROMPT = """
+## 任务：撰写第七章 交易结构参考（目标 ~800 字）
 
-## Executive Summary
+内容要求：
+- 基于历史交易 comps：首付款范围 / 里程碑设置 / 版税区间
+- 不同阶段资产（Phase 1/2/3）的典型交易结构
+- 这家 MNC 特有的谈判偏好（从 deal_type_preference 和 signature_deals 推断）
 
-（3-5 条核心发现，每条 1-2 句，每条标注证据来源 [CRM] / [Web]）
+{crm_block}
 
-- 发现 1...
-- 发现 2...
+### 前几章要点
+{running_summary}
 
-## 1. Company DNA
+直接以 `## 第七章 交易结构参考` 开头输出 markdown：
+"""
 
-（1 段散文，总结公司战略基因。引用 dna_summary、heritage_ta、deal_size_preference）
+_BP_CH8_PROMPT = """
+## 任务：撰写第八章 BD 攻略 & 推荐行动（目标 ~600 字）
 
-**Key Executives:**
-- CEO: [姓名] — [背景 + BD 倾向]
-- CSO: [姓名] — [背景]
-- Head of BD: [姓名] — [背景]
+内容要求（基于前七章综合判断，给出可执行建议）：
+- 最佳切入点（治疗领域 + 资产类型 + 阶段）
+- 接触话术建议（突出哪些卖点、规避哪些雷区）
+- 时机判断（什么时候接触最合适，结合催化剂和专利悬崖）
+- 需要规避的雷区（这家 MNC 不会买什么）
 
-## 2. Pipeline Gap Analysis {focus_instruction}
+### 所有前章要点（本章的决策依据）
+{running_summary}
 
-基于 commercial_capabilities + sunk_cost_by_ta 分析：
-
-| Therapeutic Area | Current Strength | Identified Gap | So What |
-|---|---|---|---|
-| ... | ... | ... | ... |
-
-（至少 3 行。每行给出具体的"so what" — 这个 gap 意味着 BD 机会在哪）
-
-## 3. Historical BD Pattern
-
-### 3.1 Deal Type Preference
-（基于 deal_type_preference JSON，用一段话描述偏好许可/收购/合作的比例，数字带 %）
-
-### 3.2 Signature Deals
-（从 signature_deals 提取 2-3 笔代表交易，每笔给出 "what + why + size"）
-
-### 3.3 BD Pattern Theses
-（基于 bd_pattern_theses，每个 thesis 用 1 段话解读，带 invest_m 金额）
-
-### 3.4 Sunk Cost by TA
-| Therapeutic Area | Invested ($M) | Deal Count | Implication |
-|---|---|---|---|
-| ... | ... | ... | ... |
-
-## 4. Recent Moves (Past 12 Months)
-
-（基于 Web Search 结果，列出最近 12 个月的：新 BD 交易 / 管线新闻 / 高管变动。
-每条注明 [Web - domain]。如果 Web Search 被关闭或无结果，写：
-"> ⚠️ 本节未启用网络检索或未找到相关新闻。"）
-
-## 5. BD Opportunity Matrix
-
-（"如果你手里有什么资产，这家 MNC 会不会买？" — 给 5 种典型资产画像打分）
-
-| Asset Profile | Fit Score | Why | What to Prepare |
-|---|---|---|---|
-| Phase 2/3 Oncology ADC | 高/中/低 | ... | ... |
-| Early-stage Immunology | ... | ... | ... |
-| ... | ... | ... | ... |
-
-## 6. Bottom Line
-
-（3-5 句话结论：这家 MNC 的买方特征总结 + 最佳接洽策略 + 需要规避的雷区）
-```
-
-**最后提醒**：直接开始写 markdown，不要说"好的我来写"这样的开场白，也不要用代码块包裹整个输出。
+直接以 `## 第八章 BD 攻略 & 推荐行动` 开头输出 markdown：
 """
 
 
@@ -192,7 +256,7 @@ class BuyerProfileService(ReportService):
     input_model = BuyerProfileInput
     mode = "async"
     output_formats = ["docx", "md"]
-    estimated_seconds = 150
+    estimated_seconds = 600
     category = "report"
     field_rules = {}  # no conditional visibility
 
@@ -200,7 +264,7 @@ class BuyerProfileService(ReportService):
     def run(self, params: dict, ctx: ReportContext) -> ReportResult:
         inp = BuyerProfileInput(**params)
 
-        # 1. Fuzzy lookup the MNC画像 row
+        # Phase 1: Fuzzy lookup the MNC画像 row
         ctx.log(f"Looking up {inp.company_name} in MNC画像...")
         profile = self._fuzzy_lookup(inp.company_name, ctx)
         if not profile:
@@ -211,10 +275,10 @@ class BuyerProfileService(ReportService):
         resolved_name = profile.get("company_name", inp.company_name)
         ctx.log(f"Resolved to: {resolved_name}")
 
-        # 2. Parse JSON fields defensively
+        # Phase 2: Parse JSON fields defensively
         parsed = self._parse_profile_json(profile)
 
-        # 3. Optional web search augmentation
+        # Phase 2b: Optional web search augmentation
         web_results: list[dict] = []
         if inp.include_web_search:
             ctx.log("Searching web for recent deals and news...")
@@ -223,36 +287,151 @@ class BuyerProfileService(ReportService):
         else:
             ctx.log("Web search disabled — CRM-only mode")
 
-        # 4. Build LLM prompt + call
-        ctx.log("Generating report via LLM...")
+        # Pre-format shared blocks
         crm_block = self._format_crm_block(profile, parsed)
         web_block = format_web_results(web_results, inp.include_web_search)
-        focus_instruction = f"(\u91cd\u70b9\u5173\u6ce8 **{inp.focus_ta}**)" if inp.focus_ta else ""
+        today = datetime.date.today().isoformat()
+        focus_note = f"> 重点关注治疗领域：**{inp.focus_ta}**" if inp.focus_ta else ""
 
-        prompt = REPORT_PROMPT.format(
-            company=resolved_name,
+        system_prompt = CHAPTER_SYSTEM_PROMPT.format(company=resolved_name)
+
+        # Phase 3: Generate chapters one by one
+        chapter_texts: dict[int, str] = {}
+        running_summary = ""
+
+        # ── Chapter 1: 公司概况 & 战略定位 ──
+        ctx.log("第一章：公司概况 & 战略定位...")
+        ch1_prompt = _BP_CH1_PROMPT.format(
+            crm_block=crm_block,
+            running_summary=running_summary or "(无，这是第一章)",
+        )
+        chapter_texts[1] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch1_prompt}],
+            max_tokens=1800,
+        )
+        running_summary += f"\n\n【第一章 公司概况要点】{chapter_texts[1][:700]}"
+        ctx.log(f"第一章完成（{len(chapter_texts[1])}字）")
+
+        # ── Chapter 2: 管线分析 & 专利悬崖 ──
+        ctx.log("第二章：管线分析 & 专利悬崖...")
+        ch2_prompt = _BP_CH2_PROMPT.format(
+            crm_block=crm_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[2] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch2_prompt}],
+            max_tokens=2500,
+        )
+        running_summary += f"\n\n【第二章 管线/专利悬崖要点】{chapter_texts[2][:700]}"
+        ctx.log(f"第二章完成（{len(chapter_texts[2])}字）")
+
+        # ── Chapter 3: BD 历史 & 交易模式 ──
+        ctx.log("第三章：BD 历史 & 交易模式...")
+        ch3_prompt = _BP_CH3_PROMPT.format(
+            crm_block=crm_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[3] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch3_prompt}],
+            max_tokens=2500,
+        )
+        running_summary += f"\n\n【第三章 BD交易模式要点】{chapter_texts[3][:700]}"
+        ctx.log(f"第三章完成（{len(chapter_texts[3])}字）")
+
+        # ── Chapter 4: 管线空白 & 需求分析 ──
+        ctx.log("第四章：管线空白 & 需求分析...")
+        ch4_prompt = _BP_CH4_PROMPT.format(
+            crm_block=crm_block,
+            focus_note=focus_note,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[4] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch4_prompt}],
+            max_tokens=2500,
+        )
+        running_summary += f"\n\n【第四章 管线空白要点】{chapter_texts[4][:700]}"
+        ctx.log(f"第四章完成（{len(chapter_texts[4])}字）")
+
+        # ── Chapter 5: 中国 BD 机会矩阵 ──
+        ctx.log("第五章：中国 BD 机会矩阵...")
+        ch5_prompt = _BP_CH5_PROMPT.format(
+            crm_block=crm_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[5] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch5_prompt}],
+            max_tokens=2200,
+        )
+        running_summary += f"\n\n【第五章 中国BD机会要点】{chapter_texts[5][:600]}"
+        ctx.log(f"第五章完成（{len(chapter_texts[5])}字）")
+
+        # ── Chapter 6: 高管画像 & 决策人 ──
+        ctx.log("第六章：高管画像 & 决策人...")
+        ch6_prompt = _BP_CH6_PROMPT.format(
             crm_block=crm_block,
             web_block=web_block,
-            today=datetime.date.today().isoformat(),
-            focus_instruction=focus_instruction,
+            running_summary=running_summary[-1000:],
         )
-
-        markdown = ctx.llm(
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=6000,
+        chapter_texts[6] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch6_prompt}],
+            max_tokens=1800,
         )
+        running_summary += f"\n\n【第六章 高管画像要点】{chapter_texts[6][:500]}"
+        ctx.log(f"第六章完成（{len(chapter_texts[6])}字）")
 
-        if not markdown or len(markdown.strip()) < 200:
+        # ── Chapter 7: 交易结构参考 ──
+        ctx.log("第七章：交易结构参考...")
+        ch7_prompt = _BP_CH7_PROMPT.format(
+            crm_block=crm_block,
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[7] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch7_prompt}],
+            max_tokens=1800,
+        )
+        running_summary += f"\n\n【第七章 交易结构要点】{chapter_texts[7][:500]}"
+        ctx.log(f"第七章完成（{len(chapter_texts[7])}字）")
+
+        # ── Chapter 8: BD 攻略 & 推荐行动 ──
+        ctx.log("第八章：BD 攻略 & 推荐行动...")
+        ch8_prompt = _BP_CH8_PROMPT.format(
+            running_summary=running_summary[-1000:],
+        )
+        chapter_texts[8] = ctx.llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": ch8_prompt}],
+            max_tokens=1500,
+        )
+        ctx.log(f"第八章完成（{len(chapter_texts[8])}字）")
+
+        # Phase 4: Merge chapters + header
+        header = (
+            f"# {resolved_name} — Buyer Intelligence Brief\n\n"
+            f"> **生成日期**: {today} | **分析师**: BD Go (探针) | "
+            f"**数据源**: CRM + Web Search\n\n"
+        )
+        markdown = header + "\n\n".join(chapter_texts[i] for i in range(1, 9))
+
+        total_chars = len(markdown)
+        ctx.log(f"全部 8 章合并完成，总计约 {total_chars} 字")
+
+        if total_chars < 500:
             raise RuntimeError("LLM returned empty or very short report")
 
-        # 5. Save markdown
+        # Phase 4b: Save markdown
         slug = safe_slug(resolved_name)
         md_filename = f"buyer_profile_{slug}.md"
         ctx.save_file(md_filename, markdown, format="md")
         ctx.log("Markdown saved")
 
-        # 6. Render to docx
+        # Phase 4c: Render to docx
         ctx.log("Rendering Word document...")
         doc = docx_builder.new_report_document()
         docx_builder.add_title(
@@ -276,7 +455,8 @@ class BuyerProfileService(ReportService):
                 "focus_ta": inp.focus_ta,
                 "include_web_search": inp.include_web_search,
                 "web_results_count": len(web_results),
-                "chapters": 6,
+                "chapters": 8,
+                "total_chars": total_chars,
             },
         )
 
