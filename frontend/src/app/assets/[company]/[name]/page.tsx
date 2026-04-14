@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchAsset, fetchAssetTrials, updateRecord, deleteRecord } from "@/lib/api";
+import { fetchAsset, fetchAssetTrials } from "@/lib/api";
 import { phaseBadgeClass, resultBadgeClass, parseNum } from "@/lib/utils";
-import { EditableField } from "@/components/ui/EditableField";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { AgentButton } from "@/components/ui/AgentButton";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -88,6 +85,15 @@ const SECTIONS: Section[] = [
   },
 ];
 
+function ReadField({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: "0.85rem", color: value ? "var(--text)" : "var(--text-secondary)" }}>{value || "—"}</span>
+    </div>
+  );
+}
+
 export default function AssetDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -97,7 +103,6 @@ export default function AssetDetailPage() {
   const [asset, setAsset] = useState<any>(null);
   const [trials, setTrials] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
-  const [showDelete, setShowDelete] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     SECTIONS.forEach((s) => { init[s.title] = s.defaultOpen ?? false; });
@@ -125,16 +130,6 @@ export default function AssetDetailPage() {
     { axis: "Commercial (Q4)", value: q4 ?? 0 },
   ];
 
-  const handleFieldSave = async (dbCol: string, newValue: string) => {
-    await updateRecord("资产", name, { [dbCol]: newValue }, company);
-    setAsset({ ...asset, [dbCol]: newValue });
-  };
-
-  const handleDelete = async () => {
-    await deleteRecord("资产", name, company);
-    router.push(`/companies/${encodeURIComponent(company)}`);
-  };
-
   return (
     <div>
       <div className="detail-header">
@@ -152,31 +147,6 @@ export default function AssetDetailPage() {
               {asset["疾病领域"] && <span>{asset["疾病领域"]}</span>}
               {asset["靶点"] && <span>Target: {asset["靶点"]}</span>}
             </div>
-          </div>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
-            <AgentButton
-              label="Enrich Data"
-              message={`@分析 ${name} (${company})`}
-              onComplete={() => {
-                fetchAsset(company, name).then(setAsset);
-              }}
-            />
-            {!hasScores && (
-              <AgentButton
-                label="AI Evaluation"
-                message={`对资产 ${name} (${company}) 进行四象限评估`}
-                style={{ background: "#8b5cf6" }}
-                onComplete={() => {
-                  fetchAsset(company, name).then(setAsset);
-                }}
-              />
-            )}
-            <button
-              onClick={() => setShowDelete(true)}
-              style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
-            >
-              Delete
-            </button>
           </div>
         </div>
       </div>
@@ -223,12 +193,7 @@ export default function AssetDetailPage() {
           {openSections[section.title] && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.6rem", fontSize: "0.85rem", marginTop: "0.75rem" }}>
               {section.fields.map(([label, dbCol]) => (
-                <EditableField
-                  key={dbCol}
-                  label={label}
-                  value={String(asset[dbCol] ?? "")}
-                  onSave={(v) => handleFieldSave(dbCol, v)}
-                />
+                <ReadField key={dbCol} label={label} value={String(asset[dbCol] ?? "")} />
               ))}
             </div>
           )}
@@ -262,14 +227,6 @@ export default function AssetDetailPage() {
           </table>
         </div>
       </div>
-
-      {showDelete && (
-        <ConfirmDialog
-          message={`Delete asset "${name}" from ${company}?`}
-          onConfirm={handleDelete}
-          onCancel={() => setShowDelete(false)}
-        />
-      )}
     </div>
   );
 }

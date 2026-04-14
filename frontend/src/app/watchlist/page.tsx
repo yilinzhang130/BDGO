@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { fetchWatchlist, removeFromWatchlist } from "@/lib/api";
+import { fetchWatchlist, removeFromWatchlist, addToWatchlist } from "@/lib/api";
 
 const TYPE_OPTIONS = [
   { value: "", label: "All Types" },
@@ -55,6 +55,12 @@ export default function WatchlistPage() {
   const [page, setPage] = useState(1);
   const pageSize = 50;
 
+  // Quick-add state
+  const [addType, setAddType] = useState("company");
+  const [addKey, setAddKey] = useState("");
+  const [addNotes, setAddNotes] = useState("");
+  const [adding, setAdding] = useState(false);
+
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedQ(q); setPage(1); }, 300);
     return () => clearTimeout(t);
@@ -88,6 +94,22 @@ export default function WatchlistPage() {
     if (href) router.push(href);
   };
 
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addKey.trim() || adding) return;
+    setAdding(true);
+    try {
+      await addToWatchlist({ entity_type: addType, entity_key: addKey.trim(), notes: addNotes.trim() || undefined });
+      setAddKey("");
+      setAddNotes("");
+      load();
+    } catch (err) {
+      console.error("Add to watchlist failed:", err);
+    } finally {
+      setAdding(false);
+    }
+  };
+
   return (
     <div style={{ padding: "2rem" }}>
       <div className="page-header">
@@ -107,6 +129,43 @@ export default function WatchlistPage() {
           ))}
         </select>
       </div>
+
+      {/* Quick-add form */}
+      <form onSubmit={handleAdd} className="card" style={{ marginTop: "1rem", padding: "0.85rem 1rem", display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)", fontWeight: 500, whiteSpace: "nowrap" }}>+ 添加关注</span>
+        <select
+          value={addType}
+          onChange={(e) => setAddType(e.target.value)}
+          style={{ fontSize: "0.82rem", padding: "0.3rem 0.5rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg)", color: "var(--text)" }}
+        >
+          <option value="company">公司</option>
+          <option value="asset">资产</option>
+          <option value="disease">疾病</option>
+          <option value="target">靶点</option>
+        </select>
+        <input
+          type="text"
+          placeholder="名称（必填）"
+          value={addKey}
+          onChange={(e) => setAddKey(e.target.value)}
+          required
+          style={{ flex: "1 1 160px", fontSize: "0.82rem", padding: "0.3rem 0.6rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg)", color: "var(--text)", minWidth: 120 }}
+        />
+        <input
+          type="text"
+          placeholder="备注（可选）"
+          value={addNotes}
+          onChange={(e) => setAddNotes(e.target.value)}
+          style={{ flex: "2 1 200px", fontSize: "0.82rem", padding: "0.3rem 0.6rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg)", color: "var(--text)", minWidth: 120 }}
+        />
+        <button
+          type="submit"
+          disabled={adding || !addKey.trim()}
+          style={{ padding: "0.35rem 0.9rem", background: "var(--accent)", color: "white", border: "none", borderRadius: 6, cursor: adding ? "wait" : "pointer", fontSize: "0.82rem", fontWeight: 600, opacity: adding || !addKey.trim() ? 0.6 : 1, whiteSpace: "nowrap" }}
+        >
+          {adding ? "添加中…" : "添加"}
+        </button>
+      </form>
 
       <div className="card" style={{ marginTop: "1rem" }}>
         {data && data.data.length === 0 ? (

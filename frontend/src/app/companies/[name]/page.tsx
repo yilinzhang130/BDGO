@@ -2,12 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchCompany, fetchCompanyAssets, fetchCompanyTrials, fetchCompanyDeals, fetchBuyer, updateRecord, deleteRecord, renameCompany } from "@/lib/api";
+import { fetchCompany, fetchCompanyAssets, fetchCompanyTrials, fetchCompanyDeals, fetchBuyer } from "@/lib/api";
 import { phaseBadgeClass, priorityBadgeClass, resultBadgeClass } from "@/lib/utils";
-import { EditableField } from "@/components/ui/EditableField";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { BPUpload } from "@/components/ui/BPUpload";
-import { AgentButton } from "@/components/ui/AgentButton";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
 
 interface Section { title: string; fields: [string, string][]; defaultOpen?: boolean; }
@@ -76,6 +72,15 @@ const SECTIONS: Section[] = [
   },
 ];
 
+function ReadField({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: "0.85rem", color: value ? "var(--text)" : "var(--text-secondary)" }}>{value || "—"}</span>
+    </div>
+  );
+}
+
 export default function CompanyDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -88,75 +93,32 @@ export default function CompanyDetailPage() {
   const [buyerProfile, setBuyerProfile] = useState<any>(null);
   const [tab, setTab] = useState("assets");
   const [notFound, setNotFound] = useState(false);
-  const [showDelete, setShowDelete] = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [draftName, setDraftName] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     SECTIONS.forEach((s) => { init[s.title] = s.defaultOpen ?? false; });
     return init;
   });
 
-  const reload = () => {
+  useEffect(() => {
     fetchCompany(name).then(setCompany).catch(() => setNotFound(true));
     fetchCompanyAssets(name).then(setAssets);
     fetchCompanyTrials(name).then(setTrials);
     fetchCompanyDeals(name).then(setDeals);
     fetchBuyer(name).then(setBuyerProfile).catch(() => {});
-  };
-
-  useEffect(() => { reload(); }, [name]);
+  }, [name]);
 
   if (notFound) return <div className="loading">Company not found</div>;
   if (!company) return <div className="loading">Loading...</div>;
-
-  const handleFieldSave = async (dbColumn: string, newValue: string) => {
-    await updateRecord("公司", name, { [dbColumn]: newValue });
-    setCompany({ ...company, [dbColumn]: newValue });
-  };
-
-  const handleDelete = async () => {
-    await deleteRecord("公司", name);
-    router.push("/companies");
-  };
 
   return (
     <div>
       <div className="detail-header">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            {editingName ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <input
-                  autoFocus
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Escape") { setEditingName(false); return; }
-                    if (e.key === "Enter" && draftName.trim() && draftName !== name) {
-                      try {
-                        await renameCompany(name, draftName.trim());
-                        router.replace(`/companies/${encodeURIComponent(draftName.trim())}`);
-                      } catch (err: any) { alert(err.message); }
-                    }
-                  }}
-                  onBlur={() => setEditingName(false)}
-                  style={{ fontSize: "1.5rem", fontWeight: 700, border: "1px solid var(--accent)", borderRadius: 6, padding: "0.1rem 0.4rem", width: "100%" }}
-                />
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <WatchlistButton entityType="company" entityKey={name} size={22} />
-                <h1
-                  onClick={() => { setDraftName(name); setEditingName(true); }}
-                  style={{ cursor: "pointer", margin: 0 }}
-                  title="Click to rename"
-                >
-                  {name} <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", opacity: 0.5 }}>&#9998;</span>
-                </h1>
-              </div>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <WatchlistButton entityType="company" entityKey={name} size={22} />
+              <h1 style={{ margin: 0 }}>{name}</h1>
+            </div>
             <div className="meta">
               {company["客户类型"] && <span>{company["客户类型"]}</span>}
               {company["所处国家"] && <span>{company["所处国家"]}</span>}
@@ -167,31 +129,6 @@ export default function CompanyDetailPage() {
                 </span>
               )}
             </div>
-          </div>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
-            <AgentButton
-              label="Enrich Data"
-              message={`@分析 ${name}`}
-              onComplete={reload}
-            />
-            <button
-              onClick={() => setShowUpload(true)}
-              style={{
-                padding: "0.4rem 0.9rem", background: "#8b5cf6", color: "white",
-                border: "none", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
-              }}
-            >
-              Upload BP
-            </button>
-            <button
-              onClick={() => setShowDelete(true)}
-              style={{
-                padding: "0.4rem 0.9rem", background: "white", color: "var(--red)",
-                border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem",
-              }}
-            >
-              Delete
-            </button>
           </div>
         </div>
       </div>
@@ -225,12 +162,7 @@ export default function CompanyDetailPage() {
           {openSections[section.title] && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.6rem", fontSize: "0.85rem", marginTop: "0.75rem" }}>
               {section.fields.map(([label, dbCol]) => (
-                <EditableField
-                  key={dbCol}
-                  label={label}
-                  value={company[dbCol] || ""}
-                  onSave={(v) => handleFieldSave(dbCol, v)}
-                />
+                <ReadField key={dbCol} label={label} value={company[dbCol] || ""} />
               ))}
             </div>
           )}
@@ -368,24 +300,6 @@ export default function CompanyDetailPage() {
             View Full Profile &rarr;
           </button>
         </div>
-      )}
-
-      {showDelete && (
-        <ConfirmDialog
-          message={`Delete company "${name}" and all associated data?`}
-          onConfirm={handleDelete}
-          onCancel={() => setShowDelete(false)}
-        />
-      )}
-
-      {showUpload && (
-        <BPUpload
-          company={name}
-          onClose={() => setShowUpload(false)}
-          onUploaded={(filename) => {
-            setCompany({ ...company, "BP来源": filename });
-          }}
-        />
       )}
     </div>
   );
