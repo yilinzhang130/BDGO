@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ToolEvent {
   type: "tool_call" | "tool_result";
@@ -144,7 +145,7 @@ export function ChatMessage({ role, content, streaming, tools, attachments }: Pr
     <div className="chat-message assistant">
       <div className="chat-bubble assistant">
         {hasTools && <ToolStepsPanel tools={tools!} isStreaming={!!streaming} />}
-        {content && <Markdown>{content}</Markdown>}
+        {content && <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>}
         {streaming && !content && !hasTools && <span className="chat-cursor">|</span>}
         {streaming && content && <span className="chat-cursor">|</span>}
       </div>
