@@ -266,6 +266,7 @@ export function Sidebar() {
   };
 
   return (
+    <>
     <aside className="sidebar">
       {/* Brand */}
       <div className="sidebar-brand">
@@ -318,5 +319,6 @@ export function Sidebar() {
       <SidebarFooter />
     </aside>
     <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+    </>
   );
 }
