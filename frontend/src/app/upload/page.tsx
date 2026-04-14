@@ -16,7 +16,7 @@ export default function UploadPage() {
       <div className="card" style={{ maxWidth: 600 }}>
         <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem" }}>Upload Business Plan</h3>
         <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-          Upload a BP file (PDF/PPTX) to analyze a new company. The AI agent will automatically analyze the document and ingest the data into the CRM.
+          Upload a BP file (PDF/PPTX) to analyze a new company. The AI agent will automatically analyze the document and ingest the data into the database.
         </p>
         <button
           onClick={() => setShowUpload(true)}

@@ -224,7 +224,7 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#10b981" }}>&#10003;</div>
             <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>Analysis Complete</div>
             <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-              Data has been analyzed and ingested into the CRM.
+              分析完成，数据已成功入库。
             </div>
             <button onClick={onClose} style={{ padding: "0.45rem 1rem", border: "none", borderRadius: 6, background: "var(--accent)", color: "white", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}>
               Done

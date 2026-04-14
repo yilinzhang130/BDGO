@@ -34,7 +34,7 @@ export function ChatInput({ value, onChange, onSend, disabled }: Props) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Ask anything about your CRM data..."
+        placeholder="搜索公司、资产、交易，或提问…"
         disabled={disabled}
         rows={1}
       />

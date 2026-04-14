@@ -19,9 +19,9 @@ const SECTIONS: Section[] = [
     fields: [
       ["Deal Type", "交易类型"],
       ["Buyer", "买方公司"],
-      ["Buyer CRM Status", "买方CRM状态"],
+      ["Buyer CRM Status", "买方跟进状态"],
       ["Seller / Partner", "卖方/合作方"],
-      ["Seller CRM Status", "卖方CRM状态"],
+      ["Seller CRM Status", "卖方跟进状态"],
       ["Asset", "资产名称"],
       ["Target", "靶点"],
       ["Phase", "临床阶段"],
