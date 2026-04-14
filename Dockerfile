@@ -3,9 +3,11 @@
 
 FROM python:3.11-slim AS base
 
-# System deps for psycopg2 (Postgres driver)
+# System deps: psycopg2 + Tesseract OCR (chi_sim+eng for scanned PDF extraction)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq-dev gcc curl && \
+    apt-get install -y --no-install-recommends \
+        libpq-dev gcc curl \
+        tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
