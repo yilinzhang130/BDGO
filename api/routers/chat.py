@@ -195,6 +195,7 @@ SYSTEM_PROMPT = """你是 BD Go，生物医药BD领域的资深智能助手。�
 | "XX商业化/peak sales/能卖多少" | analyze_commercial(asset_name=XX) — 患者漏斗+Revenue Forecast报告 |
 | "XX专利格局/IP landscape" | analyze_ip(query=XX) — 专利景观简报 |
 | "帮我做个报告" | 用 research_disease / analyze_commercial / analyze_ip 等工具，告知用户去Reports页面下载 |
+| "帮我加关注/收藏/加入关注" | add_to_watchlist(entity_type, entity_key) — 立即执行，告知用户已添加成功 |
 | 简单查数据 | 直接一个工具，快速回答 |
 
 ### 4. 每轮输出要有结构
@@ -346,6 +347,19 @@ TOOLS = [
                 "limit": {"type": "integer", "default": 5},
             },
             "required": ["q"],
+        },
+    },
+    {
+        "name": "add_to_watchlist",
+        "description": "Add a company or asset to the current user's watchlist. Use this when the user says '加关注', '加入关注', '收藏', or any similar intent. entity_type must be 'company' or 'asset'.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "entity_type": {"type": "string", "enum": ["company", "asset", "disease", "target", "incubator"], "description": "Type of entity"},
+                "entity_key": {"type": "string", "description": "The name/key of the entity, e.g. the company name or asset name"},
+                "notes": {"type": "string", "description": "Optional notes about why this is being watched"},
+            },
+            "required": ["entity_type", "entity_key"],
         },
     },
     # ── Clinical Guidelines tools (from guidelines.db) ──
@@ -532,6 +546,33 @@ def _tool_search_global(q, limit=5):
     return results
 
 
+def _tool_add_to_watchlist(entity_type: str, entity_key: str, notes: str = "", _user_id: str = ""):
+    """Add entity to the current user's watchlist (writes to PostgreSQL)."""
+    if not _user_id:
+        return {"success": False, "error": "用户未登录，无法添加关注"}
+    try:
+        with transaction() as cur:
+            cur.execute(
+                """INSERT INTO watchlist (entity_type, entity_key, user_id, notes)
+                   VALUES (%s, %s, %s, %s)
+                   ON CONFLICT (user_id, entity_type, entity_key)
+                   DO UPDATE SET notes = COALESCE(NULLIF(EXCLUDED.notes, ''), watchlist.notes)
+                   RETURNING id""",
+                (entity_type, entity_key, _user_id, notes or None),
+            )
+            row = cur.fetchone()
+        return {
+            "success": True,
+            "id": row["id"],
+            "entity_type": entity_type,
+            "entity_key": entity_key,
+            "message": f"✅ 已将 **{entity_key}** 添加到关注列表！你可以在 [关注列表](/watchlist) 页面查看。",
+        }
+    except Exception as e:
+        logger.exception("add_to_watchlist failed")
+        return {"success": False, "error": str(e)}
+
+
 # ── Clinical Guidelines tools (guidelines.db) ───────────────
 
 import os
@@ -625,6 +666,7 @@ TOOL_IMPL = {
     "get_buyer_profile": _tool_get_buyer_profile,
     "count_by": _tool_count_by,
     "search_global": _tool_search_global,
+    "add_to_watchlist": _tool_add_to_watchlist,
     # Guidelines tools
     "query_treatment_guidelines": _tool_query_treatment_guidelines,
     "query_biomarker": _tool_query_biomarker,
@@ -695,13 +737,16 @@ except Exception as _e:
     logger.exception("Failed to register report services as Chat tools: %s", _e)
 
 
-def _execute_tool(name: str, inp: dict) -> str:
+def _execute_tool(name: str, inp: dict, user_id: str | None = None) -> str:
     """Execute a tool and return JSON-serialized result (truncated for context)."""
     fn = TOOL_IMPL.get(name)
     if not fn:
         return json.dumps({"error": f"Unknown tool: {name}"})
     try:
-        result = fn(**(inp or {}))
+        kwargs = dict(inp or {})
+        if user_id and name in ("add_to_watchlist",):
+            kwargs["_user_id"] = user_id
+        result = fn(**kwargs)
         s = json.dumps(result, ensure_ascii=False, default=str)
         if len(s) > 8000:
             s = s[:8000] + "\n...[truncated]"
@@ -1153,7 +1198,7 @@ async def _stream_chat(req: ChatRequest):
                             inp = json.loads(tu["input_json"] or "{}")
                         except json.JSONDecodeError:
                             inp = {}
-                        result_str = _execute_tool(tu["name"], inp)
+                        result_str = _execute_tool(tu["name"], inp, user_id=user_id)
                         yield f"data: {json.dumps({'type': 'tool_result', 'name': tu['name']})}\n\n"
 
                         # Collect tool event for persistence

@@ -67,6 +67,10 @@ export const updateProfile = (fields: Record<string, string>) =>
 export const globalSearch = (q: string, limit = 5) =>
   get(`${BASE}/search/global`, { q, limit });
 
+// Session search
+export const searchSessions = (q: string) =>
+  get<{ id: string; title: string; updated_at: string }[]>(`${BASE}/sessions/search`, { q });
+
 // Chat (returns raw Response for streaming)
 export async function chatStream(message: string, sessionId: string, fileIds: string[] = []): Promise<Response> {
   const res = await fetch(`${BASE}/chat`, {

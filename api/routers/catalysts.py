@@ -176,15 +176,10 @@ def list_catalysts(
     if disease:
         dl = disease.lower()
         filtered = [e for e in filtered if dl in (e["indication"] or "").lower()]
-    if status_filter:
-        filtered = [e for e in filtered if e["status"] == status_filter]
     if year:
         filtered = [e for e in filtered if e["date"].startswith(str(year))]
 
-    # Sort by date
-    filtered.sort(key=lambda e: e["date"])
-
-    # Stats
+    # Stats always reflect pre-status-filter totals so cards stay meaningful when filtering
     stats = {
         "total": len(filtered),
         "overdue": sum(1 for e in filtered if e["status"] == "overdue"),
@@ -192,6 +187,13 @@ def list_catalysts(
         "upcoming": sum(1 for e in filtered if e["status"] == "upcoming"),
         "far": sum(1 for e in filtered if e["status"] == "far"),
     }
+
+    # Apply status_filter AFTER computing stats
+    if status_filter:
+        filtered = [e for e in filtered if e["status"] == status_filter]
+
+    # Sort by date
+    filtered.sort(key=lambda e: e["date"])
 
     # Paginate
     total = len(filtered)

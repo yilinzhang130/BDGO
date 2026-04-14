@@ -100,6 +100,35 @@ def list_sessions(user: dict = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
+# Search sessions by title or message content
+# ---------------------------------------------------------------------------
+
+@router.get("/search")
+def search_sessions(q: str = "", user: dict = Depends(get_current_user)):
+    """Search chat sessions by title or message content. Returns up to 10 matches."""
+    user_id = user["id"]
+    with transaction() as cur:
+        if q:
+            cur.execute(
+                """SELECT DISTINCT s.id, s.title, s.updated_at
+                   FROM sessions s
+                   LEFT JOIN messages m ON m.session_id = s.id
+                   WHERE s.user_id = %s
+                     AND (s.title ILIKE %s OR m.content ILIKE %s)
+                   ORDER BY s.updated_at DESC
+                   LIMIT 10""",
+                (user_id, f"%{q}%", f"%{q}%"),
+            )
+        else:
+            cur.execute(
+                "SELECT id, title, updated_at FROM sessions WHERE user_id = %s ORDER BY updated_at DESC LIMIT 10",
+                (user_id,),
+            )
+        rows = cur.fetchall()
+    return [_serialize_row(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
 # 2. POST /api/sessions
 # ---------------------------------------------------------------------------
 

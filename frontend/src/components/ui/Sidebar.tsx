@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useSessionStore } from "@/lib/sessions";
 import { useAuth } from "@/components/AuthProvider";
 import { parsePreferences } from "@/lib/auth";
 import { SessionList } from "./SessionList";
+import { SearchModal } from "./SearchModal";
 
 // ---------------------------------------------------------------------------
 // SVG Icons
@@ -246,6 +247,18 @@ export function Sidebar() {
   const { user } = useAuth();
   const { createSession } = useSessionStore();
   const showDatabase = parsePreferences(user).show_database_nav === true;
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const handleNewChat = () => {
     createSession();
@@ -258,6 +271,27 @@ export function Sidebar() {
       <div className="sidebar-brand">
         <BDGoLogo />
       </div>
+
+      {/* Search */}
+      <button
+        className="search-trigger-btn"
+        onClick={() => setSearchOpen(true)}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          width: "calc(100% - 1rem)", margin: "0 0.5rem 0.5rem",
+          padding: "0.45rem 0.75rem",
+          background: "#f1f5f9", border: "1px solid #e2e8f0",
+          borderRadius: 8, cursor: "pointer", fontSize: "0.82rem",
+          color: "#64748b", fontFamily: "inherit", textAlign: "left",
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <circle cx="6.5" cy="6.5" r="4.5" />
+          <path d="M10.5 10.5l3 3" />
+        </svg>
+        <span style={{ flex: 1 }}>搜索…</span>
+        <kbd style={{ fontSize: 10, border: "1px solid #cbd5e1", borderRadius: 3, padding: "0 4px", background: "#fff" }}>⌘K</kbd>
+      </button>
 
       {/* New Chat */}
       <button className="new-chat-btn" onClick={handleNewChat}>
@@ -283,5 +317,6 @@ export function Sidebar() {
 
       <SidebarFooter />
     </aside>
+    <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
   );
 }

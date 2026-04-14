@@ -10,6 +10,7 @@ const TYPE_OPTIONS = [
   { value: "asset", label: "Asset" },
   { value: "disease", label: "Disease" },
   { value: "target", label: "Target" },
+  { value: "incubator", label: "孵化器" },
 ];
 
 const TYPE_BADGE: Record<string, string> = {
@@ -17,6 +18,7 @@ const TYPE_BADGE: Record<string, string> = {
   asset: "badge-green",
   disease: "badge-amber",
   target: "badge-purple",
+  incubator: "badge-indigo",
 };
 
 interface WatchlistItem {
@@ -142,6 +144,7 @@ export default function WatchlistPage() {
           <option value="asset">资产</option>
           <option value="disease">疾病</option>
           <option value="target">靶点</option>
+          <option value="incubator">孵化器</option>
         </select>
         <input
           type="text"
