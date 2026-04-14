@@ -983,14 +983,21 @@ def _extract_pdf_text(filepath: Path) -> str:
     1. Try the embedded text layer (instant, perfect for digital PDFs).
     2. If the page yields < 50 chars it is almost certainly a scanned image —
        fall back to Tesseract OCR via PyMuPDF's built-in bridge (chi_sim+eng).
+       Tesseract is optional — if not installed, scanned pages are skipped
+       and only text-layer pages are returned.
 
     Caps at 20 pages and 30 000 chars to keep prompt budgets sane.
     """
-    import fitz  # PyMuPDF
+    try:
+        import fitz  # PyMuPDF
+    except ImportError:
+        logger.error("PyMuPDF not installed. Run: pip install PyMuPDF")
+        return ""
 
     doc = fitz.open(str(filepath))
     page_texts: list[str] = []
     MAX_PAGES = 20
+    ocr_available: bool | None = None   # lazily detected
 
     for page_num, page in enumerate(doc):
         if page_num >= MAX_PAGES:
@@ -999,11 +1006,24 @@ def _extract_pdf_text(filepath: Path) -> str:
         text = page.get_text("text").strip()
 
         if len(text) < 50:          # sparse / image-only page — try OCR
-            try:
-                tp = page.get_textpage_ocr(language="chi_sim+eng", dpi=150, full=False)
-                text = page.get_text(textpage=tp).strip()
-            except Exception as ocr_err:
-                logger.debug("OCR failed p%d of %s: %s", page_num + 1, filepath.name, ocr_err)
+            if ocr_available is False:
+                pass  # already know tesseract is absent — skip silently
+            else:
+                try:
+                    tp = page.get_textpage_ocr(language="chi_sim+eng", dpi=150, full=False)
+                    text = page.get_text(textpage=tp).strip()
+                    ocr_available = True
+                except Exception as ocr_err:
+                    err_str = str(ocr_err)
+                    if "tesseract" in err_str.lower() or "not found" in err_str.lower():
+                        if ocr_available is None:
+                            logger.warning(
+                                "Tesseract not found — OCR disabled. "
+                                "Install: sudo apt-get install tesseract-ocr tesseract-ocr-chi-sim"
+                            )
+                        ocr_available = False
+                    else:
+                        logger.debug("OCR failed p%d of %s: %s", page_num + 1, filepath.name, ocr_err)
 
         if text:
             page_texts.append(f"[Page {page_num + 1}]\n{text}")
@@ -1011,7 +1031,10 @@ def _extract_pdf_text(filepath: Path) -> str:
     doc.close()
     combined = "\n\n".join(page_texts)
     if not combined.strip():
-        logger.warning("PDF extraction yielded no text for %s", filepath.name)
+        logger.warning("PDF extraction yielded no text for %s (pages=%d, ocr_available=%s)",
+                       filepath.name, len(doc), ocr_available)
+    else:
+        logger.info("PDF extracted %d chars from %s (ocr_available=%s)", len(combined), filepath.name, ocr_available)
     return combined[:30000]
 
 
