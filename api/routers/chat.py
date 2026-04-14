@@ -1178,10 +1178,13 @@ async def _stream_chat(req: ChatRequest):
         attachment_parts = []
         failed_extractions = []
         for fid in req.file_ids:
-            extracted = _extract_text(fid)
+            # Run blocking I/O (disk read + Tesseract OCR) off the event loop
+            extracted = await asyncio.to_thread(_extract_text, fid)
             if extracted:
+                logger.info("Extracted %d chars from attachment: %s", len(extracted), fid)
                 attachment_parts.append(f"\n\n[附件内容: {fid}]\n{extracted}")
             else:
+                logger.warning("Failed to extract content from attachment: %s", fid)
                 failed_extractions.append(fid)
 
         if attachment_parts:
