@@ -109,24 +109,15 @@ const Icon = {
 
 function BDGoLogo() {
   return (
-    <div style={{
-      width: 34,
-      height: 34,
-      background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)",
-      borderRadius: 9,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0,
-      boxShadow: "0 2px 8px rgba(30,58,138,0.3)",
-    }}>
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="white">
-        <rect x="1" y="1" width="7" height="7" rx="1.5" opacity="0.9" />
-        <rect x="10" y="1" width="7" height="7" rx="1.5" opacity="0.6" />
-        <rect x="1" y="10" width="7" height="7" rx="1.5" opacity="0.6" />
-        <rect x="10" y="10" width="7" height="7" rx="1.5" opacity="0.9" />
-      </svg>
-    </div>
+    <img
+      src="/logo.png"
+      alt="BD Go"
+      style={{ width: 34, height: 34, borderRadius: 8, objectFit: "contain", flexShrink: 0 }}
+      onError={(e) => {
+        const img = e.target as HTMLImageElement;
+        img.style.display = "none";
+      }}
+    />
   );
 }
 

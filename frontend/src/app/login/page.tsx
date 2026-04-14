@@ -11,19 +11,12 @@ function validateEmail(email: string): boolean {
 
 function BDGoLogo() {
   return (
-    <div style={{
-      width: 48, height: 48,
-      background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)",
-      borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center",
-      boxShadow: "0 4px 16px rgba(30,58,138,0.3)", margin: "0 auto 16px",
-    }}>
-      <svg width="24" height="24" viewBox="0 0 18 18" fill="white">
-        <rect x="1" y="1" width="7" height="7" rx="1.5" opacity="0.9" />
-        <rect x="10" y="1" width="7" height="7" rx="1.5" opacity="0.6" />
-        <rect x="1" y="10" width="7" height="7" rx="1.5" opacity="0.6" />
-        <rect x="10" y="10" width="7" height="7" rx="1.5" opacity="0.9" />
-      </svg>
-    </div>
+    <img
+      src="/logo.png"
+      alt="BD Go"
+      style={{ width: 56, height: 56, borderRadius: 14, objectFit: "contain", display: "block", margin: "0 auto 16px", boxShadow: "0 4px 16px rgba(30,58,138,0.15)" }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+    />
   );
 }
 

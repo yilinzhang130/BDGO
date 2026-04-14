@@ -66,19 +66,12 @@ const FEATURES = [
 
 function NavLogo() {
   return (
-    <div style={{
-      width: 32, height: 32,
-      background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)",
-      borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
-      boxShadow: "0 2px 8px rgba(30,58,138,0.25)", flexShrink: 0,
-    }}>
-      <svg width="17" height="17" viewBox="0 0 18 18" fill="white">
-        <rect x="1" y="1" width="7" height="7" rx="1.5" opacity="0.9" />
-        <rect x="10" y="1" width="7" height="7" rx="1.5" opacity="0.6" />
-        <rect x="1" y="10" width="7" height="7" rx="1.5" opacity="0.6" />
-        <rect x="10" y="10" width="7" height="7" rx="1.5" opacity="0.9" />
-      </svg>
-    </div>
+    <img
+      src="/logo.png"
+      alt="BD Go"
+      style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", flexShrink: 0 }}
+      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+    />
   );
 }
 
