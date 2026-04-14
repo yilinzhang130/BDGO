@@ -293,10 +293,35 @@ function ServiceCard({
 // History row
 // ═══════════════════════════════════════════════════════════
 
+async function downloadWithAuth(url: string, filename: string) {
+  const { getToken } = await import("@/lib/auth");
+  const token = getToken();
+  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function HistoryRow({ report }: { report: CompletedReport }) {
   const age = formatAge(report.createdAt);
   const [shareState, setShareState] = useState<"idle" | "loading" | "copied">("idle");
   const [expanded, setExpanded] = useState(false);
+  const [dlState, setDlState] = useState<Record<string, "idle" | "loading" | "error">>({});
+
+  const handleDownload = async (f: { download_url: string; filename: string; format: string }) => {
+    setDlState((s) => ({ ...s, [f.format]: "loading" }));
+    try {
+      await downloadWithAuth(f.download_url, f.filename);
+      setDlState((s) => ({ ...s, [f.format]: "idle" }));
+    } catch {
+      setDlState((s) => ({ ...s, [f.format]: "error" }));
+      setTimeout(() => setDlState((s) => ({ ...s, [f.format]: "idle" })), 3000);
+    }
+  };
 
   const handleShare = async () => {
     setShareState("loading");
@@ -350,27 +375,29 @@ function HistoryRow({ report }: { report: CompletedReport }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-          {report.files.map((f) => (
-            <a
-              key={f.filename}
-              href={f.download_url}
-              download={f.filename}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                padding: "0.3rem 0.7rem",
-                background: "var(--accent-light)",
-                color: "var(--accent)",
-                textDecoration: "none",
-                borderRadius: "var(--radius-sm)",
-                fontSize: "0.72rem",
-                fontWeight: 600,
-                border: "1px solid var(--accent-light)",
-              }}
-            >
-              ⬇ .{f.format}
-            </a>
-          ))}
+          {report.files.map((f) => {
+            const state = dlState[f.format] || "idle";
+            return (
+              <button
+                key={f.filename}
+                onClick={() => handleDownload(f)}
+                disabled={state === "loading"}
+                style={{
+                  padding: "0.3rem 0.7rem",
+                  background: state === "error" ? "#fee2e2" : "var(--accent-light)",
+                  color: state === "error" ? "#dc2626" : "var(--accent)",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  border: `1px solid ${state === "error" ? "#fca5a5" : "var(--accent-light)"}`,
+                  cursor: state === "loading" ? "wait" : "pointer",
+                  opacity: state === "loading" ? 0.6 : 1,
+                }}
+              >
+                {state === "loading" ? "…" : state === "error" ? "文件不存在" : `⬇ .${f.format}`}
+              </button>
+            );
+          })}
           <button
             onClick={handleShare}
             disabled={shareState === "loading"}
