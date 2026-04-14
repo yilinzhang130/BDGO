@@ -976,17 +976,55 @@ def _extract_context_entities(tool_name: str, raw_result_str: str) -> list[dict]
 
 # ── Attachment text extraction ───────────────────────────────
 
+def _extract_pdf_text(filepath: Path) -> str:
+    """Extract text from PDF with PyMuPDF.
+
+    Strategy per page:
+    1. Try the embedded text layer (instant, perfect for digital PDFs).
+    2. If the page yields < 50 chars it is almost certainly a scanned image —
+       fall back to Tesseract OCR via PyMuPDF's built-in bridge (chi_sim+eng).
+
+    Caps at 20 pages and 30 000 chars to keep prompt budgets sane.
+    """
+    import fitz  # PyMuPDF
+
+    doc = fitz.open(str(filepath))
+    page_texts: list[str] = []
+    MAX_PAGES = 20
+
+    for page_num, page in enumerate(doc):
+        if page_num >= MAX_PAGES:
+            break
+
+        text = page.get_text("text").strip()
+
+        if len(text) < 50:          # sparse / image-only page — try OCR
+            try:
+                tp = page.get_textpage_ocr(language="chi_sim+eng", dpi=150, full=False)
+                text = page.get_text(textpage=tp).strip()
+            except Exception as ocr_err:
+                logger.debug("OCR failed p%d of %s: %s", page_num + 1, filepath.name, ocr_err)
+
+        if text:
+            page_texts.append(f"[Page {page_num + 1}]\n{text}")
+
+    doc.close()
+    combined = "\n\n".join(page_texts)
+    if not combined.strip():
+        logger.warning("PDF extraction yielded no text for %s", filepath.name)
+    return combined[:30000]
+
+
 def _extract_text(filename: str) -> str:
     """Extract text from PDF/PPTX/DOCX files in BP_DIR. Returns empty string on failure."""
     filepath = BP_DIR / Path(filename).name
     if not filepath.exists():
+        logger.warning("Attachment not found at %s", filepath)
         return ""
     ext = filepath.suffix.lower()
     try:
         if ext == ".pdf":
-            from pypdf import PdfReader
-            reader = PdfReader(str(filepath))
-            return "\n".join(page.extract_text() or "" for page in reader.pages)[:20000]
+            return _extract_pdf_text(filepath)
         elif ext in (".pptx", ".ppt"):
             from pptx import Presentation
             prs = Presentation(str(filepath))
@@ -1138,20 +1176,30 @@ async def _stream_chat(req: ChatRequest):
     attachments_json = None
     if req.file_ids:
         attachment_parts = []
+        failed_extractions = []
         for fid in req.file_ids:
             extracted = _extract_text(fid)
             if extracted:
                 attachment_parts.append(f"\n\n[附件内容: {fid}]\n{extracted}")
+            else:
+                failed_extractions.append(fid)
+
         if attachment_parts:
             user_text = req.message + "".join(attachment_parts)
-            # Inject routing instruction for file analysis
             user_text += (
-                "\n\n[系统指令：用户上传了文件。请立即执行以下步骤："
+                "\n\n[系统指令：用户上传了文件，文件内容已在上方提供。请立即执行以下步骤："
                 "1) 从文件内容中提取公司名、资产名、靶点、适应症等关键实体；"
                 "2) 用提取的实体并行调用 search_companies、search_assets、search_clinical、search_deals 查询CRM数据；"
                 "3) 如果文件涉及特定疾病，调用 query_treatment_guidelines 查询治疗格局；"
                 "4) 综合文件内容和CRM数据，输出结构化分析报告（公司画像、管线评估、治疗格局、交易参考、BD建议）。"
                 "不要只总结文件内容，必须交叉验证CRM数据。]"
+            )
+        elif failed_extractions:
+            # Extraction failed for all files — tell the AI so it can explain honestly
+            user_text = req.message + (
+                f"\n\n[系统提示：用户上传了文件 {', '.join(failed_extractions)}，"
+                "但文件内容无法提取（可能是加密PDF或格式不支持）。"
+                "请直接告知用户文件无法解析，并询问他们能否提供文字版或核心信息。]"
             )
         attachments_json = json.dumps(req.file_ids)
 
