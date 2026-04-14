@@ -257,10 +257,6 @@ export function Sidebar() {
       {/* Brand */}
       <div className="sidebar-brand">
         <BDGoLogo />
-        <div>
-          <div className="brand-title">BD Go</div>
-          <div className="brand-sub">生物医药BD情报平台</div>
-        </div>
       </div>
 
       {/* New Chat */}

@@ -1,5 +1,6 @@
 """Chat streaming endpoint — MiniMax API with tool use + document attachments."""
 
+import asyncio
 import json, logging, uuid
 from pathlib import Path
 import httpx
@@ -991,74 +992,89 @@ async def _call_minimax_stream(client: httpx.AsyncClient, messages: list, tool_r
     current_text = ""
     stop_reason = None
 
-    async with client.stream("POST", MINIMAX_URL, json=body, headers=headers) as resp:
-        if resp.status_code != 200:
-            err = await resp.aread()
-            yield ("error", f"API {resp.status_code}: {err.decode()[:300]}")
-            return
-
-        buffer = ""
-        async for raw_chunk in resp.aiter_bytes():
-            buffer += raw_chunk.decode("utf-8", errors="replace")
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
-                line = line.strip()
-                if not line.startswith("data: "):
+    # 529 = server overloaded — retry up to 3 times with backoff
+    max_retries = 3
+    for attempt in range(max_retries):
+        async with client.stream("POST", MINIMAX_URL, json=body, headers=headers) as resp:
+            if resp.status_code == 529:
+                await resp.aread()  # drain body
+                if attempt < max_retries - 1:
+                    wait = 2 ** attempt  # 1s, 2s
+                    logger.warning("MiniMax 529 (attempt %d/%d), retry in %ds", attempt + 1, max_retries, wait)
+                    await asyncio.sleep(wait)
                     continue
-                try:
-                    data = json.loads(line[6:])
-                except json.JSONDecodeError:
-                    continue
+                yield ("error", "AI服务当前负载较高，请稍等片刻后重试。")
+                return
+            if resp.status_code != 200:
+                err = await resp.aread()
+                yield ("error", f"AI服务异常（{resp.status_code}），请稍后重试。")
+                return
 
-                et = data.get("type", "")
+            # ── success: process the stream ──────────────────────────
+            buffer = ""
+            async for raw_chunk in resp.aiter_bytes():
+                buffer += raw_chunk.decode("utf-8", errors="replace")
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    line = line.strip()
+                    if not line.startswith("data: "):
+                        continue
+                    try:
+                        data = json.loads(line[6:])
+                    except json.JSONDecodeError:
+                        continue
 
-                if et == "content_block_start":
-                    block = data.get("content_block", {})
-                    if block.get("type") == "tool_use":
-                        current_tool_use = {
-                            "id": block.get("id"),
-                            "name": block.get("name"),
-                            "input_json": "",
-                        }
-                        yield ("tool_call_start", {"name": block.get("name")})
-                    elif block.get("type") == "text":
-                        current_text = ""
+                    et = data.get("type", "")
 
-                elif et == "content_block_delta":
-                    delta = data.get("delta", {})
-                    dt = delta.get("type", "")
-                    if dt == "text_delta":
-                        text = delta.get("text", "")
-                        current_text += text
-                        yield ("chunk", text)
-                    elif dt == "input_json_delta" and current_tool_use is not None:
-                        current_tool_use["input_json"] += delta.get("partial_json", "")
+                    if et == "content_block_start":
+                        block = data.get("content_block", {})
+                        if block.get("type") == "tool_use":
+                            current_tool_use = {
+                                "id": block.get("id"),
+                                "name": block.get("name"),
+                                "input_json": "",
+                            }
+                            yield ("tool_call_start", {"name": block.get("name")})
+                        elif block.get("type") == "text":
+                            current_text = ""
 
-                elif et == "content_block_stop":
-                    if current_tool_use is not None:
-                        try:
-                            inp = json.loads(current_tool_use["input_json"] or "{}")
-                        except json.JSONDecodeError:
-                            inp = {}
-                        collected_content.append({
-                            "type": "tool_use",
-                            "id": current_tool_use["id"],
-                            "name": current_tool_use["name"],
-                            "input": inp,
-                        })
-                        tool_results_buffer.append(current_tool_use)
-                        current_tool_use = None
-                    elif current_text:
-                        collected_content.append({"type": "text", "text": current_text})
-                        current_text = ""
+                    elif et == "content_block_delta":
+                        delta = data.get("delta", {})
+                        dt = delta.get("type", "")
+                        if dt == "text_delta":
+                            text = delta.get("text", "")
+                            current_text += text
+                            yield ("chunk", text)
+                        elif dt == "input_json_delta" and current_tool_use is not None:
+                            current_tool_use["input_json"] += delta.get("partial_json", "")
 
-                elif et == "message_delta":
-                    stop_reason = data.get("delta", {}).get("stop_reason")
+                    elif et == "content_block_stop":
+                        if current_tool_use is not None:
+                            try:
+                                inp = json.loads(current_tool_use["input_json"] or "{}")
+                            except json.JSONDecodeError:
+                                inp = {}
+                            collected_content.append({
+                                "type": "tool_use",
+                                "id": current_tool_use["id"],
+                                "name": current_tool_use["name"],
+                                "input": inp,
+                            })
+                            tool_results_buffer.append(current_tool_use)
+                            current_tool_use = None
+                        elif current_text:
+                            collected_content.append({"type": "text", "text": current_text})
+                            current_text = ""
 
-                elif et == "message_stop":
-                    break
+                    elif et == "message_delta":
+                        stop_reason = data.get("delta", {}).get("stop_reason")
 
-    yield ("_end", {"stop_reason": stop_reason, "content": collected_content})
+                    elif et == "message_stop":
+                        break
+
+        # Successful stream completed — yield end event and stop retrying
+        yield ("_end", {"stop_reason": stop_reason, "content": collected_content})
+        return
 
 
 async def _stream_chat(req: ChatRequest):

@@ -110,11 +110,12 @@ export default function WatchlistPage() {
 
       <div className="card" style={{ marginTop: "1rem" }}>
         {data && data.data.length === 0 ? (
-          <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-secondary)" }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>&#9734;</div>
-            <div style={{ fontSize: 15, fontWeight: 500 }}>Your watchlist is empty</div>
-            <div style={{ fontSize: 13, marginTop: 4 }}>
-              Star companies, assets, diseases or targets to track them here.
+          <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>☆</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>关注列表为空</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 320, margin: "0 auto" }}>
+              进入<strong style={{ color: "var(--accent)" }}>公司</strong>或<strong style={{ color: "var(--accent)" }}>资产</strong>详情页，
+              点击标题旁的 ☆ <strong>关注</strong> 按钮，即可将其加入关注列表。
             </div>
           </div>
         ) : (

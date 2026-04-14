@@ -56,19 +56,27 @@ export function WatchlistButton({ entityType, entityKey, size = 20 }: Props) {
   return (
     <button
       onClick={toggle}
-      title={watched ? "Remove from watchlist" : "Add to watchlist"}
+      title={watched ? "取消关注" : "加入关注"}
       style={{
-        background: "none",
-        border: "none",
+        background: watched ? "#FEF3C7" : "#F8FAFF",
+        border: `1px solid ${watched ? "#FCD34D" : "#E2E8F0"}`,
+        borderRadius: 8,
         cursor: "pointer",
-        fontSize: size,
+        fontSize: size - 4,
         lineHeight: 1,
-        color: watched ? "#f59e0b" : "#d1d5db",
-        transition: "color 0.15s",
-        padding: 2,
+        color: watched ? "#D97706" : "#94A3B8",
+        transition: "all 0.15s",
+        padding: "5px 10px",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        fontWeight: 500,
+        fontFamily: "inherit",
+        whiteSpace: "nowrap" as const,
       }}
     >
-      {watched ? "\u2605" : "\u2606"}
+      <span style={{ fontSize: size - 2 }}>{watched ? "\u2605" : "\u2606"}</span>
+      <span style={{ fontSize: 12 }}>{watched ? "已关注" : "关注"}</span>
     </button>
   );
 }

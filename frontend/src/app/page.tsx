@@ -131,7 +131,6 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 32px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <NavLogo />
-            <span style={{ fontSize: 17, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.01em" }}>BD Go</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {!loading && (user ? (
