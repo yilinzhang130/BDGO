@@ -684,14 +684,38 @@ try:
     from services import REPORT_SERVICES
     from services.report_builder import create_task, execute_task, get_task
     import threading as _threading
+    import json as _json_rep
+
+    def _persist_report(task_id: str, slug: str, user_id: str) -> None:
+        """Save completed report to report_history so it shows up in My Reports."""
+        task = get_task(task_id)
+        if not (task and task.get("status") == "completed"):
+            return
+        result = task.get("result") or {}
+        title = result.get("meta", {}).get("title") or slug
+        markdown_preview = (result.get("markdown") or "")[:2000]
+        files_json = _json_rep.dumps(result.get("files", []), ensure_ascii=False, default=str)
+        meta_json = _json_rep.dumps(result.get("meta", {}), ensure_ascii=False, default=str)
+        try:
+            from database import transaction
+            with transaction() as cur:
+                cur.execute(
+                    "INSERT INTO report_history (user_id, task_id, slug, title, markdown_preview, files_json, meta_json) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (task_id) DO NOTHING",
+                    (user_id, task_id, slug, title, markdown_preview, files_json, meta_json),
+                )
+        except Exception:
+            logger.exception("Failed to persist report history for task %s", task_id)
 
     def _make_report_tool(_svc):
-        def _impl(**kwargs):
+        def _impl(_user_id=None, **kwargs):
             task_id = create_task(_svc.slug, kwargs)
             if _svc.mode == "sync":
                 execute_task(task_id, _svc, kwargs)
                 t = get_task(task_id)
                 if t["status"] == "completed":
+                    if _user_id:
+                        _persist_report(task_id, _svc.slug, _user_id)
                     result = t.get("result") or {}
                     return {
                         "task_id": task_id,
@@ -706,11 +730,11 @@ try:
                     "error": t.get("error"),
                 }
             # Async: spawn thread, return immediately
-            thread = _threading.Thread(
-                target=execute_task,
-                args=(task_id, _svc, kwargs),
-                daemon=True,
-            )
+            def _run():
+                execute_task(task_id, _svc, kwargs)
+                if _user_id:
+                    _persist_report(task_id, _svc.slug, _user_id)
+            thread = _threading.Thread(target=_run, daemon=True)
             thread.start()
             return {
                 "task_id": task_id,
@@ -745,6 +769,8 @@ def _execute_tool(name: str, inp: dict, user_id: str | None = None) -> str:
     try:
         kwargs = dict(inp or {})
         if user_id and name in ("add_to_watchlist",):
+            kwargs["_user_id"] = user_id
+        elif user_id and name.startswith("generate_"):
             kwargs["_user_id"] = user_id
         result = fn(**kwargs)
         s = json.dumps(result, ensure_ascii=False, default=str)

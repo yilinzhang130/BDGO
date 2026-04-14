@@ -507,6 +507,13 @@ class BuyerProfileService(ReportService):
                 cn = r.get("company_name")
                 if cn and cn not in suggestions:
                     suggestions.append(cn)
+        if not suggestions:
+            # Last resort: return first 5 companies alphabetically
+            fallback = ctx.crm_query(
+                'SELECT "company_name" FROM "MNC\u753b\u50cf" ORDER BY "company_name" LIMIT 5',
+                (),
+            )
+            suggestions = [r["company_name"] for r in fallback if r.get("company_name")]
         return suggestions[:10]
 
     def _parse_profile_json(self, profile: dict) -> dict[str, Any]:

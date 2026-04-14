@@ -33,9 +33,18 @@ ssh "${VM_USER}@${VM_IP}" bash <<'REMOTE'
   set -euo pipefail
   cd ~/app
   docker build -t bdgo-api .
-  docker rm -f bdgo 2>/dev/null || true
-  docker run -d --name bdgo \
-    --env-file ~/.env \
+  # Export env from existing container (handles both file-based and baked env)
+  EXISTING=$(docker ps --filter "publish=8001" --format "{{.Names}}" | head -1)
+  if [ -n "$EXISTING" ]; then
+    docker inspect "$EXISTING" --format='{{range .Config.Env}}{{println .}}{{end}}' > /tmp/bdgo.env
+    docker rm -f "$EXISTING"
+  elif [ -f ~/.env ]; then
+    cp ~/.env /tmp/bdgo.env
+  else
+    echo "ERROR: no running container and no ~/.env found" && exit 1
+  fi
+  docker run -d --name bdgo_backend \
+    --env-file /tmp/bdgo.env \
     -p 8001:8001 \
     --restart unless-stopped \
     bdgo-api

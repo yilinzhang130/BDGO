@@ -476,21 +476,20 @@ class IPLandscapeService(ReportService):
             conds.append('"关联资产" LIKE ?')
             params.append(q)
         elif query_type == "target":
-            conds.append('("靶点" LIKE ? OR "关联资产" LIKE ? OR "权利要求摘要" LIKE ?)')
-            params.extend([q, q, q])
+            conds.append('("关联资产" LIKE ? OR "权利要求摘要" LIKE ?)')
+            params.extend([q, q])
         else:  # auto
             conds.append(
                 '("关联公司" LIKE ? OR "关联资产" LIKE ? OR "专利持有人" LIKE ? '
-                'OR "靶点" LIKE ? OR "权利要求摘要" LIKE ?)'
+                'OR "权利要求摘要" LIKE ?)'
             )
-            params.extend([q, q, q, q, q])
+            params.extend([q, q, q, q])
 
         where = conds[0]
         sql = (
             'SELECT "专利号", "专利持有人", "关联资产", "关联公司", "专利类型", '
             '"申请日", "授权日", "到期日", "PTE延期到期日", "权利要求摘要", '
-            '"专利族", "状态", "管辖区", "Orange_Book", "来源", "备注", "靶点", '
-            '"FTO风险等级", "核心权利要求", "绕开路径", "主要风险点" '
+            '"专利族", "状态", "管辖区", "Orange_Book", "来源", "备注", "追踪状态" '
             f'FROM "IP" WHERE {where} '
             'ORDER BY "到期日" ASC '
             f'LIMIT {limit}'

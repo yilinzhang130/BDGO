@@ -472,7 +472,7 @@ class CommercialAssessmentService(ReportService):
         sql = (
             'SELECT "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", '
             '"疾病领域", "适应症", "差异化分级", "差异化描述", "峰值销售预测", '
-            '"竞品情况", "知识产权" '
+            '"竞品情况" '
             'FROM "资产" LIMIT 500'
         )
         all_rows = ctx.crm_query(sql, ())
