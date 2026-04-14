@@ -14,6 +14,21 @@ import {
 import { isBrowser, bg } from "./utils";
 import { getToken } from "./auth";
 
+// Extract plain text from stored content (may be JSON content-blocks array)
+function extractText(raw: string): string {
+  if (!raw) return "";
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((b: any) => b.type === "text")
+        .map((b: any) => b.text || "")
+        .join("");
+    }
+  } catch {}
+  return raw;
+}
+
 // ═══════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════
@@ -112,7 +127,7 @@ function mapServerSession(raw: any): ChatSession {
     messages: (raw.messages || []).map((m: any) => ({
       id: m.id,
       role: m.role as Role,
-      content: m.content || "",
+      content: extractText(m.content || ""),
       tools: m.tools_json ? JSON.parse(m.tools_json) : undefined,
       attachments: m.attachments_json ? JSON.parse(m.attachments_json) : undefined,
       streaming: false,
