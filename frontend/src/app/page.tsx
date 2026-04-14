@@ -4,48 +4,123 @@ import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 
 // ---------------------------------------------------------------------------
-// Feature cards data
+// Data
 // ---------------------------------------------------------------------------
 
-const FEATURES = [
+const STATS = [
+  { value: "10K+",  label: "生物医药企业" },
+  { value: "50K+",  label: "管线资产" },
+  { value: "100K+", label: "临床试验" },
+  { value: "5K+",   label: "BD交易" },
+];
+
+const USE_CASES = [
   {
-    icon: "🧬",
-    title: "Pipeline Intelligence",
-    desc: "Track 22,000+ biotech assets across all therapeutic areas with real-time clinical trial data and competitive landscape analysis.",
+    color: "#2563EB",
+    bg: "#DBEAFE",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+      </svg>
+    ),
+    title: "资产发现",
+    desc: "精准定位符合治疗领域策略的潜在并购和许可标的",
   },
   {
-    icon: "📊",
-    title: "Deal Flow Analytics",
-    desc: "Analyze licensing, M&A, and collaboration deals with structured data on deal terms, valuations, and strategic rationale.",
+    color: "#059669",
+    bg: "#D1FAE5",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+      </svg>
+    ),
+    title: "竞争情报",
+    desc: "实时追踪竞争对手管线进展与临床数据读出",
   },
   {
-    icon: "🗓",
-    title: "Catalyst Calendar",
-    desc: "Never miss a critical data readout, regulatory decision, or clinical milestone. Track overdue and upcoming catalysts at a glance.",
-  },
-  {
-    icon: "💬",
-    title: "AI-Powered Chat",
-    desc: "Ask questions in natural language. BD Go understands your CRM data and delivers insights with sources and context.",
-  },
-  {
-    icon: "🏥",
-    title: "Clinical Trial Deep Dive",
-    desc: "Access 44,000+ clinical records with endpoint results, safety data, trial design, and head-to-head comparisons.",
-  },
-  {
-    icon: "📄",
-    title: "Automated Reports",
-    desc: "Generate company analyses, buyer profiles, asset evaluations, and rNPV models — formatted and ready to share.",
+    color: "#7C3AED",
+    bg: "#EDE9FE",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18M9 21V9" />
+      </svg>
+    ),
+    title: "尽职调查",
+    desc: "一键生成包含临床、IP与交易数据的综合分析报告",
   },
 ];
 
-const STATS = [
-  { value: "22K+", label: "Pipeline Assets" },
-  { value: "44K+", label: "Clinical Records" },
-  { value: "7K+", label: "BD Deals" },
-  { value: "4K+", label: "Companies" },
+const FEATURES = [
+  { icon: "🤖", title: "AI对话引擎",     desc: "用中英文自然语言提问，即获得带引用来源的深度洞察" },
+  { icon: "📊", title: "管线情报",       desc: "覆盖所有治疗领域的22,000+生物资产实时跟踪与竞争格局分析" },
+  { icon: "📅", title: "催化剂日历",     desc: "随时掌握临床数据读出、监管决策与里程碑节点" },
+  { icon: "🤝", title: "交易流分析",     desc: "结构化许可、M&A与合作交易数据，含条款、估值与战略逻辑" },
+  { icon: "🏥", title: "临床深度拆解",   desc: "44,000+临床记录，涵盖终点、安全性、试验设计与头对头比较" },
+  { icon: "📄", title: "自动化报告",     desc: "生成公司分析、买方画像、资产评估与rNPV模型，格式专业可直接分享" },
 ];
+
+// ---------------------------------------------------------------------------
+// Logo (same SVG as sidebar)
+// ---------------------------------------------------------------------------
+
+function NavLogo() {
+  return (
+    <div style={{
+      width: 32, height: 32,
+      background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)",
+      borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+      boxShadow: "0 2px 8px rgba(30,58,138,0.25)", flexShrink: 0,
+    }}>
+      <svg width="17" height="17" viewBox="0 0 18 18" fill="white">
+        <rect x="1" y="1" width="7" height="7" rx="1.5" opacity="0.9" />
+        <rect x="10" y="1" width="7" height="7" rx="1.5" opacity="0.6" />
+        <rect x="1" y="10" width="7" height="7" rx="1.5" opacity="0.6" />
+        <rect x="10" y="10" width="7" height="7" rx="1.5" opacity="0.9" />
+      </svg>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Mock dashboard card (hero right side)
+// ---------------------------------------------------------------------------
+
+function HeroDashboardCard() {
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 16, border: "1px solid #E2E8F0",
+      boxShadow: "0 20px 60px rgba(30,58,138,0.12)", padding: "20px 22px",
+      width: 320, flexShrink: 0,
+    }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", marginBottom: 4 }}>管线情报</div>
+      <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 16 }}>实时BD机会总览</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 18 }}>
+        {[["活跃交易","156"],["公司","2.8K"],["资产","12K"]].map(([l, v]) => (
+          <div key={l}>
+            <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 2 }}>{l}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#1E3A8A" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 4, alignItems: "flex-end", marginBottom: 14 }}>
+        {[40,60,45,75,55,80,65,90,70,85].map((h, i) => (
+          <div key={i} style={{
+            flex: 1, height: h * 0.7, borderRadius: 3,
+            background: i >= 8 ? "#1E3A8A" : "#DBEAFE",
+          }} />
+        ))}
+      </div>
+      <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 15 }}>✓</span>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#065F46" }}>AI分析完成</div>
+          <div style={{ fontSize: 10, color: "#047857" }}>匹配度评分 87%</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Landing Page
@@ -53,104 +128,255 @@ const STATS = [
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
-
   const ctaHref = user ? "/chat" : "/login";
-  const ctaLabel = user ? "Enter Dashboard" : "Get Started";
 
   return (
-    <div style={s.page}>
-      {/* ─── Nav ─── */}
-      <nav style={s.nav}>
-        <div style={s.navInner}>
-          <div style={s.navBrand}>
-            <img
-              src="/logo.png"
-              alt="BD Go"
-              style={s.navLogo}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-            />
-            <span style={s.navTitle}>BD Go</span>
+    <div style={{ minHeight: "100vh", background: "#fff", color: "#0F172A", fontFamily: '"Inter", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif' }}>
+
+      {/* ─── Navbar ─── */}
+      <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(255,255,255,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid #F1F5F9" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 32px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <NavLogo />
+            <span style={{ fontSize: 17, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.01em" }}>BD Go</span>
           </div>
-          <div style={s.navActions}>
-            {!loading && (
-              user ? (
-                <Link href="/chat" style={s.navCta}>Enter Dashboard →</Link>
-              ) : (
-                <>
-                  <Link href="/login" style={s.navLogin}>Log In</Link>
-                  <Link href="/login" style={s.navCta}>Get Started</Link>
-                </>
-              )
-            )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {!loading && (user ? (
+              <Link href="/chat" style={btn.primary}>进入平台 →</Link>
+            ) : (
+              <>
+                <Link href="/login" style={btn.ghost}>登录</Link>
+                <Link href="/login" style={btn.primary}>免费试用 →</Link>
+              </>
+            ))}
           </div>
         </div>
       </nav>
 
       {/* ─── Hero ─── */}
-      <section style={s.hero}>
-        <div style={s.heroInner}>
-          <div style={s.badge}>Biotech BD Intelligence Platform</div>
-          <h1 style={s.heroTitle}>
-            The operating system for
-            <br />
-            <span style={s.heroGradient}>Biotech Business Development</span>
-          </h1>
-          <p style={s.heroDesc}>
-            BD Go aggregates pipeline data, clinical trials, deal intelligence, and
-            AI-powered analytics into one platform — so your BD team can find,
-            evaluate, and act on opportunities faster.
-          </p>
-          <div style={s.heroCtas}>
-            <Link href={ctaHref} style={s.ctaPrimary}>{ctaLabel}</Link>
-            <a href="#features" style={s.ctaSecondary}>See Features ↓</a>
+      <section style={{ background: "linear-gradient(160deg, #EEF2FF 0%, #F0F9FF 60%, #fff 100%)", padding: "80px 32px 96px" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: 64, flexWrap: "wrap" }}>
+          {/* Left */}
+          <div style={{ flex: "1 1 420px", minWidth: 300 }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 7,
+              background: "#EEF2FF", border: "1px solid #C7D2FE",
+              borderRadius: 999, padding: "6px 14px", marginBottom: 28,
+            }}>
+              <span style={{ fontSize: 13 }}>✨</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#3730A3", letterSpacing: "0.02em" }}>AI驱动的BD情报平台</span>
+            </div>
+            <h1 style={{ fontSize: 52, fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 10px", color: "#0F172A" }}>
+              加速您的
+            </h1>
+            <h1 style={{ fontSize: 52, fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 24px", color: "#1E3A8A" }}>
+              Biotech 交易
+            </h1>
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: "#475569", margin: "0 0 36px", maxWidth: 460 }}>
+              BD Go 是专为生物医药BD总监打造的AI情报平台——发现资产、分析合作机会、加速决策，覆盖中国及全球市场。
+            </p>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 36 }}>
+              <Link href={ctaHref} style={btn.primaryLg}>免费开始使用 →</Link>
+              <button style={btn.demoLg}>
+                <span style={{ width: 30, height: 30, background: "#1E3A8A", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="10" height="12" viewBox="0 0 10 12" fill="white"><path d="M0 0l10 6-10 6z"/></svg>
+                </span>
+                观看演示
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex" }}>
+                {["#2563EB","#059669","#D97706","#7C3AED"].map((c,i) => (
+                  <div key={i} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: "2px solid #fff", marginLeft: i ? -8 : 0, zIndex: 4-i, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 700 }}>
+                    {["B","C","D","E"][i]}
+                  </div>
+                ))}
+              </div>
+              <span style={{ fontSize: 13, color: "#64748B", fontWeight: 500 }}>200+ BD团队正在使用</span>
+            </div>
+          </div>
+          {/* Right */}
+          <div style={{ flex: "1 1 320px", display: "flex", justifyContent: "center" }}>
+            <div style={{ position: "relative" }}>
+              <HeroDashboardCard />
+              {/* Floating alert */}
+              <div style={{
+                position: "absolute", top: -18, right: -18,
+                background: "#fff", border: "1px solid #E2E8F0",
+                borderRadius: 12, padding: "10px 14px",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#0F172A" }}>交易预警</div>
+                  <div style={{ fontSize: 10, color: "#64748B" }}>发现新许可机会</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ─── Stats ─── */}
-      <section style={s.statsSection}>
-        <div style={s.statsGrid}>
-          {STATS.map((st) => (
-            <div key={st.label} style={s.statCard}>
-              <div style={s.statValue}>{st.value}</div>
-              <div style={s.statLabel}>{st.label}</div>
+      <section style={{ background: "#fff", borderTop: "1px solid #F1F5F9", borderBottom: "1px solid #F1F5F9" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto", padding: "40px 32px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0 }}>
+          {STATS.map((s, i) => (
+            <div key={s.label} style={{ textAlign: "center", padding: "8px 0", borderRight: i < 3 ? "1px solid #F1F5F9" : "none" }}>
+              <div style={{ fontSize: 36, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.02em", lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 13, color: "#64748B", marginTop: 6, fontWeight: 500 }}>{s.label}</div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ─── Features ─── */}
-      <section id="features" style={s.featuresSection}>
-        <h2 style={s.sectionTitle}>Everything your BD team needs</h2>
-        <p style={s.sectionDesc}>
-          From pipeline scouting to deal execution — one integrated platform.
-        </p>
-        <div style={s.featuresGrid}>
-          {FEATURES.map((f) => (
-            <div key={f.title} style={s.featureCard}>
-              <div style={s.featureIcon}>{f.icon}</div>
-              <h3 style={s.featureTitle}>{f.title}</h3>
-              <p style={s.featureDesc}>{f.desc}</p>
-            </div>
-          ))}
+      {/* ─── Use Cases ─── */}
+      <section style={{ padding: "96px 32px" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 60 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#F59E0B", textTransform: "uppercase", marginBottom: 14 }}>使用场景</div>
+            <h2 style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 14px", color: "#0F172A" }}>专为BD总监与交易撮合者打造</h2>
+            <p style={{ fontSize: 16, color: "#64748B", maxWidth: 520, margin: "0 auto" }}>从资产筛查到合作评估，全面优化您的工作流程</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+            {USE_CASES.map((uc) => (
+              <div key={uc.title} style={{ background: "#fff", border: "1px solid #EEF2F7", borderRadius: 16, padding: "28px 28px 32px", boxShadow: "0 2px 12px rgba(15,23,42,0.04)", transition: "box-shadow 0.2s" }}>
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: uc.bg, display: "flex", alignItems: "center", justifyContent: "center", color: uc.color, marginBottom: 20 }}>
+                  {uc.icon}
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 10px", color: "#0F172A" }}>{uc.title}</h3>
+                <p style={{ fontSize: 14, lineHeight: 1.65, color: "#64748B", margin: 0 }}>{uc.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ─── CTA banner ─── */}
-      <section style={s.ctaBanner}>
-        <h2 style={s.ctaBannerTitle}>Ready to accelerate your BD workflow?</h2>
-        <p style={s.ctaBannerDesc}>
-          Join BD professionals who use BD Go to find and evaluate biotech
-          opportunities 10× faster.
-        </p>
-        <Link href={ctaHref} style={s.ctaPrimaryLg}>{ctaLabel}</Link>
+      {/* ─── AI Chat Section ─── */}
+      <section style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 60%, #3B82F6 100%)", padding: "80px 32px" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", gap: 64, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 380px", color: "#fff" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#93C5FD", textTransform: "uppercase", marginBottom: 16 }}>AI驱动</div>
+            <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 16px", lineHeight: 1.2 }}>
+              复杂问题<br />即时解答
+            </h2>
+            <p style={{ fontSize: 15, lineHeight: 1.7, color: "#BFDBFE", margin: "0 0 28px", maxWidth: 400 }}>
+              BD Go AI 跨越50,000+资产、临床试验、专利与交易数据进行分析，提供精准洞察与引用来源。
+            </p>
+            {["支持中英文自然语言提问","实时覆盖10,000+生物医药企业","自动报告附引用来源","基于历史记录的智能推荐"].map((t) => (
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+                <span style={{ fontSize: 14, color: "#E0EFFE" }}>{t}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ flex: "1 1 340px" }}>
+            <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 16, padding: "20px 22px", backdropFilter: "blur(8px)" }}>
+              <div style={{ fontSize: 11, color: "#93C5FD", marginBottom: 14, fontWeight: 500 }}>示例查询：</div>
+              <div style={{ fontSize: 14, color: "#BFDBFE", lineHeight: 1.65, marginBottom: 18, fontStyle: "italic" }}>
+                "哪些中国肿瘤公司有处于Phase II的ADC资产，近期与MNC有合作，且在美国有布局？"
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><path d="M8 1l1.76 3.57 3.94.57-2.85 2.78.67 3.9L8 10.36 4.48 12.32l.67-3.9L2.3 5.64l3.94-.57L8 1z"/></svg>
+                <span style={{ fontSize: 12, color: "#E0EFFE", fontWeight: 500 }}>已找到 12 家匹配企业，正在生成分析报告…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Platform Features ─── */}
+      <section style={{ padding: "96px 32px", background: "#FAFBFF" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 60 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#2563EB", textTransform: "uppercase", marginBottom: 14 }}>平台功能</div>
+            <h2 style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 14px" }}>BD情报，一站解决</h2>
+            <p style={{ fontSize: 16, color: "#64748B", maxWidth: 480, margin: "0 auto" }}>
+              从机会发现到交易落地，BD Go 提供全链路工具帮助团队更快行动
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+            {FEATURES.map((f) => (
+              <div key={f.title} style={{ background: "#fff", border: "1px solid #EEF2F7", borderRadius: 14, padding: "24px 22px", boxShadow: "0 1px 4px rgba(15,23,42,0.04)" }}>
+                <div style={{ fontSize: 26, marginBottom: 12 }}>{f.icon}</div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 8px", color: "#0F172A" }}>{f.title}</h3>
+                <p style={{ fontSize: 13, lineHeight: 1.65, color: "#64748B", margin: 0 }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── CTA Section ─── */}
+      <section style={{ background: "#0F172A", padding: "100px 32px", position: "relative", overflow: "hidden" }}>
+        {/* Dot grid overlay */}
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+        <div style={{ position: "relative", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
+          <Link href={ctaHref} style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: 999, padding: "8px 18px", marginBottom: 32,
+            fontSize: 13, fontWeight: 600, color: "#93C5FD", textDecoration: "none",
+          }}>
+            ⚡ 立即开始免费试用
+          </Link>
+          <h2 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.02em", color: "#fff", margin: "0 0 20px", lineHeight: 1.15 }}>
+            准备好达成<br />更好的交易了吗？
+          </h2>
+          <p style={{ fontSize: 16, color: "#94A3B8", margin: "0 auto 44px", maxWidth: 460, lineHeight: 1.7 }}>
+            加入 200+ 个使用 BD Go 的BD团队，在中国及全球范围内更快发现机会、加速合作。
+          </p>
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", marginBottom: 28, flexWrap: "wrap" }}>
+            <Link href={ctaHref} style={{ ...btn.primaryLg, background: "#fff", color: "#1E3A8A" }}>免费试用 →</Link>
+            <Link href="/login" style={{ ...btn.demoLg, color: "#CBD5E1", borderColor: "rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.06)" }}>联系销售</Link>
+          </div>
+          <div style={{ display: "flex", gap: 28, justifyContent: "center", color: "#64748B", fontSize: 13 }}>
+            {["14天免费试用","无需信用卡","随时取消"].map((t) => (
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#475569" strokeWidth="1.5"/><path d="M5 8l2 2 4-4" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                {t}
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ─── Footer ─── */}
-      <footer style={s.footer}>
-        <div style={s.footerInner}>
-          <span style={s.footerBrand}>BD Go</span>
-          <span style={s.footerCopy}>© {new Date().getFullYear()} BD Go. Built for biotech BD teams.</span>
+      <footer style={{ background: "#fff", borderTop: "1px solid #F1F5F9", padding: "56px 32px 32px" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
+            {/* Brand col */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <NavLogo />
+                <span style={{ fontSize: 16, fontWeight: 800, color: "#1E3A8A" }}>BD Go</span>
+              </div>
+              <p style={{ fontSize: 13, lineHeight: 1.7, color: "#64748B", maxWidth: 260, margin: "0 0 16px" }}>
+                AI驱动的生物医药商务拓展情报平台，服务全球交易撮合者。
+              </p>
+              <div style={{ fontSize: 12, color: "#94A3B8" }}>© 2026 BD Go. 保留所有权利</div>
+            </div>
+            {/* Link cols */}
+            {[
+              { title: "产品", links: ["功能特性", "定价", "使用案例", "API接入"] },
+              { title: "公司", links: ["关于我们", "博客", "招贤纳士", "联系我们"] },
+              { title: "法律", links: ["隐私政策", "服务条款", "安全合规"] },
+            ].map((col) => (
+              <div key={col.title}>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", marginBottom: 16 }}>{col.title}</div>
+                {col.links.map((l) => (
+                  <div key={l} style={{ marginBottom: 10 }}>
+                    <a href="#" style={{ fontSize: 13, color: "#475569", textDecoration: "none", transition: "color 0.15s" }}
+                      onMouseEnter={e => (e.target as HTMLElement).style.color = "#1E3A8A"}
+                      onMouseLeave={e => (e.target as HTMLElement).style.color = "#475569"}
+                    >{l}</a>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </footer>
     </div>
@@ -158,252 +384,32 @@ export default function LandingPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Styles
+// Shared button styles
 // ---------------------------------------------------------------------------
 
-const s: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    background: "#fafbfc",
-    color: "#111827",
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+const btn: Record<string, React.CSSProperties> = {
+  primary: {
+    fontSize: 13, fontWeight: 600, color: "#fff",
+    background: "#1E3A8A", padding: "9px 20px",
+    borderRadius: 9, textDecoration: "none",
+    transition: "background 0.15s",
   },
-
-  // Nav
-  nav: {
-    position: "sticky",
-    top: 0,
-    zIndex: 100,
-    background: "rgba(255,255,255,0.85)",
-    backdropFilter: "blur(12px)",
-    borderBottom: "1px solid #e5e7eb",
+  ghost: {
+    fontSize: 13, fontWeight: 500, color: "#374151",
+    padding: "9px 16px", textDecoration: "none",
   },
-  navInner: {
-    maxWidth: 1100,
-    margin: "0 auto",
-    padding: "0 24px",
-    height: 64,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  navBrand: { display: "flex", alignItems: "center", gap: 10 },
-  navLogo: { width: 32, height: 32, borderRadius: 8 },
-  navTitle: { fontSize: 18, fontWeight: 700, color: "#1E3A8A" },
-  navActions: { display: "flex", alignItems: "center", gap: 12 },
-  navLogin: {
-    fontSize: 14,
-    fontWeight: 500,
-    color: "#374151",
-    textDecoration: "none",
-    padding: "8px 16px",
-  },
-  navCta: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#fff",
-    background: "#1E3A8A",
-    padding: "8px 20px",
-    borderRadius: 8,
-    textDecoration: "none",
-  },
-
-  // Hero
-  hero: {
-    padding: "100px 24px 60px",
-    textAlign: "center" as const,
-  },
-  heroInner: { maxWidth: 760, margin: "0 auto" },
-  badge: {
+  primaryLg: {
     display: "inline-block",
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#1E3A8A",
-    background: "#EFF6FF",
-    border: "1px solid #BFDBFE",
-    borderRadius: 20,
-    padding: "6px 16px",
-    marginBottom: 24,
-    letterSpacing: "0.02em",
-    textTransform: "uppercase" as const,
+    fontSize: 15, fontWeight: 700, color: "#fff",
+    background: "#1E3A8A", padding: "14px 32px",
+    borderRadius: 12, textDecoration: "none",
+    boxShadow: "0 4px 14px rgba(30,58,138,0.3)",
   },
-  heroTitle: {
-    fontSize: 48,
-    fontWeight: 800,
-    lineHeight: 1.15,
-    color: "#111827",
-    margin: "0 0 20px",
-    letterSpacing: "-0.02em",
-  },
-  heroGradient: {
-    background: "linear-gradient(135deg, #1E3A8A 0%, #3B82F6 50%, #0EA5E9 100%)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-  },
-  heroDesc: {
-    fontSize: 18,
-    lineHeight: 1.7,
-    color: "#6b7280",
-    maxWidth: 600,
-    margin: "0 auto 36px",
-  },
-  heroCtas: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    flexWrap: "wrap" as const,
-  },
-  ctaPrimary: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#fff",
-    background: "#1E3A8A",
-    padding: "14px 32px",
-    borderRadius: 10,
-    textDecoration: "none",
-    transition: "background 0.2s",
-  },
-  ctaSecondary: {
-    fontSize: 16,
-    fontWeight: 500,
-    color: "#374151",
-    padding: "14px 24px",
-    textDecoration: "none",
-  },
-
-  // Stats
-  statsSection: {
-    padding: "0 24px 80px",
-  },
-  statsGrid: {
-    maxWidth: 900,
-    margin: "0 auto",
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: 24,
-  },
-  statCard: {
-    textAlign: "center" as const,
-    padding: "28px 16px",
-    background: "#fff",
-    borderRadius: 12,
-    border: "1px solid #e5e7eb",
-  },
-  statValue: {
-    fontSize: 32,
-    fontWeight: 800,
-    color: "#1E3A8A",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: "#6b7280",
-    fontWeight: 500,
-  },
-
-  // Features
-  featuresSection: {
-    padding: "80px 24px",
-    background: "#fff",
-    borderTop: "1px solid #e5e7eb",
-    borderBottom: "1px solid #e5e7eb",
-  },
-  sectionTitle: {
-    fontSize: 32,
-    fontWeight: 700,
-    textAlign: "center" as const,
-    margin: "0 0 12px",
-    color: "#111827",
-  },
-  sectionDesc: {
-    fontSize: 16,
-    color: "#6b7280",
-    textAlign: "center" as const,
-    margin: "0 auto 48px",
-    maxWidth: 500,
-  },
-  featuresGrid: {
-    maxWidth: 1000,
-    margin: "0 auto",
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: 24,
-  },
-  featureCard: {
-    padding: "28px 24px",
-    borderRadius: 12,
-    border: "1px solid #e5e7eb",
-    background: "#fafbfc",
-    transition: "box-shadow 0.2s",
-  },
-  featureIcon: {
-    fontSize: 28,
-    marginBottom: 14,
-  },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#111827",
-    margin: "0 0 8px",
-  },
-  featureDesc: {
-    fontSize: 14,
-    lineHeight: 1.6,
-    color: "#6b7280",
-    margin: 0,
-  },
-
-  // CTA banner
-  ctaBanner: {
-    textAlign: "center" as const,
-    padding: "80px 24px",
-    background: "linear-gradient(135deg, #1E3A8A 0%, #2563eb 100%)",
-    color: "#fff",
-  },
-  ctaBannerTitle: {
-    fontSize: 28,
-    fontWeight: 700,
-    margin: "0 0 12px",
-  },
-  ctaBannerDesc: {
-    fontSize: 16,
-    opacity: 0.85,
-    maxWidth: 500,
-    margin: "0 auto 32px",
-    lineHeight: 1.6,
-  },
-  ctaPrimaryLg: {
-    display: "inline-block",
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#1E3A8A",
-    background: "#fff",
-    padding: "14px 36px",
-    borderRadius: 10,
-    textDecoration: "none",
-  },
-
-  // Footer
-  footer: {
-    padding: "24px",
-    borderTop: "1px solid #e5e7eb",
-    background: "#fff",
-  },
-  footerInner: {
-    maxWidth: 1100,
-    margin: "0 auto",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  footerBrand: {
-    fontSize: 15,
-    fontWeight: 700,
-    color: "#1E3A8A",
-  },
-  footerCopy: {
-    fontSize: 13,
-    color: "#9ca3af",
+  demoLg: {
+    display: "inline-flex", alignItems: "center", gap: 10,
+    fontSize: 15, fontWeight: 600, color: "#374151",
+    background: "#fff", padding: "13px 26px",
+    borderRadius: 12, border: "1px solid #E2E8F0",
+    cursor: "pointer",
   },
 };
