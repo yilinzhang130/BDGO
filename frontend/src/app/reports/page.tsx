@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import { fetchReportServices, reportDownloadUrl, createShareLink, fetchReportTasks } from "@/lib/api";
 import { useReportsStore, removeCompletedReport, addCompletedReport, type CompletedReport } from "@/lib/reports";
 import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ReportService {
   slug: string;
@@ -294,6 +296,7 @@ function ServiceCard({
 function HistoryRow({ report }: { report: CompletedReport }) {
   const age = formatAge(report.createdAt);
   const [shareState, setShareState] = useState<"idle" | "loading" | "copied">("idle");
+  const [expanded, setExpanded] = useState(false);
 
   const handleShare = async () => {
     setShareState("loading");
@@ -309,101 +312,128 @@ function HistoryRow({ report }: { report: CompletedReport }) {
   };
 
   return (
-    <div
-      className="card"
-      style={{
-        padding: "0.75rem 1rem",
-        display: "flex",
-        alignItems: "center",
-        gap: "0.85rem",
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: "0.87rem",
-            fontWeight: 600,
-            color: "var(--text)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-          title={report.title}
-        >
-          {report.title}
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      {/* Header row */}
+      <div
+        style={{
+          padding: "0.75rem 1rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.85rem",
+          cursor: report.markdownPreview ? "pointer" : "default",
+        }}
+        onClick={() => report.markdownPreview && setExpanded((e) => !e)}
+      >
+        {report.markdownPreview && (
+          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", flexShrink: 0 }}>
+            {expanded ? "▾" : "▸"}
+          </span>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: "0.87rem",
+              fontWeight: 600,
+              color: "var(--text)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={report.title}
+          >
+            {report.title}
+          </div>
+          <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.15rem" }}>
+            {report.displayName} · {age}
+            {report.meta?.mode && ` · ${report.meta.mode}`}
+            {report.meta?.paper_count && ` · ${report.meta.paper_count} papers`}
+          </div>
         </div>
-        <div
-          style={{
-            fontSize: "0.7rem",
-            color: "var(--text-muted)",
-            marginTop: "0.15rem",
-          }}
-        >
-          {report.displayName} · {age}
-          {report.meta?.mode && ` · ${report.meta.mode}`}
-          {report.meta?.paper_count && ` · ${report.meta.paper_count} papers`}
-        </div>
-      </div>
-      <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}>
-        {report.files.map((f) => (
-          <a
-            key={f.filename}
-            href={f.download_url}
-            download={f.filename}
-            target="_blank"
-            rel="noopener noreferrer"
+        <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+          {report.files.map((f) => (
+            <a
+              key={f.filename}
+              href={f.download_url}
+              download={f.filename}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: "0.3rem 0.7rem",
+                background: "var(--accent-light)",
+                color: "var(--accent)",
+                textDecoration: "none",
+                borderRadius: "var(--radius-sm)",
+                fontSize: "0.72rem",
+                fontWeight: 600,
+                border: "1px solid var(--accent-light)",
+              }}
+            >
+              ⬇ .{f.format}
+            </a>
+          ))}
+          <button
+            onClick={handleShare}
+            disabled={shareState === "loading"}
             style={{
               padding: "0.3rem 0.7rem",
-              background: "var(--accent-light)",
-              color: "var(--accent)",
-              textDecoration: "none",
+              background: shareState === "copied" ? "#059669" : "none",
+              border: `1px solid ${shareState === "copied" ? "#059669" : "var(--border)"}`,
+              color: shareState === "copied" ? "#fff" : "var(--text-muted)",
+              cursor: shareState === "loading" ? "wait" : "pointer",
               borderRadius: "var(--radius-sm)",
               fontSize: "0.72rem",
-              fontWeight: 600,
-              border: "1px solid var(--accent-light)",
+              fontWeight: 500,
+              transition: "all 0.15s",
             }}
+            title="Copy share link"
           >
-            ⬇ .{f.format}
-          </a>
-        ))}
-        <button
-          onClick={handleShare}
-          disabled={shareState === "loading"}
-          style={{
-            padding: "0.3rem 0.7rem",
-            background: shareState === "copied" ? "#059669" : "none",
-            border: `1px solid ${shareState === "copied" ? "#059669" : "var(--border)"}`,
-            color: shareState === "copied" ? "#fff" : "var(--text-muted)",
-            cursor: shareState === "loading" ? "wait" : "pointer",
-            borderRadius: "var(--radius-sm)",
-            fontSize: "0.72rem",
-            fontWeight: 500,
-            transition: "all 0.15s",
-          }}
-          title="Copy share link"
-        >
-          {shareState === "copied" ? "Copied!" : shareState === "loading" ? "..." : "\uD83D\uDD17"}
-        </button>
-        <button
-          onClick={() => {
-            if (confirm(`Remove "${report.title}" from history? (File stays on disk.)`)) {
-              removeCompletedReport(report.taskId);
-            }
-          }}
-          style={{
-            padding: "0.3rem 0.5rem",
-            background: "none",
-            border: "1px solid var(--border)",
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            borderRadius: "var(--radius-sm)",
-            fontSize: "0.72rem",
-          }}
-          title="Remove from history"
-        >
-          ✕
-        </button>
+            {shareState === "copied" ? "Copied!" : shareState === "loading" ? "..." : "🔗"}
+          </button>
+          <button
+            onClick={() => {
+              if (confirm(`Remove "${report.title}" from history? (File stays on disk.)`)) {
+                removeCompletedReport(report.taskId);
+              }
+            }}
+            style={{
+              padding: "0.3rem 0.5rem",
+              background: "none",
+              border: "1px solid var(--border)",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "0.72rem",
+            }}
+            title="Remove from history"
+          >
+            ✕
+          </button>
+        </div>
       </div>
+
+      {/* Inline markdown preview */}
+      {expanded && report.markdownPreview && (
+        <div
+          style={{
+            borderTop: "1px solid var(--border-light)",
+            padding: "1rem 1.25rem",
+            background: "var(--bg-subtle)",
+            maxHeight: "420px",
+            overflowY: "auto",
+            fontSize: "0.82rem",
+            lineHeight: 1.65,
+            color: "var(--text)",
+          }}
+          className="markdown-body"
+        >
+          <Markdown remarkPlugins={[remarkGfm]}>{report.markdownPreview}</Markdown>
+          {report.markdownPreview.length >= 2000 && (
+            <div style={{ marginTop: "0.75rem", fontSize: "0.72rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+              — 预览截断（前2000字），完整内容请下载报告文件 —
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

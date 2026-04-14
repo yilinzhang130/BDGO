@@ -43,8 +43,10 @@ ssh "${VM_USER}@${VM_IP}" bash <<'REMOTE'
   else
     echo "ERROR: no running container and no ~/.env found" && exit 1
   fi
+  mkdir -p /home/ubuntu/reports
   docker run -d --name bdgo_backend \
     --env-file /tmp/bdgo.env \
+    -v /home/ubuntu/reports:/root/.openclaw/workspace/Reports \
     -p 8001:8001 \
     --restart unless-stopped \
     bdgo-api

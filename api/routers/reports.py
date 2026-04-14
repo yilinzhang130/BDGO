@@ -145,30 +145,51 @@ def list_report_tasks(limit: int = 50):
 
 @router.get("/download/{task_id}/{format}")
 def download_report(task_id: str, format: str):
-    """Serve the generated file for a completed task."""
-    task = get_task(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    if task["status"] != "completed":
-        raise HTTPException(status_code=400, detail=f"Task not complete: {task['status']}")
+    """Serve the generated file for a completed task.
 
-    result = task.get("result") or {}
-    files = result.get("files", [])
-    match = next((f for f in files if f["format"] == format), None)
+    Falls back to report_history DB when in-memory task is unavailable
+    (e.g. after container restart).
+    """
+    files: list = []
+
+    # 1. Try in-memory task store first
+    task = get_task(task_id)
+    if task and task.get("status") == "completed":
+        files = _parse_files_json((task.get("result") or {}).get("files", []))
+
+    # 2. Fall back to report_history DB
+    if not files:
+        try:
+            with transaction() as cur:
+                cur.execute(
+                    "SELECT files_json FROM report_history WHERE task_id = %s LIMIT 1",
+                    (task_id,),
+                )
+                row = cur.fetchone()
+        except Exception:
+            row = None
+        if row:
+            files = _parse_files_json(row.get("files_json") or "[]")
+
+    if not files:
+        raise HTTPException(status_code=404, detail="Task not found or has no files")
+
+    match = next((f for f in files if f.get("format") == format), None)
     if not match:
         raise HTTPException(status_code=404, detail=f"No {format} file in this report")
 
     task_dir = REPORTS_DIR / task_id
     filepath = safe_path_within(task_dir, match["filename"])
     if not filepath.exists():
-        raise HTTPException(status_code=404, detail="File missing on disk")
-
-    media_type = MEDIA_TYPE_MAP.get(format, "application/octet-stream")
+        raise HTTPException(
+            status_code=404,
+            detail=f"File missing on disk. The report may have been generated before the current deployment.",
+        )
 
     return FileResponse(
         path=str(filepath),
         filename=match["filename"],
-        media_type=media_type,
+        media_type=MEDIA_TYPE_MAP.get(format, "application/octet-stream"),
     )
 
 
