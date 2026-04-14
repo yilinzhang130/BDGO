@@ -12,8 +12,8 @@ def overview():
         SELECT
             (SELECT COUNT(*) FROM "公司") AS companies,
             (SELECT COUNT(*) FROM "资产") AS assets,
-            (SELECT COUNT(*) FROM "临床_v3") AS clinical_records,
-            (SELECT COUNT(*) FROM "临床_v3" WHERE "数据状态" != '已读出' AND "数据状态" != '') AS active_trials,
+            (SELECT COUNT(*) FROM "临床") AS clinical_records,
+            (SELECT COUNT(*) FROM "临床" WHERE "数据状态" != '已读出' AND "数据状态" != '') AS active_trials,
             (SELECT COUNT(*) FROM "交易") AS deals,
             (SELECT COUNT(*) FROM "公司" WHERE "追踪状态" = '追踪中') AS tracked_companies
     ''')

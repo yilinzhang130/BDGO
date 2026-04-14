@@ -471,7 +471,7 @@ def _tool_search_clinical(q="", company="", asset="", phase="", limit=10):
         conds.append('"临床期次" = ?')
         params.append(phase)
     where = " AND ".join(conds) if conds else "1=1"
-    sql = f'SELECT "记录ID","试验ID","公司名称","资产名称","适应症","临床期次","主要终点名称","结果判定","数据状态" FROM "临床_v3" WHERE {where} LIMIT ?'
+    sql = f'SELECT "记录ID","试验ID","公司名称","资产名称","适应症","临床期次","主要终点名称","结果判定","数据状态" FROM "临床" WHERE {where} LIMIT ?'
     params.append(min(limit, 30))
     return query(sql, tuple(params))
 
@@ -519,7 +519,7 @@ def _tool_get_buyer_profile(company):
 
 
 def _tool_count_by(table, group_by):
-    table_map = {"公司": "公司", "资产": "资产", "临床": "临床_v3", "交易": "交易", "IP": "IP"}
+    table_map = {"公司": "公司", "资产": "资产", "临床": "临床", "交易": "交易", "IP": "IP"}
     physical = table_map.get(table, table)
     if table not in table_map:
         return {"error": f"Invalid table: {table}"}

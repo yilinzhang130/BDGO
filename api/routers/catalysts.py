@@ -1,4 +1,4 @@
-"""Catalyst calendar endpoints — aggregates catalyst data from 资产 and 临床_v3 tables."""
+"""Catalyst calendar endpoints — aggregates catalyst data from 资产 and 临床 tables."""
 
 import re
 from datetime import date, datetime
@@ -89,12 +89,12 @@ def list_catalysts(
     today = date.today().isoformat()
     events: list[dict] = []
 
-    # Source 1: 临床_v3 table (richer data, 32k records with dates)
+    # Source 1: 临床 table (richer data, 32k records with dates)
     clinical_rows = query('''
         SELECT "记录ID", "公司名称", "资产名称", "下一个催化剂", "催化剂类型",
                "催化剂预计时间", "催化剂确定性", "适应症", "临床期次",
                "数据状态", "结果判定", "试验ID"
-        FROM "临床_v3"
+        FROM "临床"
         WHERE "催化剂预计时间" IS NOT NULL AND "催化剂预计时间" != ''
     ''')
 

@@ -733,7 +733,7 @@ class DiseaseLandscapeService(ReportService):
         sql = (
             'SELECT "试验ID", "资产名称", "公司名称", "适应症", "临床期次", '
             '"主要终点名称", "主要终点结果值", "结果判定", "临床综合评分" '
-            'FROM "临床_v3" '
+            'FROM "临床" '
             'WHERE "适应症" LIKE ? '
             'ORDER BY "评估日期" DESC '
             'LIMIT ?'

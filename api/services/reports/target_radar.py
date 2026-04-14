@@ -322,7 +322,7 @@ class TargetRadarService(ReportService):
             'SELECT "试验ID", "资产名称", "公司名称", "适应症", "临床期次", '
             '"主要终点名称", "主要终点结果值", "主要终点_HR", "结果判定", '
             '"临床综合评分", "数据状态" '
-            f'FROM "临床_v3" WHERE {where} '
+            f'FROM "临床" WHERE {where} '
             'ORDER BY "临床综合评分" DESC LIMIT ?'
         )
         return ctx.crm_query(sql, tuple(params) + (limit,))

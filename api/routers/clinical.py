@@ -58,7 +58,7 @@ def list_clinical(
 
 @router.get("/{record_id}")
 def get_clinical_record(record_id: str):
-    row = query_one('SELECT * FROM "临床_v3" WHERE "记录ID" = ?', (record_id,))
+    row = query_one('SELECT * FROM "临床" WHERE "记录ID" = ?', (record_id,))
     if not row:
         raise HTTPException(status_code=404, detail="Clinical record not found")
     return row
