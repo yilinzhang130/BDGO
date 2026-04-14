@@ -14,6 +14,7 @@ type Stage = "upload" | "uploaded" | "analyzing" | "done" | "failed";
 export function BPUpload({ company, onClose, onUploaded }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const [stage, setStage] = useState<Stage>("upload");
   const [result, setResult] = useState<any>(null);
   const [analysisStatus, setAnalysisStatus] = useState("");
@@ -34,9 +35,10 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
   const handleUpload = async () => {
     if (!file) { setError("No file selected"); return; }
     setUploading(true);
+    setUploadPct(0);
     setError("");
     try {
-      const res = await uploadBP(file, company);
+      const res = await uploadBP(file, company, setUploadPct);
       setResult(res);
       setStage("uploaded");
       if (onUploaded) onUploaded(res.filename);
@@ -44,6 +46,7 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
       setError(e.message || "Upload failed");
     } finally {
       setUploading(false);
+      setUploadPct(0);
     }
   };
 
@@ -143,16 +146,39 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
 
             {error && <div style={{ color: "var(--red)", fontSize: "0.85rem", marginBottom: "0.75rem" }}>{error}</div>}
 
+            {uploading && (
+              <div style={{ marginBottom: "0.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                  <span>上传中…</span>
+                  <span>{uploadPct}%</span>
+                </div>
+                <div style={{ height: 6, background: "var(--border)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%",
+                    width: `${uploadPct}%`,
+                    background: "var(--accent)",
+                    borderRadius: 99,
+                    transition: "width 0.2s ease",
+                  }} />
+                </div>
+                {file && (
+                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                    {(file.size / 1024 / 1024).toFixed(1)} MB — {file.name}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-              <button onClick={onClose} style={{ padding: "0.45rem 1rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg-card)", cursor: "pointer", fontSize: "0.85rem" }}>
+              <button onClick={onClose} disabled={uploading} style={{ padding: "0.45rem 1rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg-card)", cursor: uploading ? "not-allowed" : "pointer", fontSize: "0.85rem", opacity: uploading ? 0.5 : 1 }}>
                 Cancel
               </button>
               <button
                 onClick={handleUpload}
                 disabled={!file || uploading}
-                style={{ padding: "0.45rem 1rem", border: "none", borderRadius: 6, background: file ? "var(--accent)" : "#94a3b8", color: "white", cursor: file ? "pointer" : "not-allowed", fontSize: "0.85rem", fontWeight: 600 }}
+                style={{ padding: "0.45rem 1rem", border: "none", borderRadius: 6, background: file && !uploading ? "var(--accent)" : "#94a3b8", color: "white", cursor: file && !uploading ? "pointer" : "not-allowed", fontSize: "0.85rem", fontWeight: 600 }}
               >
-                {uploading ? "Uploading..." : "Upload"}
+                {uploading ? `${uploadPct}%` : "Upload"}
               </button>
             </div>
           </>

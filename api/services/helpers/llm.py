@@ -7,6 +7,7 @@ Used by report services via ReportContext.llm(). For streaming + tool_use, see c
 from __future__ import annotations
 
 import logging
+import time
 
 import httpx
 
@@ -47,15 +48,30 @@ def call_llm_sync(
         "anthropic-version": MINIMAX_ANTHROPIC_VERSION,
     }
 
+    max_retries = 3
+    resp = None
     try:
         with httpx.Client(timeout=timeout) as client:
-            resp = client.post(MINIMAX_URL, json=body, headers=headers)
-    except httpx.TimeoutException as e:
-        raise RuntimeError(f"LLM request timed out after {timeout}s") from e
-    except httpx.HTTPError as e:
-        raise RuntimeError(f"LLM HTTP error: {e}") from e
+            for attempt in range(max_retries):
+                try:
+                    resp = client.post(MINIMAX_URL, json=body, headers=headers)
+                except httpx.TimeoutException as e:
+                    raise RuntimeError(f"LLM request timed out after {timeout}s") from e
+                except httpx.HTTPError as e:
+                    raise RuntimeError(f"LLM HTTP error: {e}") from e
 
-    if resp.status_code != 200:
+                if resp.status_code == 529:
+                    if attempt < max_retries - 1:
+                        wait = 2 ** attempt  # 1s, 2s
+                        logger.warning("MiniMax 529 overload (attempt %d/%d), retrying in %ds", attempt + 1, max_retries, wait)
+                        time.sleep(wait)
+                        continue
+                    raise RuntimeError("AI服务当前负载较高，请稍后重试（已重试3次）")
+                break  # non-529 — success or other error, stop retrying
+    except RuntimeError:
+        raise
+
+    if resp is None or resp.status_code != 200:
         raise RuntimeError(f"LLM API error {resp.status_code}: {resp.text[:500]}")
 
     try:

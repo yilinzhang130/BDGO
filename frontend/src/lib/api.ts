@@ -163,22 +163,48 @@ export const runTask = (agent: string, message: string) =>
 export const fetchTaskStatus = (taskId: string) =>
   get(`${BASE}/tasks/status/${taskId}`);
 
-// Upload
-export async function uploadBP(file: File, company?: string): Promise<any> {
-  const form = new FormData();
-  form.append("file", file);
-  if (company) form.append("company", company);
-  const res = await fetch(`${BASE}/upload/bp`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: form,
+// Upload with XHR so callers can receive progress events (Fetch has no upload progress)
+export function uploadBP(
+  file: File,
+  company?: string,
+  onProgress?: (pct: number) => void,
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (company) form.append("company", company);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE}/upload/bp`);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.timeout = 120_000;
+
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        clearAuth();
+        if (typeof window !== "undefined" && window.location.pathname !== "/login")
+          window.location.href = "/login";
+        reject(new Error("Unauthorized"));
+        return;
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(`Upload failed: ${xhr.status} ${xhr.responseText.slice(0, 200)}`));
+        return;
+      }
+      try { resolve(JSON.parse(xhr.responseText)); }
+      catch { reject(new Error("Invalid JSON response from upload")); }
+    };
+    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.ontimeout = () => reject(new Error("Upload timed out after 2 minutes"));
+    xhr.send(form);
   });
-  handle401(res);
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Upload failed: ${res.status} ${body}`);
-  }
-  return res.json();
 }
 
 // Reports (skill services)
