@@ -73,6 +73,7 @@ export function SearchModal({ open, onClose }: Props) {
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const genRef = useRef(0); // incremented each search; stale responses are dropped
 
   useEffect(() => {
     if (open) {
@@ -84,19 +85,21 @@ export function SearchModal({ open, onClose }: Props) {
   }, [open]);
 
   const search = useCallback(async (query: string) => {
+    const gen = ++genRef.current;
     if (!query.trim()) { setResults([]); return; }
     setLoading(true);
     try {
       const [raw, sessions] = await Promise.all([
         globalSearch(query, 5).catch(() => ({})),
-        searchSessions(query).catch(() => []),
+        searchSessions(query, 6).catch(() => []),
       ]);
+      if (gen !== genRef.current) return; // stale — a newer query is already in flight
       setResults(groupResults(raw, sessions));
       setCursor(0);
     } catch {
-      setResults([]);
+      if (gen === genRef.current) setResults([]);
     } finally {
-      setLoading(false);
+      if (gen === genRef.current) setLoading(false);
     }
   }, []);
 

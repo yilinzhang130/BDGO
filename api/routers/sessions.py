@@ -104,25 +104,30 @@ def list_sessions(user: dict = Depends(get_current_user)):
 # ---------------------------------------------------------------------------
 
 @router.get("/search")
-def search_sessions(q: str = "", user: dict = Depends(get_current_user)):
-    """Search chat sessions by title or message content. Returns up to 10 matches."""
+def search_sessions(q: str = "", limit: int = 6, user: dict = Depends(get_current_user)):
+    """Search chat sessions by title or message content."""
     user_id = user["id"]
     with transaction() as cur:
         if q:
+            # EXISTS avoids scanning all messages per session (vs unbounded LEFT JOIN)
             cur.execute(
-                """SELECT DISTINCT s.id, s.title, s.updated_at
+                """SELECT s.id, s.title, s.updated_at
                    FROM sessions s
-                   LEFT JOIN messages m ON m.session_id = s.id
                    WHERE s.user_id = %s
-                     AND (s.title ILIKE %s OR m.content ILIKE %s)
+                     AND (s.title ILIKE %s
+                          OR EXISTS (
+                              SELECT 1 FROM messages m
+                              WHERE m.session_id = s.id AND m.content ILIKE %s
+                              LIMIT 1
+                          ))
                    ORDER BY s.updated_at DESC
-                   LIMIT 10""",
-                (user_id, f"%{q}%", f"%{q}%"),
+                   LIMIT %s""",
+                (user_id, f"%{q}%", f"%{q}%", limit),
             )
         else:
             cur.execute(
-                "SELECT id, title, updated_at FROM sessions WHERE user_id = %s ORDER BY updated_at DESC LIMIT 10",
-                (user_id,),
+                "SELECT id, title, updated_at FROM sessions WHERE user_id = %s ORDER BY updated_at DESC LIMIT %s",
+                (user_id, limit),
             )
         rows = cur.fetchall()
     return [_serialize_row(r) for r in rows]

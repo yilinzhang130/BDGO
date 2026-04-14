@@ -553,10 +553,10 @@ def _tool_add_to_watchlist(entity_type: str, entity_key: str, notes: str = "", _
     try:
         with transaction() as cur:
             cur.execute(
-                """INSERT INTO watchlist (entity_type, entity_key, user_id, notes)
+                """INSERT INTO user_watchlists (entity_type, entity_key, user_id, notes)
                    VALUES (%s, %s, %s, %s)
                    ON CONFLICT (user_id, entity_type, entity_key)
-                   DO UPDATE SET notes = COALESCE(NULLIF(EXCLUDED.notes, ''), watchlist.notes)
+                   DO UPDATE SET notes = COALESCE(NULLIF(EXCLUDED.notes, ''), user_watchlists.notes)
                    RETURNING id""",
                 (entity_type, entity_key, _user_id, notes or None),
             )
