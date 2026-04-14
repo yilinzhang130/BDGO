@@ -56,6 +56,8 @@ export default function WatchlistPage() {
   const [type, setType] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 50;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Quick-add state
   const [addType, setAddType] = useState("company");
@@ -69,11 +71,16 @@ export default function WatchlistPage() {
   }, [q]);
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetchWatchlist({ q: debouncedQ, type, page, page_size: pageSize });
       setData(res);
-    } catch {
+    } catch (e: any) {
+      setError(e?.message || "加载失败");
       setData(null);
+    } finally {
+      setLoading(false);
     }
   }, [debouncedQ, type, page]);
 
@@ -171,7 +178,14 @@ export default function WatchlistPage() {
       </form>
 
       <div className="card" style={{ marginTop: "1rem" }}>
-        {data && data.data.length === 0 ? (
+        {loading ? (
+          <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}>加载中…</div>
+        ) : error ? (
+          <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}>
+            <div style={{ fontSize: 13, marginBottom: 8 }}>加载失败</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>{error}</div>
+          </div>
+        ) : data && data.data.length === 0 ? (
           <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>☆</div>
             <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>关注列表为空</div>

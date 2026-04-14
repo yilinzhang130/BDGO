@@ -19,7 +19,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from services.helpers import docx_builder
+from services.helpers import docx_builder, search
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
     ReportContext,

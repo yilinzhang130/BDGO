@@ -1,60 +1,62 @@
 #!/usr/bin/env bash
-# ── BD Go — Deploy to VM ──
-# Usage:
-#   ./scripts/deploy.sh <VM_IP> [SSH_USER]
+# ── BD Go — Deploy backend to VM ──────────────────────────────
+# Usage (from repo root):
+#   ./scripts/deploy.sh
 #
-# Prerequisites on the VM:
-#   - Docker & Docker Compose installed
-#   - Git repo cloned to ~/crm-dashboard (or set REMOTE_DIR)
-#   - .env file configured with secrets
-#   - data/ directory with crm.db, guidelines.db, BP/, Reports/
+# Defaults to ubuntu@146.56.247.221. Override with:
+#   VM_USER=ubuntu VM_IP=1.2.3.4 ./scripts/deploy.sh
+# ──────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
-# ── Args ──
-VM_IP="${1:?Usage: ./scripts/deploy.sh <VM_IP> [SSH_USER]}"
-SSH_USER="${2:-root}"
-REMOTE_DIR="${REMOTE_DIR:-~/crm-dashboard}"
+VM_IP="${VM_IP:-146.56.247.221}"
+VM_USER="${VM_USER:-ubuntu}"
+REMOTE_DIR="${REMOTE_DIR:-~/app}"
 
-echo "==> Deploying BD Go to ${SSH_USER}@${VM_IP}"
-echo "    Remote directory: ${REMOTE_DIR}"
+# Resolve repo root (works from any subdirectory)
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+echo "==> BD Go deploy → ${VM_USER}@${VM_IP}:${REMOTE_DIR}"
 echo ""
 
-# ── Step 1: Pull latest code ──
-echo "--- Step 1/4: Pulling latest code ---"
-ssh "${SSH_USER}@${VM_IP}" "cd ${REMOTE_DIR} && git pull origin main"
+# ── 1. Sync code ──────────────────────────────────────────────
+echo "--- 1/3: rsync api/ + Dockerfile ---"
+rsync -avz --progress \
+  "${REPO_ROOT}/api/" "${VM_USER}@${VM_IP}:${REMOTE_DIR}/api/"
+rsync -avz \
+  "${REPO_ROOT}/Dockerfile" "${VM_USER}@${VM_IP}:${REMOTE_DIR}/Dockerfile"
 
-# ── Step 2: Build and restart containers ──
-echo "--- Step 2/4: Building and starting containers ---"
-ssh "${SSH_USER}@${VM_IP}" "cd ${REMOTE_DIR} && docker compose up -d --build"
+# ── 2. Build image + restart container ────────────────────────
+echo ""
+echo "--- 2/3: build image + restart container ---"
+ssh "${VM_USER}@${VM_IP}" bash <<'REMOTE'
+  set -euo pipefail
+  cd ~/app
+  docker build -t bdgo-api .
+  docker rm -f bdgo 2>/dev/null || true
+  docker run -d --name bdgo \
+    --env-file ~/.env \
+    -p 8001:8001 \
+    --restart unless-stopped \
+    bdgo-api
+REMOTE
 
-# ── Step 3: Wait for health check ──
-echo "--- Step 3/4: Waiting for backend health check ---"
-MAX_RETRIES=15
-RETRY_INTERVAL=2
-for i in $(seq 1 $MAX_RETRIES); do
-    if ssh "${SSH_USER}@${VM_IP}" "curl -sf http://localhost:8001/api/health > /dev/null 2>&1"; then
-        echo "    Backend is healthy!"
-        break
-    fi
-    if [ "$i" -eq "$MAX_RETRIES" ]; then
-        echo "    ERROR: Backend failed health check after $((MAX_RETRIES * RETRY_INTERVAL))s"
-        echo "    Check logs: ssh ${SSH_USER}@${VM_IP} 'cd ${REMOTE_DIR} && docker compose logs backend'"
-        exit 1
-    fi
-    echo "    Attempt $i/$MAX_RETRIES — waiting ${RETRY_INTERVAL}s..."
-    sleep $RETRY_INTERVAL
+# ── 3. Health check ───────────────────────────────────────────
+echo ""
+echo "--- 3/3: health check ---"
+for i in $(seq 1 15); do
+  if ssh "${VM_USER}@${VM_IP}" "curl -sf http://localhost:8001/api/health" > /dev/null 2>&1; then
+    echo "    OK — backend is healthy"
+    break
+  fi
+  if [ "$i" -eq 15 ]; then
+    echo "    ERROR: health check failed after 30s"
+    echo "    Check logs: ssh ${VM_USER}@${VM_IP} 'docker logs bdgo'"
+    exit 1
+  fi
+  echo "    waiting... ($i/15)"
+  sleep 2
 done
 
-# ── Step 4: Print status ──
-echo "--- Step 4/4: Container status ---"
-ssh "${SSH_USER}@${VM_IP}" "cd ${REMOTE_DIR} && docker compose ps"
-
 echo ""
-echo "==> Deployment complete!"
-echo "    Backend API:  http://${VM_IP}:8001/api/health"
-echo "    Nginx proxy:  http://${VM_IP}/"
-echo ""
-echo "    Next steps:"
-echo "    - Set NEXT_PUBLIC_API_URL=http://${VM_IP}:8001 in Vercel env vars"
-echo "    - Redeploy frontend on Vercel"
+echo "==> Done. http://${VM_IP}:8001/api/health"

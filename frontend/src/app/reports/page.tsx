@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchReportServices, reportDownloadUrl, createShareLink } from "@/lib/api";
-import { useReportsStore, removeCompletedReport, type CompletedReport } from "@/lib/reports";
+import { useEffect, useState, useRef } from "react";
+import { fetchReportServices, reportDownloadUrl, createShareLink, fetchReportTasks } from "@/lib/api";
+import { useReportsStore, removeCompletedReport, addCompletedReport, type CompletedReport } from "@/lib/reports";
 import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
 
 interface ReportService {
@@ -16,11 +16,23 @@ interface ReportService {
   input_schema: any;
 }
 
+interface RunningTask {
+  task_id: string;
+  slug: string;
+  status: "queued" | "running" | "completed" | "failed";
+  created_at: string;
+  params?: Record<string, any>;
+}
+
 export default function ReportsPage() {
   const [services, setServices] = useState<ReportService[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ReportService | null>(null);
   const { reports } = useReportsStore();
+  const [runningTasks, setRunningTasks] = useState<RunningTask[]>([]);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastActiveIdsRef = useRef<string>("");
+  const seenCompletedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     fetchReportServices()
@@ -29,6 +41,31 @@ export default function ReportsPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const { tasks } = await fetchReportTasks();
+        const active = tasks.filter((t) => t.status === "queued" || t.status === "running");
+        const nextIds = active.map((t) => t.task_id).sort().join(",");
+        if (nextIds !== lastActiveIdsRef.current) {
+          lastActiveIdsRef.current = nextIds;
+          setRunningTasks(active);
+        }
+        const newlyCompleted = tasks
+          .filter((t) => t.status === "completed" && !seenCompletedRef.current.has(t.task_id));
+        newlyCompleted.forEach((t) => seenCompletedRef.current.add(t.task_id));
+        if (newlyCompleted.length > 0) addCompletedReport(newlyCompleted[0]);
+      } catch {
+        // ignore poll errors
+      }
+    };
+    poll();
+    pollRef.current = setInterval(poll, 5000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   return (
@@ -79,6 +116,38 @@ export default function ReportsPage() {
           </div>
         )}
       </section>
+
+      {/* Running tasks */}
+      {runningTasks.length > 0 && (
+        <section style={{ marginBottom: "2rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.75rem" }}>
+            <h2 style={{ fontSize: "0.95rem", margin: 0, fontWeight: 700 }}>进行中</h2>
+            <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{runningTasks.length} 个任务</span>
+          </div>
+          {runningTasks.map((task) => (
+            <div key={task.task_id} className="card" style={{ padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.85rem", marginBottom: "0.5rem" }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "tool-spin 0.7s linear infinite", width: 18, height: 18, flexShrink: 0 }}>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+              </svg>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "0.87rem", fontWeight: 600, color: "var(--text)" }}>
+                  {services.find((s) => s.slug === task.slug)?.display_name || task.slug}
+                </div>
+                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.1rem" }}>
+                  {task.status === "queued" ? "排队中…" : "生成中…"} · {task.task_id}
+                </div>
+              </div>
+              <span style={{
+                fontSize: "0.68rem", fontWeight: 600, padding: "0.2rem 0.55rem",
+                borderRadius: 20, background: task.status === "running" ? "#dbeafe" : "#f1f5f9",
+                color: task.status === "running" ? "#1d4ed8" : "#64748b",
+              }}>
+                {task.status === "running" ? "运行中" : "排队中"}
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* History */}
       <section>

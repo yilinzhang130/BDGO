@@ -8,7 +8,7 @@ from database import transaction
 
 router = APIRouter()
 
-VALID_ENTITY_TYPES = {"company", "asset", "disease", "target"}
+VALID_ENTITY_TYPES = {"company", "asset", "disease", "target", "incubator"}
 
 
 # ---------------------------------------------------------------------------

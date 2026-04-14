@@ -216,6 +216,9 @@ export const generateReport = (slug: string, params: Record<string, any>) =>
 export const fetchReportStatus = (taskId: string) =>
   get(`${BASE}/reports/status/${taskId}`);
 
+export const fetchReportTasks = () =>
+  get<{ tasks: any[] }>(`${BASE}/reports/tasks`);
+
 export function reportDownloadUrl(taskId: string, format: string): string {
   return `${BASE}/reports/download/${taskId}/${format}`;
 }
