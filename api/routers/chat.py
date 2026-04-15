@@ -1301,6 +1301,16 @@ async def _stream_chat(req: ChatRequest):
                         result_str = _execute_tool(tu["name"], inp, user_id=user_id)
                         yield f"data: {json.dumps({'type': 'tool_result', 'name': tu['name']})}\n\n"
 
+                        # Emit report_task event for async report tools so the
+                        # frontend can show an inline polling card.
+                        if tu["name"].startswith("generate_"):
+                            try:
+                                _rd = json.loads(result_str)
+                                if _rd.get("status") == "queued" and _rd.get("task_id"):
+                                    yield f"data: {json.dumps({'type': 'report_task', 'task_id': _rd['task_id'], 'slug': tu['name'].replace('generate_', '', 1), 'estimated_seconds': _rd.get('estimated_seconds', 60)})}\n\n"
+                            except Exception:
+                                pass
+
                         # Collect tool event for persistence
                         tool_events.append({
                             "name": tu["name"],

@@ -11,12 +11,14 @@ function validateEmail(email: string): boolean {
 
 function BDGoLogo() {
   return (
-    <img
-      src="/logo.png"
-      alt="BD Go"
-      style={{ width: 56, height: 56, borderRadius: 14, objectFit: "contain", display: "block", margin: "0 auto 16px", boxShadow: "0 4px 16px rgba(30,58,138,0.15)" }}
-      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-    />
+    <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+      <svg width="52" height="52" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="9" fill="#1E3A8A" />
+        <circle cx="11" cy="18" r="3.5" fill="white" />
+        <line x1="15" y1="18" x2="22.5" y2="18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M22 13 L29 18 L22 23 Z" fill="white" />
+      </svg>
+    </div>
   );
 }
 
@@ -188,20 +190,12 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     minHeight: "100vh",
-    background: "linear-gradient(160deg, #EEF2FF 0%, #F0F9FF 60%, #F8FAFF 100%)",
+    background: "#F9FAFB",
     padding: "24px",
     position: "relative",
-    overflow: "hidden",
   },
   bgDecor: {
-    position: "absolute",
-    top: -120,
-    right: -120,
-    width: 500,
-    height: 500,
-    borderRadius: "50%",
-    background: "radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%)",
-    pointerEvents: "none",
+    display: "none",
   },
   card: {
     width: "100%",
@@ -209,7 +203,7 @@ const s: Record<string, React.CSSProperties> = {
     background: "#fff",
     borderRadius: 20,
     border: "1px solid #E8EFFE",
-    boxShadow: "0 20px 60px rgba(30,58,138,0.1)",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 20px 60px rgba(30,58,138,0.12)",
     padding: "40px 36px 36px",
     position: "relative",
     zIndex: 1,

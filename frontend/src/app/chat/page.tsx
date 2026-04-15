@@ -28,6 +28,7 @@ export default function ChatPage() {
     addMessage,
     appendAssistantChunk,
     addToolEvent,
+    addReportTask,
     markMessageDone,
     addContextEntity,
     removeContextEntity,
@@ -174,6 +175,12 @@ export default function ChatPage() {
                   addToolEvent(targetSessionId, assistantMsgId, {
                     type: "tool_result",
                     name: data.name,
+                  });
+                } else if (data.type === "report_task") {
+                  addReportTask(targetSessionId, assistantMsgId, {
+                    task_id: data.task_id,
+                    slug: data.slug,
+                    estimated_seconds: data.estimated_seconds,
                   });
                 } else if (data.type === "context_entity") {
                   const entity: ContextEntity = {
@@ -336,6 +343,7 @@ export default function ChatPage() {
                   streaming={m.streaming}
                   tools={m.tools}
                   attachments={m.attachments}
+                  reportTasks={m.reportTasks}
                 />
               ))}
             </div>

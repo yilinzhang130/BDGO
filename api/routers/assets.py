@@ -1,8 +1,10 @@
-"""Asset endpoints."""
+"""Asset endpoints — field visibility enforced by field_policy."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from urllib.parse import unquote
 from db import paginate, query_one
+from auth import get_current_user
+from field_policy import strip_hidden, is_admin_user
 
 router = APIRouter()
 
@@ -20,6 +22,7 @@ def list_assets(
     order: str = Query("asc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    user: dict = Depends(get_current_user),
 ):
     conditions = []
     params: list = []
@@ -55,7 +58,7 @@ def list_assets(
     sort_col = sort if sort in allowed_sorts else "资产名称"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 
-    return paginate(
+    result = paginate(
         "资产",
         where=where,
         params=tuple(params),
@@ -63,10 +66,12 @@ def list_assets(
         page=page,
         page_size=page_size,
     )
+    result["data"] = strip_hidden(result["data"], "资产", is_admin_user(user))
+    return result
 
 
 @router.get("/{company}/{name}")
-def get_asset(company: str, name: str):
+def get_asset(company: str, name: str, user: dict = Depends(get_current_user)):
     company = unquote(company)
     name = unquote(name)
     row = query_one(
@@ -75,7 +80,7 @@ def get_asset(company: str, name: str):
     )
     if not row:
         raise HTTPException(status_code=404, detail="Asset not found")
-    return row
+    return strip_hidden(row, "资产", is_admin_user(user))
 
 
 @router.get("/{company}/{name}/trials")

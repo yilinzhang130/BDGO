@@ -40,12 +40,19 @@ export interface ToolEvent {
   name: string;
 }
 
+export interface ReportTask {
+  task_id: string;
+  slug: string;
+  estimated_seconds: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
   tools?: ToolEvent[];
   attachments?: string[];
+  reportTasks?: ReportTask[];
   streaming?: boolean;
   createdAt: number;
 }
@@ -348,6 +355,21 @@ export function addToolEvent(
   }));
 }
 
+export function addReportTask(
+  sessionId: string,
+  msgId: string,
+  task: ReportTask,
+) {
+  touchSession(sessionId, (s) => ({
+    ...s,
+    messages: s.messages.map((m) =>
+      m.id === msgId
+        ? { ...m, reportTasks: [...(m.reportTasks || []), task] }
+        : m,
+    ),
+  }));
+}
+
 export function markMessageDone(sessionId: string, msgId: string) {
   touchSession(sessionId, (s) => ({
     ...s,
@@ -459,6 +481,7 @@ export function useSessionStore() {
     addMessage,
     appendAssistantChunk,
     addToolEvent,
+    addReportTask,
     markMessageDone,
     addContextEntity,
     removeContextEntity,

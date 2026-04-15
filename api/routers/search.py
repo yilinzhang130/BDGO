@@ -1,4 +1,4 @@
-"""Global cross-table search endpoint."""
+"""Global cross-table search endpoint — with Chinese bigram fuzzy matching."""
 
 from fastapi import APIRouter, Query
 from db import query
@@ -30,30 +30,74 @@ _SEARCH_TABLES = [
 ]
 
 
+def _build_patterns(q: str) -> list[str]:
+    """Return a list of LIKE patterns for fuzzy matching.
+
+    Strategy:
+    1. Always include the full query as one pattern (exact substring).
+    2. For queries ≥ 3 chars, generate 2-char bigrams so that e.g. "时迈生物"
+       also matches "时迈药业" via the "时迈" bigram.
+
+    We de-duplicate and keep unique patterns.
+    """
+    q = q.strip()
+    patterns: list[str] = [f"%{q}%"]  # full match first
+
+    if len(q) >= 3:
+        seen: set[str] = {q}
+        for i in range(len(q) - 1):
+            bigram = q[i : i + 2]
+            if bigram not in seen:
+                seen.add(bigram)
+                patterns.append(f"%{bigram}%")
+
+    return patterns
+
+
 @router.get("/global")
 def global_search(
     q: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(5, ge=1, le=10, description="Max results per category"),
 ):
-    """Search across all CRM tables simultaneously."""
+    """Search across all CRM tables simultaneously.
+
+    Uses bigram patterns to handle fuzzy Chinese company-name matching,
+    e.g. "时迈生物" will also surface "时迈药业".
+    """
     results: dict = {}
-    pattern = f"%{q}%"
+    patterns = _build_patterns(q)
 
     for category, table, search_cols, display_cols, pk_col, link_tpl in _SEARCH_TABLES:
-        where = " OR ".join(f'"{c}" LIKE ?' for c in search_cols)
-        # Select display cols + pk col (for link building)
-        all_cols = list(set(display_cols + [pk_col] + search_cols[:1]))
+        # Build OR clause: for each (column, pattern) combination
+        all_cols = list(dict.fromkeys(display_cols + [pk_col] + search_cols[:1]))
         select = ", ".join(f'"{c}"' for c in all_cols)
+
+        # For each search column, OR all patterns together
+        col_clauses = []
+        params: list = []
+        for col in search_cols:
+            for pat in patterns:
+                col_clauses.append(f'"{col}" LIKE ?')
+                params.append(pat)
+
+        where = " OR ".join(col_clauses)
+        params.append(limit)
 
         rows = query(
             f'SELECT {select} FROM "{table}" WHERE {where} LIMIT ?',
-            tuple([pattern] * len(search_cols) + [limit]),
+            tuple(params),
         )
 
         if rows:
+            # Deduplicate by pk_col (bigrams can return same row multiple times)
+            seen_pks: set = set()
             items = []
             for row in rows:
-                # Build link by substituting column values into template
+                pk_val = row.get(pk_col)
+                if pk_val in seen_pks:
+                    continue
+                seen_pks.add(pk_val)
+
                 link = link_tpl
                 for col in all_cols:
                     link = link.replace("{" + col + "}", str(row.get(col, "") or ""))
@@ -61,6 +105,7 @@ def global_search(
                     "display": {c: row.get(c, "") for c in display_cols},
                     "link": link,
                 })
-            results[category] = items
+            if items:
+                results[category] = items[:limit]
 
     return {"query": q, "results": results}

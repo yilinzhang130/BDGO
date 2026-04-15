@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAuth } from "@/components/AuthProvider";
 
 interface ToolEvent {
   type: "tool_call" | "tool_result";
   name: string;
+}
+
+interface ReportTask {
+  task_id: string;
+  slug: string;
+  estimated_seconds: number;
 }
 
 interface Props {
@@ -15,6 +22,7 @@ interface Props {
   streaming?: boolean;
   tools?: ToolEvent[];
   attachments?: string[];
+  reportTasks?: ReportTask[];
 }
 
 // ── Tool display config ──────────────────────────────────────────────
@@ -110,8 +118,131 @@ function ToolStepsPanel({ tools, isStreaming }: { tools: ToolEvent[]; isStreamin
   );
 }
 
+// ── Report Task Card ─────────────────────────────────────────────────
+// Polls the report status and shows an inline preview when complete.
+
+const REPORT_LABELS: Record<string, string> = {
+  disease_landscape: "疾病竞争格局",
+  target_radar: "靶点雷达",
+  buyer_profile: "买方画像",
+  commercial_assessment: "商业化评估",
+  ip_landscape: "IP景观",
+  literature_review: "文献综述",
+  clinical_brief: "临床指南简报",
+};
+
+function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
+  const { token } = useAuth();
+  const [status, setStatus] = useState<"polling" | "completed" | "failed">("polling");
+  const [markdown, setMarkdown] = useState<string>("");
+  const [files, setFiles] = useState<any[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const label = REPORT_LABELS[slug] || slug.replace(/_/g, " ");
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/reports/status/${task_id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "completed") {
+          setMarkdown(data.result?.markdown || "");
+          setFiles(data.result?.files || []);
+          setStatus("completed");
+          if (pollRef.current) clearInterval(pollRef.current);
+        } else if (data.status === "failed") {
+          setStatus("failed");
+          if (pollRef.current) clearInterval(pollRef.current);
+        }
+      } catch {}
+    };
+
+    poll(); // immediate first check
+    pollRef.current = setInterval(poll, 4000);
+    // Stop polling after 5 minutes regardless
+    const timeout = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    }, 300_000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      clearTimeout(timeout);
+    };
+  }, [task_id, token]);
+
+  const downloadWithAuth = async (taskId: string, format: string, filename: string) => {
+    const res = await fetch(`/api/reports/download/${taskId}/${format}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (status === "polling") {
+    return (
+      <div style={{ margin: "10px 0", padding: "12px 16px", background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 10, display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ width: 14, height: 14, border: "2px solid #A5B4FC", borderTopColor: "#4F46E5", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+        <span style={{ fontSize: 13, color: "#4338CA", fontWeight: 500 }}>
+          正在生成{label}报告…预计 {estimated_seconds} 秒
+        </span>
+      </div>
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      <div style={{ margin: "10px 0", padding: "12px 16px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10 }}>
+        <span style={{ fontSize: 13, color: "#DC2626" }}>⚠️ 报告生成失败，请重试</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ margin: "10px 0", border: "1px solid #BBF7D0", borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ background: "#F0FDF4", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ color: "#16A34A", fontWeight: 700, fontSize: 13 }}>✓ {label}报告已生成</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {files.map((f: any) => (
+            <button
+              key={f.format}
+              onClick={() => downloadWithAuth(task_id, f.format, f.filename)}
+              style={{ fontSize: 11, fontWeight: 600, padding: "4px 10px", background: "#16A34A", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+            >
+              下载 {f.format.toUpperCase()}
+            </button>
+          ))}
+          {markdown && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              style={{ fontSize: 11, color: "#16A34A", background: "none", border: "1px solid #BBF7D0", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}
+            >
+              {expanded ? "收起预览" : "展开预览"}
+            </button>
+          )}
+        </div>
+      </div>
+      {expanded && markdown && (
+        <div style={{ padding: "14px 16px", maxHeight: 400, overflowY: "auto", fontSize: 13, lineHeight: 1.7 }}>
+          <Markdown remarkPlugins={[remarkGfm]}>{markdown.slice(0, 3000)}</Markdown>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // ── ChatMessage ──────────────────────────────────────────────────────
-export function ChatMessage({ role, content, streaming, tools, attachments }: Props) {
+export function ChatMessage({ role, content, streaming, tools, attachments, reportTasks }: Props) {
   if (role === "user") {
     return (
       <div className="chat-message user">
@@ -146,6 +277,9 @@ export function ChatMessage({ role, content, streaming, tools, attachments }: Pr
       <div className="chat-bubble assistant">
         {hasTools && <ToolStepsPanel tools={tools!} isStreaming={!!streaming} />}
         {content && <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>}
+        {reportTasks && reportTasks.map((rt) => (
+          <ReportTaskCard key={rt.task_id} {...rt} />
+        ))}
         {streaming && !content && !hasTools && <span className="chat-cursor">|</span>}
         {streaming && content && <span className="chat-cursor">|</span>}
       </div>

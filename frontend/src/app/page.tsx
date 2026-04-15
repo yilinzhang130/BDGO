@@ -61,17 +61,22 @@ const FEATURES = [
 ];
 
 // ---------------------------------------------------------------------------
-// Logo (same SVG as sidebar)
+// Logo mark (inline SVG — no image dependency)
 // ---------------------------------------------------------------------------
 
 function NavLogo() {
   return (
-    <img
-      src="/logo.png"
-      alt="BD Go"
-      style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", flexShrink: 0 }}
-      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-    />
+    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+      <svg width="32" height="32" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+        <rect width="36" height="36" rx="9" fill="#1E3A8A" />
+        <circle cx="11" cy="18" r="3.5" fill="white" />
+        <line x1="15" y1="18" x2="22.5" y2="18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M22 13 L29 18 L22 23 Z" fill="white" />
+      </svg>
+      <span style={{ fontSize: 16, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.01em" }}>
+        BD<span style={{ fontWeight: 500 }}> Go</span>
+      </span>
+    </div>
   );
 }
 
@@ -146,7 +151,7 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── Hero ─── */}
-      <section style={{ background: "linear-gradient(160deg, #EEF2FF 0%, #F0F9FF 60%, #fff 100%)", padding: "80px 32px 96px" }}>
+      <section style={{ background: "#fff", padding: "80px 32px 96px", borderBottom: "1px solid #F1F5F9" }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: 64, flexWrap: "wrap" }}>
           {/* Left */}
           <div style={{ flex: "1 1 420px", minWidth: 300 }}>
@@ -341,9 +346,8 @@ export default function LandingPage() {
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48, marginBottom: 48 }}>
             {/* Brand col */}
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div style={{ marginBottom: 14 }}>
                 <NavLogo />
-                <span style={{ fontSize: 16, fontWeight: 800, color: "#1E3A8A" }}>BD Go</span>
               </div>
               <p style={{ fontSize: 13, lineHeight: 1.7, color: "#64748B", maxWidth: 260, margin: "0 0 16px" }}>
                 AI驱动的生物医药商务拓展情报平台，服务全球交易撮合者。
@@ -352,18 +356,18 @@ export default function LandingPage() {
             </div>
             {/* Link cols */}
             {[
-              { title: "产品", links: ["功能特性", "定价", "使用案例", "API接入"] },
-              { title: "公司", links: ["关于我们", "博客", "招贤纳士", "联系我们"] },
-              { title: "法律", links: ["隐私政策", "服务条款", "安全合规"] },
+              { title: "产品", links: [{ label: "功能特性", href: "/features" }, { label: "定价", href: "/pricing" }, { label: "使用案例", href: "/use-cases" }, { label: "API接入", href: "/api-docs" }] },
+              { title: "公司", links: [{ label: "关于我们", href: "/about" }, { label: "博客", href: "/blog" }, { label: "招贤纳士", href: "/careers" }, { label: "联系我们", href: "/contact" }] },
+              { title: "法律", links: [{ label: "隐私政策", href: "/privacy" }, { label: "服务条款", href: "/terms" }, { label: "安全合规", href: "/security" }] },
             ].map((col) => (
               <div key={col.title}>
                 <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", marginBottom: 16 }}>{col.title}</div>
                 {col.links.map((l) => (
-                  <div key={l} style={{ marginBottom: 10 }}>
-                    <a href="#" style={{ fontSize: 13, color: "#475569", textDecoration: "none", transition: "color 0.15s" }}
+                  <div key={l.label} style={{ marginBottom: 10 }}>
+                    <a href={l.href} style={{ fontSize: 13, color: "#475569", textDecoration: "none", transition: "color 0.15s" }}
                       onMouseEnter={e => (e.target as HTMLElement).style.color = "#1E3A8A"}
                       onMouseLeave={e => (e.target as HTMLElement).style.color = "#475569"}
-                    >{l}</a>
+                    >{l.label}</a>
                   </div>
                 ))}
               </div>

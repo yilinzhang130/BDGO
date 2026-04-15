@@ -1,8 +1,10 @@
-"""Company endpoints."""
+"""Company endpoints — field visibility enforced by field_policy."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from urllib.parse import unquote
 from db import paginate, query, query_one
+from auth import get_current_user
+from field_policy import strip_hidden, is_admin_user
 
 router = APIRouter()
 
@@ -18,6 +20,7 @@ def list_companies(
     order: str = Query("asc", description="asc or desc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    user: dict = Depends(get_current_user),
 ):
     conditions = []
     params: list = []
@@ -39,12 +42,11 @@ def list_companies(
         params.append(tracked)
 
     where = " AND ".join(conditions) if conditions else ""
-    # Validate sort column (prevent injection)
     allowed_sorts = {"客户名称", "所处国家", "客户类型", "公司质量评分", "BD跟进优先级", "核心产品的阶段", "市值/估值", "追踪状态"}
     sort_col = sort if sort in allowed_sorts else "客户名称"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 
-    return paginate(
+    result = paginate(
         "公司",
         where=where,
         params=tuple(params),
@@ -52,21 +54,28 @@ def list_companies(
         page=page,
         page_size=page_size,
     )
+    result["data"] = strip_hidden(result["data"], "公司", is_admin_user(user))
+    return result
 
 
 @router.get("/{name}")
-def get_company(name: str):
+def get_company(name: str, user: dict = Depends(get_current_user)):
     name = unquote(name)
     row = query_one('SELECT * FROM "公司" WHERE "客户名称" = ?', (name,))
     if not row:
         raise HTTPException(status_code=404, detail="Company not found")
-    return row
+    return strip_hidden(row, "公司", is_admin_user(user))
 
 
 @router.get("/{name}/assets")
-def get_company_assets(name: str, page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)):
+def get_company_assets(
+    name: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    user: dict = Depends(get_current_user),
+):
     name = unquote(name)
-    return paginate(
+    result = paginate(
         "资产",
         where='"所属客户" = ?',
         params=(name,),
@@ -74,6 +83,8 @@ def get_company_assets(name: str, page: int = Query(1, ge=1), page_size: int = Q
         page=page,
         page_size=page_size,
     )
+    result["data"] = strip_hidden(result["data"], "资产", is_admin_user(user))
+    return result
 
 
 @router.get("/{name}/trials")
@@ -90,10 +101,10 @@ def get_company_trials(name: str, page: int = Query(1, ge=1), page_size: int = Q
 
 
 @router.get("/{name}/deals")
-def get_company_deals(name: str):
+def get_company_deals(name: str, user: dict = Depends(get_current_user)):
     name = unquote(name)
     rows = query(
         'SELECT * FROM "交易" WHERE "买方公司" = ? OR "卖方/合作方" = ? ORDER BY "宣布日期" DESC',
         (name, name),
     )
-    return rows
+    return strip_hidden(rows, "交易", is_admin_user(user))

@@ -105,20 +105,25 @@ const Icon = {
 };
 
 // ---------------------------------------------------------------------------
-// Logo SVG (built-in — no image file needed)
+// Logo — inline SVG mark + wordmark (no image file dependency)
 // ---------------------------------------------------------------------------
 
 function BDGoLogo() {
   return (
-    <img
-      src="/logo.png"
-      alt="BD Go"
-      style={{ width: 34, height: 34, borderRadius: 8, objectFit: "contain", flexShrink: 0 }}
-      onError={(e) => {
-        const img = e.target as HTMLImageElement;
-        img.style.display = "none";
-      }}
-    />
+    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+      <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+        <rect width="36" height="36" rx="9" fill="#1E3A8A" />
+        <circle cx="11" cy="18" r="3.5" fill="white" />
+        <line x1="15" y1="18" x2="22.5" y2="18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M22 13 L29 18 L22 23 Z" fill="white" />
+      </svg>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: "#0F172A", lineHeight: 1.15, letterSpacing: "-0.01em" }}>
+          BD<span style={{ fontWeight: 500 }}> Go</span>
+        </div>
+        <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500, lineHeight: 1.2 }}>生物医药BD情报</div>
+      </div>
+    </div>
   );
 }
 
@@ -225,7 +230,14 @@ function SidebarFooter() {
           <div className="avatar">{initial}</div>
         )}
         <div className="user-info">
-          <div className="user-name">{displayName}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div className="user-name">{displayName}</div>
+            {user?.is_admin && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#DC2626", padding: "1px 5px", borderRadius: 4, letterSpacing: "0.03em", flexShrink: 0 }}>
+                ADMIN
+              </span>
+            )}
+          </div>
           <div className="user-role">{role}</div>
         </div>
       </Link>

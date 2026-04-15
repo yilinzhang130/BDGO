@@ -107,3 +107,63 @@ def revoke_invite_code(code: str, x_admin_key: str = Header(...)):
     if not deleted:
         raise HTTPException(status_code=404, detail="Code not found")
     return {"deleted": True, "code": code.upper()}
+
+
+# ---------------------------------------------------------------------------
+# User admin management
+# ---------------------------------------------------------------------------
+
+@router.post("/users/{email}/set-admin")
+def set_user_admin(email: str, x_admin_key: str = Header(...)):
+    """Grant admin privileges to a user by email."""
+    _check_admin(x_admin_key)
+
+    with transaction() as cur:
+        cur.execute(
+            "UPDATE users SET is_admin = TRUE WHERE email = %s RETURNING id, email, name",
+            (email.lower().strip(),),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"User not found: {email}")
+    return {"ok": True, "email": row["email"], "name": row["name"], "is_admin": True}
+
+
+@router.post("/users/{email}/revoke-admin")
+def revoke_user_admin(email: str, x_admin_key: str = Header(...)):
+    """Revoke admin privileges from a user by email."""
+    _check_admin(x_admin_key)
+
+    with transaction() as cur:
+        cur.execute(
+            "UPDATE users SET is_admin = FALSE WHERE email = %s RETURNING id, email, name",
+            (email.lower().strip(),),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"User not found: {email}")
+    return {"ok": True, "email": row["email"], "name": row["name"], "is_admin": False}
+
+
+@router.get("/users")
+def list_users(x_admin_key: str = Header(...)):
+    """List all registered users."""
+    _check_admin(x_admin_key)
+
+    with transaction() as cur:
+        cur.execute(
+            "SELECT id, email, name, is_admin, created_at, last_login, company "
+            "FROM users ORDER BY created_at DESC"
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+
+    for r in rows:
+        r["id"] = str(r["id"])
+        if r.get("created_at"):
+            r["created_at"] = r["created_at"].isoformat()
+        if r.get("last_login"):
+            r["last_login"] = r["last_login"].isoformat()
+
+    return {"users": rows}

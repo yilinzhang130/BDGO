@@ -124,10 +124,37 @@ def generate_report(req: GenerateRequest, user: dict = Depends(get_current_user)
 
 @router.get("/status/{task_id}")
 def get_report_status(task_id: str):
+    """Check task status. Falls back to report_history DB after container restart."""
     task = get_task(task_id)
-    if not task:
+    if task:
+        return task
+
+    # In-memory miss — try persistent report_history
+    try:
+        with transaction() as cur:
+            cur.execute(
+                "SELECT task_id, slug, title, markdown_preview, files_json, created_at "
+                "FROM report_history WHERE task_id = %s LIMIT 1",
+                (task_id,),
+            )
+            row = cur.fetchone()
+    except Exception:
+        row = None
+
+    if not row:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+
+    return {
+        "id": row["task_id"],
+        "slug": row["slug"],
+        "status": "completed",
+        "result": {
+            "meta": {"title": row["title"]},
+            "markdown": row["markdown_preview"] or "",
+            "files": _parse_files_json(row.get("files_json") or "[]"),
+        },
+        "created_at": row["created_at"].timestamp() if row.get("created_at") else None,
+    }
 
 
 @router.get("/list")
