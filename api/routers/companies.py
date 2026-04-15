@@ -88,7 +88,12 @@ def get_company_assets(
 
 
 @router.get("/{name}/trials")
-def get_company_trials(name: str, page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=500)):
+def get_company_trials(
+    name: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=500),
+    user: dict = Depends(get_current_user),
+):
     name = unquote(name)
     return paginate(
         "临床",

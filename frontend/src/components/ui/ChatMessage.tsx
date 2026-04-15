@@ -4,16 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
+import { type ReportTask } from "@/lib/sessions";
+import { downloadWithAuth } from "@/lib/download";
 
 interface ToolEvent {
   type: "tool_call" | "tool_result";
   name: string;
-}
-
-interface ReportTask {
-  task_id: string;
-  slug: string;
-  estimated_seconds: number;
 }
 
 interface Props {
@@ -119,7 +115,11 @@ function ToolStepsPanel({ tools, isStreaming }: { tools: ToolEvent[]; isStreamin
 }
 
 // ── Report Task Card ─────────────────────────────────────────────────
-// Polls the report status and shows an inline preview when complete.
+
+interface ReportFile {
+  format: string;
+  filename: string;
+}
 
 const REPORT_LABELS: Record<string, string> = {
   disease_landscape: "疾病竞争格局",
@@ -135,13 +135,15 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
   const { token } = useAuth();
   const [status, setStatus] = useState<"polling" | "completed" | "failed">("polling");
   const [markdown, setMarkdown] = useState<string>("");
-  const [files, setFiles] = useState<any[]>([]);
+  const [files, setFiles] = useState<ReportFile[]>([]);
   const [expanded, setExpanded] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const doneRef = useRef(false);
   const label = REPORT_LABELS[slug] || slug.replace(/_/g, " ");
 
   useEffect(() => {
     const poll = async () => {
+      if (doneRef.current) return;
       try {
         const res = await fetch(`/api/reports/status/${task_id}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -149,20 +151,21 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
         if (!res.ok) return;
         const data = await res.json();
         if (data.status === "completed") {
+          doneRef.current = true;
           setMarkdown(data.result?.markdown || "");
           setFiles(data.result?.files || []);
           setStatus("completed");
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (data.status === "failed") {
+          doneRef.current = true;
           setStatus("failed");
           if (pollRef.current) clearInterval(pollRef.current);
         }
       } catch {}
     };
 
-    poll(); // immediate first check
+    poll();
     pollRef.current = setInterval(poll, 4000);
-    // Stop polling after 5 minutes regardless
     const timeout = setTimeout(() => {
       if (pollRef.current) clearInterval(pollRef.current);
     }, 300_000);
@@ -171,20 +174,6 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
       clearTimeout(timeout);
     };
   }, [task_id, token]);
-
-  const downloadWithAuth = async (taskId: string, format: string, filename: string) => {
-    const res = await fetch(`/api/reports/download/${taskId}/${format}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   if (status === "polling") {
     return (
@@ -212,10 +201,10 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
           <span style={{ color: "#16A34A", fontWeight: 700, fontSize: 13 }}>✓ {label}报告已生成</span>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {files.map((f: any) => (
+          {files.map((f) => (
             <button
               key={f.format}
-              onClick={() => downloadWithAuth(task_id, f.format, f.filename)}
+              onClick={() => downloadWithAuth(`/api/reports/download/${task_id}/${f.format}`, f.filename)}
               style={{ fontSize: 11, fontWeight: 600, padding: "4px 10px", background: "#16A34A", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
             >
               下载 {f.format.toUpperCase()}
@@ -280,8 +269,7 @@ export function ChatMessage({ role, content, streaming, tools, attachments, repo
         {reportTasks && reportTasks.map((rt) => (
           <ReportTaskCard key={rt.task_id} {...rt} />
         ))}
-        {streaming && !content && !hasTools && <span className="chat-cursor">|</span>}
-        {streaming && content && <span className="chat-cursor">|</span>}
+        {streaming && !hasTools && <span className="chat-cursor">|</span>}
       </div>
     </div>
   );

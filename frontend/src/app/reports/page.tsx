@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { fetchReportServices, reportDownloadUrl, createShareLink, fetchReportTasks } from "@/lib/api";
+import { downloadWithAuth } from "@/lib/download";
 import { useReportsStore, removeCompletedReport, addCompletedReport, type CompletedReport } from "@/lib/reports";
 import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
 import Markdown from "react-markdown";
@@ -293,18 +294,6 @@ function ServiceCard({
 // History row
 // ═══════════════════════════════════════════════════════════
 
-async function downloadWithAuth(url: string, filename: string) {
-  const { getToken } = await import("@/lib/auth");
-  const token = getToken();
-  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-  const blob = await res.blob();
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
 
 function HistoryRow({ report }: { report: CompletedReport }) {
   const age = formatAge(report.createdAt);

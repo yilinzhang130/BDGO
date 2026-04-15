@@ -30,22 +30,18 @@ _SEARCH_TABLES = [
 ]
 
 
+_MAX_BIGRAMS = 4
+
+
 def _build_patterns(q: str) -> list[str]:
-    """Return a list of LIKE patterns for fuzzy matching.
-
-    Strategy:
-    1. Always include the full query as one pattern (exact substring).
-    2. For queries ≥ 3 chars, generate 2-char bigrams so that e.g. "时迈生物"
-       also matches "时迈药业" via the "时迈" bigram.
-
-    We de-duplicate and keep unique patterns.
-    """
     q = q.strip()
-    patterns: list[str] = [f"%{q}%"]  # full match first
+    patterns: list[str] = [f"%{q}%"]
 
     if len(q) >= 3:
         seen: set[str] = {q}
         for i in range(len(q) - 1):
+            if len(patterns) - 1 >= _MAX_BIGRAMS:
+                break
             bigram = q[i : i + 2]
             if bigram not in seen:
                 seen.add(bigram)

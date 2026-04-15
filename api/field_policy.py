@@ -32,9 +32,6 @@ HIDDEN_FIELDS: dict[str, set[str]] = {
         "BD状态",
         "BD跟进优先级",
     },
-    "临床": set(),
-    "IP": set(),
-    "MNC画像": set(),
 }
 
 

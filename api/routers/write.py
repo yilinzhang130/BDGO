@@ -10,7 +10,6 @@ router = APIRouter()
 
 
 def _require_admin(user: dict = Depends(get_current_user)) -> dict:
-    """Dependency that enforces admin-only access."""
     if not is_admin_user(user):
         raise HTTPException(status_code=403, detail="管理员权限不足")
     return user
