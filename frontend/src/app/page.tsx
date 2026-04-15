@@ -306,6 +306,82 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ─── Product Ecosystem ─── */}
+      <section style={{ padding: "96px 32px", background: "#fff", borderTop: "1px solid #F1F5F9" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#059669", textTransform: "uppercase", marginBottom: 14 }}>产品生态</div>
+            <h2 style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 14px", color: "#0F172A" }}>覆盖医药研发全链路</h2>
+            <p style={{ fontSize: 16, color: "#64748B", maxWidth: 480, margin: "0 auto" }}>从早期药物发现到商务拓展，两大平台无缝协作</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
+            {/* BD Go card */}
+            <div style={{ background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 20, padding: "36px 36px 32px", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(37,99,235,0.06)" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <svg width="40" height="40" viewBox="0 0 36 36" fill="none">
+                  <rect width="36" height="36" rx="9" fill="#1E3A8A" />
+                  <circle cx="11" cy="18" r="3.5" fill="white" />
+                  <line x1="15" y1="18" x2="22.5" y2="18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                  <path d="M22 13 L29 18 L22 23 Z" fill="white" />
+                </svg>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#1E3A8A" }}>BD <span style={{ fontWeight: 500 }}>Go</span></div>
+                  <div style={{ fontSize: 12, color: "#6366F1", fontWeight: 500 }}>商务拓展情报平台</div>
+                </div>
+              </div>
+              <p style={{ fontSize: 14, lineHeight: 1.7, color: "#3730A3", margin: "0 0 28px" }}>
+                AI驱动的生物医药BD情报平台。发现资产、分析合作机会、生成DD报告，覆盖中国及全球市场。
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
+                {["管线情报", "交易数据库", "AI对话分析", "自动化报告"].map(t => (
+                  <span key={t} style={{ fontSize: 12, fontWeight: 500, color: "#3730A3", background: "rgba(99,102,241,0.12)", padding: "4px 10px", borderRadius: 99 }}>{t}</span>
+                ))}
+              </div>
+              <Link href="/login" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#fff", background: "#1E3A8A", padding: "10px 22px", borderRadius: 9, textDecoration: "none" }}>
+                进入平台 →
+              </Link>
+            </div>
+
+            {/* AIDD card */}
+            <div style={{ background: "#F0FDF4", border: "1px solid #A7F3D0", borderRadius: 20, padding: "36px 36px 32px", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(5,150,105,0.06)" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 9, background: "#059669", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+                    <circle cx="14" cy="14" r="3.5" fill="white" />
+                    <circle cx="6" cy="8" r="2.5" fill="white" opacity="0.85" />
+                    <circle cx="22" cy="8" r="2.5" fill="white" opacity="0.85" />
+                    <circle cx="6" cy="20" r="2.5" fill="white" opacity="0.85" />
+                    <circle cx="22" cy="20" r="2.5" fill="white" opacity="0.85" />
+                    <line x1="10.5" y1="11.5" x2="8" y2="9.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                    <line x1="17.5" y1="11.5" x2="20" y2="9.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                    <line x1="10.5" y1="16.5" x2="8" y2="18.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                    <line x1="17.5" y1="16.5" x2="20" y2="18.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#064E3B" }}>AIDD <span style={{ fontWeight: 500 }}>Platform</span></div>
+                  <div style={{ fontSize: 12, color: "#059669", fontWeight: 500 }}>AI药物发现平台</div>
+                </div>
+              </div>
+              <p style={{ fontSize: 14, lineHeight: 1.7, color: "#065F46", margin: "0 0 28px" }}>
+                端到端AI小分子设计平台。从靶点结构到候选化合物，集成ADMET预测、IP分析与生物信号通路解析。
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
+                {["小分子设计", "ADMET预测", "靶点分析", "专利FTO"].map(t => (
+                  <span key={t} style={{ fontSize: 12, fontWeight: 500, color: "#065F46", background: "rgba(5,150,105,0.12)", padding: "4px 10px", borderRadius: 99 }}>{t}</span>
+                ))}
+              </div>
+              <a href="http://106.54.202.181:3001" target="_blank" rel="noopener noreferrer"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#fff", background: "#059669", padding: "10px 22px", borderRadius: 9, textDecoration: "none" }}>
+                进入平台 →
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── CTA Section ─── */}
       <section style={{ background: "#0F172A", padding: "100px 32px", position: "relative", overflow: "hidden" }}>
         {/* Dot grid overlay */}
