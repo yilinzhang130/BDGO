@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from auth import get_current_user
-from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports, catalysts, watchlist
+from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports, catalysts, watchlist, admin
 from routers import auth as auth_router
 from routers import sessions as sessions_router
 
@@ -28,6 +28,9 @@ app.add_middleware(
 
 # Auth router — no auth dependency (handles its own authentication)
 app.include_router(auth_router.router, prefix="/api/auth", tags=["auth"])
+
+# Admin router — protected by X-Admin-Key header (no JWT needed)
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 # All other routers — protected by Bearer token auth
 _auth = [Depends(get_current_user)]

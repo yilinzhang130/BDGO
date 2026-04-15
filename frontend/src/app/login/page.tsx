@@ -26,6 +26,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -35,13 +36,14 @@ export default function LoginPage() {
     if (!validateEmail(email)) { setError("请输入有效的邮箱地址"); return; }
     if (password.length < 6)   { setError("密码至少需要6个字符"); return; }
     if (tab === "register" && !name.trim()) { setError("请输入您的姓名"); return; }
+    if (tab === "register" && !inviteCode.trim()) { setError("请输入邀请码"); return; }
 
     setSubmitting(true);
     try {
       if (tab === "login") {
         await login(email, password);
       } else {
-        await register(email, password, name.trim());
+        await register(email, password, name.trim(), inviteCode.trim());
       }
     } catch (err: any) {
       setError(err.message || "操作失败，请稍后重试");
@@ -89,17 +91,31 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} style={s.form}>
           {tab === "register" && (
-            <div style={s.fieldGroup}>
-              <label style={s.label}>姓名</label>
-              <input
-                type="text"
-                placeholder="请输入您的姓名"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={s.input}
-                autoComplete="name"
-              />
-            </div>
+            <>
+              <div style={s.fieldGroup}>
+                <label style={s.label}>姓名</label>
+                <input
+                  type="text"
+                  placeholder="请输入您的姓名"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={s.input}
+                  autoComplete="name"
+                />
+              </div>
+              <div style={s.fieldGroup}>
+                <label style={s.label}>邀请码</label>
+                <input
+                  type="text"
+                  placeholder="BDGO-XXXX-XXXX"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  style={{ ...s.input, letterSpacing: "0.08em", fontFamily: "monospace" }}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+            </>
           )}
 
           <div style={s.fieldGroup}>

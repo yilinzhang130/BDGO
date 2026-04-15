@@ -27,6 +27,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     name: str
+    invite_code: str
 
 
 class LoginRequest(BaseModel):
@@ -83,22 +84,41 @@ from auth import serialize_user_row as _user_dict, _USER_COLUMNS
 
 @router.post("/register", response_model=AuthResponse)
 def register(body: RegisterRequest):
-    """Create a new email/password account."""
-    # Validate
+    """Create a new email/password account (requires a valid invite code)."""
     if not _EMAIL_RE.match(body.email):
         raise HTTPException(status_code=400, detail="Invalid email format")
     if len(body.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     if not body.name.strip():
         raise HTTPException(status_code=400, detail="Name is required")
+    if not body.invite_code.strip():
+        raise HTTPException(status_code=400, detail="邀请码不能为空")
 
     hashed = auth_mod.hash_password(body.password)
+    code = body.invite_code.strip().upper()
 
     with transaction() as cur:
+        # Validate invite code
+        cur.execute(
+            "SELECT id, max_uses, use_count, expires_at FROM invite_codes WHERE code = %s",
+            (code,),
+        )
+        inv = cur.fetchone()
+        if not inv:
+            raise HTTPException(status_code=400, detail="邀请码无效")
+        if inv["use_count"] >= inv["max_uses"]:
+            raise HTTPException(status_code=400, detail="邀请码已被使用")
+        if inv["expires_at"]:
+            import datetime
+            if inv["expires_at"] < datetime.datetime.now(datetime.timezone.utc):
+                raise HTTPException(status_code=400, detail="邀请码已过期")
+
+        # Check email uniqueness
         cur.execute("SELECT id FROM users WHERE email = %s", (body.email.lower(),))
         if cur.fetchone():
-            raise HTTPException(status_code=409, detail="Email already registered")
+            raise HTTPException(status_code=409, detail="该邮箱已注册")
 
+        # Create user
         cur.execute(
             f"""INSERT INTO users (email, name, hashed_password, provider)
                VALUES (%s, %s, %s, 'email')
@@ -106,6 +126,12 @@ def register(body: RegisterRequest):
             (body.email.lower(), body.name.strip(), hashed),
         )
         user = _user_dict(cur.fetchone())
+
+        # Mark invite code as used
+        cur.execute(
+            "UPDATE invite_codes SET use_count = use_count + 1 WHERE id = %s",
+            (inv["id"],),
+        )
 
     token = auth_mod.create_token(user["id"], user["email"])
     return {"token": token, "user": user}
