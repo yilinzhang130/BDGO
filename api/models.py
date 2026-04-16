@@ -66,19 +66,32 @@ _MODELS: list[ModelSpec] = [
         output_weight=4.0,
         context_note="80k tokens",
     ),
-    # Example of how to add DeepSeek later (disabled until key/endpoint wired):
-    # ModelSpec(
-    #     id="deepseek-v3",
-    #     display_name="DeepSeek V3",
-    #     provider="deepseek",
-    #     api_url="https://api.deepseek.com/anthropic/v1/messages",
-    #     api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
-    #     api_model="deepseek-chat",
-    #     anthropic_version="2023-06-01",
-    #     input_weight=0.8,
-    #     output_weight=3.2,
-    #     context_note="64k tokens",
-    # ),
+    # Wired but disabled until DEEPSEEK_API_KEY is set in the VM env.
+    ModelSpec(
+        id="deepseek-v3",
+        display_name="DeepSeek V3",
+        provider="deepseek",
+        api_url="https://api.deepseek.com/anthropic/v1/messages",
+        api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+        api_model="deepseek-chat",
+        anthropic_version="2023-06-01",
+        input_weight=0.8,
+        output_weight=3.2,
+        context_note="64k tokens",
+    ),
+    # Placeholder: enable when CLAUDE_API_KEY is provided.
+    ModelSpec(
+        id="claude-sonnet",
+        display_name="Claude Sonnet 4",
+        provider="anthropic",
+        api_url="https://api.anthropic.com/v1/messages",
+        api_key=os.environ.get("CLAUDE_API_KEY", ""),
+        api_model="claude-sonnet-4",
+        anthropic_version="2023-06-01",
+        input_weight=5.0,
+        output_weight=25.0,
+        context_note="200k tokens",
+    ),
 ]
 
 MODELS: dict[str, ModelSpec] = {m.id: m for m in _MODELS}

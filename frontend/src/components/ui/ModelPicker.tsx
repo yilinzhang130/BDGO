@@ -10,8 +10,8 @@ interface Props {
 }
 
 /**
- * Small dropdown shown in the chat header. Hides itself entirely when there's
- * only one available model — no point wasting header real estate.
+ * Small dropdown shown in the chat header. Always visible so users can see
+ * which model they're talking to (and switch once more are registered).
  */
 export function ModelPicker({ onChange, compact = false }: Props) {
   const models = useModels();
@@ -27,7 +27,7 @@ export function ModelPicker({ onChange, compact = false }: Props) {
     setValue(initial);
   }, [models]);
 
-  if (models.length <= 1) return null;
+  if (!models.length) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const next = e.target.value;
@@ -64,12 +64,18 @@ export function ModelPicker({ onChange, compact = false }: Props) {
           fontFamily: "inherit",
         }}
       >
-        {models.map((m) => (
-          <option key={m.id} value={m.id} disabled={!m.available}>
-            {m.display_name}
-            {!m.available ? " (未启用)" : ""}
-          </option>
-        ))}
+        {models.map((m) => {
+          const cost = m.input_weight === 1.0 && m.output_weight === 4.0
+            ? ""
+            : ` · ${m.input_weight}×/${m.output_weight}×`;
+          return (
+            <option key={m.id} value={m.id} disabled={!m.available}>
+              {m.display_name}
+              {cost}
+              {!m.available ? " (未启用)" : ""}
+            </option>
+          );
+        })}
       </select>
     </div>
   );
