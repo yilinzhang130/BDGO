@@ -66,7 +66,7 @@ def list_assets(
         page=page,
         page_size=page_size,
     )
-    result["data"] = strip_hidden(result["data"], "资产", is_admin_user(user))
+    result["data"] = strip_hidden(result["data"], "资产", user)
     return result
 
 
@@ -80,14 +80,20 @@ def get_asset(company: str, name: str, user: dict = Depends(get_current_user)):
     )
     if not row:
         raise HTTPException(status_code=404, detail="Asset not found")
-    return strip_hidden(row, "资产", is_admin_user(user))
+    return strip_hidden(row, "资产", user)
 
 
 @router.get("/{company}/{name}/trials")
-def get_asset_trials(company: str, name: str, page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=500)):
+def get_asset_trials(
+    company: str,
+    name: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=500),
+    user: dict = Depends(get_current_user),
+):
     company = unquote(company)
     name = unquote(name)
-    return paginate(
+    result = paginate(
         "临床",
         where='"资产名称" = ? AND "公司名称" = ?',
         params=(name, company),
@@ -95,3 +101,5 @@ def get_asset_trials(company: str, name: str, page: int = Query(1, ge=1), page_s
         page=page,
         page_size=page_size,
     )
+    result["data"] = strip_hidden(result["data"], "临床", user)
+    return result

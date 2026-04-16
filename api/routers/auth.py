@@ -68,6 +68,7 @@ class UserResponse(BaseModel):
     preferences_json: str | None = None
     is_admin: bool = False
     is_active: bool = True
+    is_internal: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -120,12 +121,13 @@ def register(body: RegisterRequest):
         if cur.fetchone():
             raise HTTPException(status_code=409, detail="该邮箱已注册")
 
-        # Create user
+        # Create user (auto-flag as internal if email domain matches)
+        is_internal = config.is_internal_email(body.email)
         cur.execute(
-            f"""INSERT INTO users (email, name, hashed_password, provider)
-               VALUES (%s, %s, %s, 'email')
+            f"""INSERT INTO users (email, name, hashed_password, provider, is_internal)
+               VALUES (%s, %s, %s, 'email', %s)
                RETURNING {_USER_COLUMNS}""",
-            (body.email.lower(), body.name.strip(), hashed),
+            (body.email.lower(), body.name.strip(), hashed, is_internal),
         )
         user = _user_dict(cur.fetchone())
 
@@ -265,11 +267,12 @@ def google_login(body: GoogleLoginRequest):
                 (avatar, email),
             )
         else:
+            is_internal = config.is_internal_email(email)
             cur.execute(
-                f"""INSERT INTO users (email, name, avatar_url, provider)
-                   VALUES (%s, %s, %s, 'google')
+                f"""INSERT INTO users (email, name, avatar_url, provider, is_internal)
+                   VALUES (%s, %s, %s, 'google', %s)
                    RETURNING {_USER_COLUMNS}""",
-                (email, name, avatar),
+                (email, name, avatar, is_internal),
             )
         user = _user_dict(cur.fetchone())
 

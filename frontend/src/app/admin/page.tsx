@@ -11,6 +11,7 @@ import {
   deleteInviteCode,
   setUserActive,
   setUserAdmin,
+  setUserInternal,
   type AdminUser,
   type InviteCode,
 } from "@/lib/api";
@@ -94,6 +95,17 @@ export default function AdminPage() {
     }
   };
 
+  const handleToggleInternal = async (u: AdminUser) => {
+    const verb = u.is_internal ? "标记为外部" : "标记为内部";
+    if (!confirm(`${verb}: "${u.name}" (${u.email})?\n\n内部用户能看到 BD 优先级、POS 预测、Q 评分等主观字段；外部用户只看客观数据。`)) return;
+    try {
+      await setUserInternal(u.id, !u.is_internal);
+      await reloadUsers();
+    } catch (e: any) {
+      alert(`操作失败: ${e.message}`);
+    }
+  };
+
   const handleCreateCode = async () => {
     try {
       await createInviteCode(1);
@@ -152,7 +164,7 @@ export default function AdminPage() {
                 <tr>
                   <th>姓名</th>
                   <th>邮箱</th>
-                  <th>公司</th>
+                  <th>类型</th>
                   <th>Credits</th>
                   <th>已用</th>
                   <th>注册</th>
@@ -180,7 +192,17 @@ export default function AdminPage() {
                         )}
                       </td>
                       <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{u.email}</td>
-                      <td>{u.company || "-"}</td>
+                      <td>
+                        {u.is_internal ? (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: "#1E3A8A", background: "#DBEAFE", padding: "1px 6px", borderRadius: 4 }}>
+                            内部
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: "#64748B", background: "#F1F5F9", padding: "1px 6px", borderRadius: 4 }}>
+                            外部
+                          </span>
+                        )}
+                      </td>
                       <td>
                         {u.is_admin ? (
                           <span style={{ color: "#7C3AED", fontWeight: 600 }}>\u221E</span>
@@ -220,6 +242,13 @@ export default function AdminPage() {
                               +积分
                             </button>
                           )}
+                          <button
+                            onClick={() => handleToggleInternal(u)}
+                            style={btnStyle(u.is_internal ? "gray" : "blue", false)}
+                            title="切换内部/外部身份"
+                          >
+                            {u.is_internal ? "设外部" : "设内部"}
+                          </button>
                           <button
                             onClick={() => handleToggleAdmin(u)}
                             disabled={isSelf}
@@ -363,7 +392,7 @@ export default function AdminPage() {
 }
 
 function btnStyle(
-  variant: "accent" | "red" | "green" | "purple" | "gray",
+  variant: "accent" | "red" | "green" | "purple" | "gray" | "blue",
   disabled: boolean,
 ): React.CSSProperties {
   const colors = {
@@ -371,6 +400,7 @@ function btnStyle(
     red: { bg: "#fff", fg: "#DC2626", border: "1px solid #DC2626" },
     green: { bg: "#fff", fg: "#16A34A", border: "1px solid #16A34A" },
     purple: { bg: "#fff", fg: "#7C3AED", border: "1px solid #7C3AED" },
+    blue: { bg: "#fff", fg: "#1E3A8A", border: "1px solid #1E3A8A" },
     gray: { bg: "#fff", fg: "#64748B", border: "1px solid #CBD5E1" },
   };
   const c = colors[variant];

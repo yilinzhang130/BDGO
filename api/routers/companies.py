@@ -54,7 +54,7 @@ def list_companies(
         page=page,
         page_size=page_size,
     )
-    result["data"] = strip_hidden(result["data"], "公司", is_admin_user(user))
+    result["data"] = strip_hidden(result["data"], "公司", user)
     return result
 
 
@@ -64,7 +64,7 @@ def get_company(name: str, user: dict = Depends(get_current_user)):
     row = query_one('SELECT * FROM "公司" WHERE "客户名称" = ?', (name,))
     if not row:
         raise HTTPException(status_code=404, detail="Company not found")
-    return strip_hidden(row, "公司", is_admin_user(user))
+    return strip_hidden(row, "公司", user)
 
 
 @router.get("/{name}/assets")
@@ -83,7 +83,7 @@ def get_company_assets(
         page=page,
         page_size=page_size,
     )
-    result["data"] = strip_hidden(result["data"], "资产", is_admin_user(user))
+    result["data"] = strip_hidden(result["data"], "资产", user)
     return result
 
 
@@ -95,7 +95,7 @@ def get_company_trials(
     user: dict = Depends(get_current_user),
 ):
     name = unquote(name)
-    return paginate(
+    result = paginate(
         "临床",
         where='"公司名称" = ?',
         params=(name,),
@@ -103,6 +103,8 @@ def get_company_trials(
         page=page,
         page_size=page_size,
     )
+    result["data"] = strip_hidden(result["data"], "临床", user)
+    return result
 
 
 @router.get("/{name}/deals")
@@ -112,4 +114,4 @@ def get_company_deals(name: str, user: dict = Depends(get_current_user)):
         'SELECT * FROM "交易" WHERE "买方公司" = ? OR "卖方/合作方" = ? ORDER BY "宣布日期" DESC',
         (name, name),
     )
-    return strip_hidden(rows, "交易", is_admin_user(user))
+    return strip_hidden(rows, "交易", user)

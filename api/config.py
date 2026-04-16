@@ -25,6 +25,22 @@ if not JWT_SECRET:
     JWT_SECRET = "dev-secret-DO-NOT-USE-IN-PRODUCTION"
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 
+# Email domains that are auto-flagged as "internal" at registration.
+# Internal users see subjective/BD-operations fields; external users don't.
+# Admin can override this flag per-user from the admin dashboard.
+INTERNAL_EMAIL_DOMAINS = {
+    d.strip().lower()
+    for d in os.environ.get("INTERNAL_EMAIL_DOMAINS", "yafocapital.com").split(",")
+    if d.strip()
+}
+
+
+def is_internal_email(email: str) -> bool:
+    """Return True if the email's domain matches INTERNAL_EMAIL_DOMAINS."""
+    if not email or "@" not in email:
+        return False
+    return email.rsplit("@", 1)[1].strip().lower() in INTERNAL_EMAIL_DOMAINS
+
 # ─────────────────────────────────────────────────────────────
 # LLM endpoints
 # ─────────────────────────────────────────────────────────────
@@ -48,7 +64,7 @@ CRM_DB_PATH = os.environ.get(
     os.path.expanduser("~/.openclaw/workspace/crm-database/crm.db"),
 )
 CRM_BACKEND = os.environ.get("CRM_BACKEND", "sqlite").lower()
-CRM_PG_DSN = os.environ.get("CRM_PG_DSN", "dbname=openclaw_crm")
+CRM_PG_DSN = os.environ.get("CRM_PG_DSN", "dbname=bdgo")
 GUIDELINES_DB_PATH = os.environ.get(
     "GUIDELINES_DB_PATH",
     os.path.expanduser("~/.openclaw/workspace/guidelines/guidelines.db"),

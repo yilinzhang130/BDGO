@@ -352,6 +352,7 @@ export interface AdminUser {
   name: string;
   is_admin: boolean;
   is_active: boolean;
+  is_internal: boolean;
   company?: string;
   title?: string;
   created_at: string | null;
@@ -391,3 +392,6 @@ export const setUserActive = (userId: string, value: boolean) =>
 
 export const setUserAdmin = (userId: string, value: boolean) =>
   post(`${BASE}/admin/users/set-admin-ui`, { user_id: userId, value });
+
+export const setUserInternal = (userId: string, value: boolean) =>
+  post(`${BASE}/admin/users/set-internal-ui`, { user_id: userId, value });

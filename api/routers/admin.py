@@ -163,8 +163,8 @@ def admin_dashboard(_: dict = Depends(_require_admin)):
     """Users + credit balances for admin UI."""
     with transaction() as cur:
         cur.execute("""
-            SELECT u.id, u.email, u.name, u.is_admin, u.is_active, u.company, u.title,
-                   u.created_at, u.last_login,
+            SELECT u.id, u.email, u.name, u.is_admin, u.is_active, u.is_internal,
+                   u.company, u.title, u.created_at, u.last_login,
                    COALESCE(c.balance, 0) AS credit_balance,
                    COALESCE(c.total_granted, 0) AS total_granted,
                    COALESCE(c.total_spent, 0) AS total_spent
@@ -220,6 +220,20 @@ def set_user_admin_ui(body: SetFlagBody, admin: dict = Depends(_require_admin)):
     if not row:
         raise HTTPException(404, "User not found")
     return {"ok": True, "user_id": str(row["id"]), "is_admin": row["is_admin"]}
+
+
+@router.post("/users/set-internal-ui")
+def set_user_internal_ui(body: SetFlagBody, _: dict = Depends(_require_admin)):
+    """Mark user as internal (sees subjective fields) or external (stripped)."""
+    with transaction() as cur:
+        cur.execute(
+            "UPDATE users SET is_internal = %s WHERE id = %s RETURNING id, email, is_internal",
+            (body.value, body.user_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, "User not found")
+    return {"ok": True, "user_id": str(row["id"]), "is_internal": row["is_internal"]}
 
 
 class GrantCreditsUI(BaseModel):

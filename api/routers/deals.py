@@ -1,8 +1,10 @@
 """Deal / transaction endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from urllib.parse import unquote
 from db import paginate, query_one
+from auth import get_current_user
+from field_policy import strip_hidden
 
 router = APIRouter()
 
@@ -17,6 +19,7 @@ def list_deals(
     order: str = Query("desc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    user: dict = Depends(get_current_user),
 ):
     conditions = []
     params: list = []
@@ -39,7 +42,7 @@ def list_deals(
     sort_col = sort if sort in allowed_sorts else "宣布日期"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 
-    return paginate(
+    result = paginate(
         "交易",
         where=where,
         params=tuple(params),
@@ -47,12 +50,14 @@ def list_deals(
         page=page,
         page_size=page_size,
     )
+    result["data"] = strip_hidden(result["data"], "交易", user)
+    return result
 
 
 @router.get("/{name}")
-def get_deal(name: str):
+def get_deal(name: str, user: dict = Depends(get_current_user)):
     name = unquote(name)
     row = query_one('SELECT * FROM "交易" WHERE "交易名称" = ?', (name,))
     if not row:
         raise HTTPException(status_code=404, detail="Deal not found")
-    return row
+    return strip_hidden(row, "交易", user)

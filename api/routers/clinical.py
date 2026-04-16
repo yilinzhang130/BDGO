@@ -1,7 +1,9 @@
 """Clinical trial endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from db import paginate, query_one
+from auth import get_current_user
+from field_policy import strip_hidden
 
 router = APIRouter()
 
@@ -18,6 +20,7 @@ def list_clinical(
     order: str = Query("asc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
+    user: dict = Depends(get_current_user),
 ):
     conditions = []
     params: list = []
@@ -46,7 +49,7 @@ def list_clinical(
     sort_col = sort if sort in allowed_sorts else "试验ID"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 
-    return paginate(
+    result_page = paginate(
         "临床",
         where=where,
         params=tuple(params),
@@ -54,11 +57,13 @@ def list_clinical(
         page=page,
         page_size=page_size,
     )
+    result_page["data"] = strip_hidden(result_page["data"], "临床", user)
+    return result_page
 
 
 @router.get("/{record_id}")
-def get_clinical_record(record_id: str):
+def get_clinical_record(record_id: str, user: dict = Depends(get_current_user)):
     row = query_one('SELECT * FROM "临床" WHERE "记录ID" = ?', (record_id,))
     if not row:
         raise HTTPException(status_code=404, detail="Clinical record not found")
-    return row
+    return strip_hidden(row, "临床", user)

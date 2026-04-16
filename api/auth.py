@@ -86,7 +86,7 @@ def serialize_user_row(row: dict) -> dict:
 
 _USER_COLUMNS = (
     "id, email, name, avatar_url, provider, created_at, last_login, "
-    "company, title, phone, bio, preferences_json, is_admin, is_active"
+    "company, title, phone, bio, preferences_json, is_admin, is_active, is_internal"
 )
 
 
