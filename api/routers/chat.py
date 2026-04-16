@@ -1096,8 +1096,9 @@ class ChatRequest(BaseModel):
     session_id: str = "default"
     file_ids: list[str] = []
     model_id: str | None = None   # selected from /api/models; falls back to default
-    # user_id is injected by the endpoint, not sent by the client
+    # user_id and is_admin are injected by the endpoint, not sent by the client
     user_id: str | None = None
+    is_admin: bool = False
 
 
 async def _call_minimax_stream(
@@ -1384,8 +1385,10 @@ async def _stream_chat(req: ChatRequest):
 
         # ── Bill credits for this request ──
         # Debit after the stream finishes so we never charge for a failed turn.
+        # Admin users are never billed.
         credits_charged = 0.0
-        if user_id:
+        balance_remaining = None
+        if user_id and not req.is_admin:
             credits_charged = credits_mod.record_usage(
                 user_id=user_id,
                 session_id=session_id,
@@ -1400,8 +1403,6 @@ async def _stream_chat(req: ChatRequest):
                 balance_remaining = balance_info["balance"]
             except Exception:
                 balance_remaining = None
-        else:
-            balance_remaining = None
 
         yield (
             "data: "
@@ -1429,8 +1430,11 @@ async def _stream_chat(req: ChatRequest):
 @router.post("")
 async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
     req.user_id = user["id"]
-    # Fail fast with a clean 402 if the user is out of credits — never mid-stream.
-    credits_mod.ensure_balance(user["id"])
+    req.is_admin = bool(user.get("is_admin"))
+    # Admin users bypass credit check (still logged, just never blocked).
+    if not req.is_admin:
+        # Fail fast with a clean 402 if the user is out of credits — never mid-stream.
+        credits_mod.ensure_balance(user["id"])
     return StreamingResponse(
         _stream_chat(req),
         media_type="text/event-stream",

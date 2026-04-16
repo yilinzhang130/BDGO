@@ -67,6 +67,7 @@ class UserResponse(BaseModel):
     bio: str | None = None
     preferences_json: str | None = None
     is_admin: bool = False
+    is_active: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +159,8 @@ def login(body: LoginRequest):
             )
         if not auth_mod.verify_password(body.password, row["hashed_password"]):
             raise HTTPException(status_code=401, detail="Invalid email or password")
+        if row.get("is_active") is False:
+            raise HTTPException(status_code=403, detail="账户已被停用，请联系管理员")
 
         cur.execute("UPDATE users SET last_login = NOW() WHERE id = %s", (row["id"],))
 

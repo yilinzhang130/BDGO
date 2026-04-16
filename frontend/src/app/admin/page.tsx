@@ -9,7 +9,8 @@ import {
   fetchAdminInviteCodes,
   createInviteCode,
   deleteInviteCode,
-  fetchDeals,
+  setUserActive,
+  setUserAdmin,
   type AdminUser,
   type InviteCode,
 } from "@/lib/api";
@@ -17,13 +18,12 @@ import {
 export default function AdminPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<"users" | "codes" | "deals">("users");
+  const [tab, setTab] = useState<"users" | "codes">("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [codes, setCodes] = useState<InviteCode[]>([]);
-  const [deals, setDeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Grant credits state
+  // Grant credits modal state
   const [grantTarget, setGrantTarget] = useState<AdminUser | null>(null);
   const [grantAmount, setGrantAmount] = useState("");
   const [granting, setGranting] = useState(false);
@@ -36,22 +36,21 @@ export default function AdminPage() {
     }
   }, [user, isAdmin, router]);
 
+  const reloadUsers = async () => {
+    const r = await fetchAdminDashboard();
+    setUsers(r.users);
+  };
+
+  const reloadCodes = async () => {
+    const r = await fetchAdminInviteCodes();
+    setCodes(r.codes);
+  };
+
   useEffect(() => {
     if (!isAdmin) return;
     setLoading(true);
-    if (tab === "users") {
-      fetchAdminDashboard()
-        .then((r) => setUsers(r.users))
-        .finally(() => setLoading(false));
-    } else if (tab === "codes") {
-      fetchAdminInviteCodes()
-        .then((r) => setCodes(r.codes))
-        .finally(() => setLoading(false));
-    } else if (tab === "deals") {
-      fetchDeals({ limit: 200 })
-        .then((r: any) => setDeals(r.data || []))
-        .finally(() => setLoading(false));
-    }
+    const p = tab === "users" ? reloadUsers() : reloadCodes();
+    p.finally(() => setLoading(false));
   }, [tab, isAdmin]);
 
   if (!isAdmin) return <div className="loading">Loading...</div>;
@@ -63,9 +62,7 @@ export default function AdminPage() {
     setGranting(true);
     try {
       await grantCredits(grantTarget.id, amt);
-      // Refresh user list
-      const r = await fetchAdminDashboard();
-      setUsers(r.users);
+      await reloadUsers();
       setGrantTarget(null);
       setGrantAmount("");
     } catch (e: any) {
@@ -75,18 +72,39 @@ export default function AdminPage() {
     }
   };
 
+  const handleToggleActive = async (u: AdminUser) => {
+    const verb = u.is_active ? "停用" : "启用";
+    if (!confirm(`确认${verb}用户 "${u.name}" (${u.email})?`)) return;
+    try {
+      await setUserActive(u.id, !u.is_active);
+      await reloadUsers();
+    } catch (e: any) {
+      alert(`操作失败: ${e.message}`);
+    }
+  };
+
+  const handleToggleAdmin = async (u: AdminUser) => {
+    const verb = u.is_admin ? "撤销管理员" : "设为管理员";
+    if (!confirm(`确认${verb}: "${u.name}" (${u.email})?`)) return;
+    try {
+      await setUserAdmin(u.id, !u.is_admin);
+      await reloadUsers();
+    } catch (e: any) {
+      alert(`操作失败: ${e.message}`);
+    }
+  };
+
   const handleCreateCode = async () => {
     try {
       await createInviteCode(1);
-      const r = await fetchAdminInviteCodes();
-      setCodes(r.codes);
+      await reloadCodes();
     } catch (e: any) {
       alert(`Failed: ${e.message}`);
     }
   };
 
   const handleDeleteCode = async (code: string) => {
-    if (!confirm(`Delete invite code ${code}?`)) return;
+    if (!confirm(`撤销邀请码 ${code}?`)) return;
     try {
       await deleteInviteCode(code);
       setCodes((prev) => prev.filter((c) => c.code !== code));
@@ -110,20 +128,17 @@ export default function AdminPage() {
       <div className="detail-header">
         <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
         <p style={{ margin: "0.25rem 0 0", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-          User management, invite codes, and system overview
+          用户管理、积分发放、邀请码
         </p>
       </div>
 
       {/* Tabs */}
       <div className="tabs">
         <button className={`tab ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>
-          Users ({users.length || "..."})
+          用户管理 ({users.length || "..."})
         </button>
         <button className={`tab ${tab === "codes" ? "active" : ""}`} onClick={() => setTab("codes")}>
-          Invite Codes ({codes.length || "..."})
-        </button>
-        <button className={`tab ${tab === "deals" ? "active" : ""}`} onClick={() => setTab("deals")}>
-          Deals ({deals.length || "..."})
+          邀请码 ({codes.length || "..."})
         </button>
       </div>
 
@@ -135,58 +150,97 @@ export default function AdminPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Company</th>
-                  <th>Role</th>
+                  <th>姓名</th>
+                  <th>邮箱</th>
+                  <th>公司</th>
                   <th>Credits</th>
-                  <th>Used</th>
-                  <th>Registered</th>
-                  <th>Last Login</th>
-                  <th>Actions</th>
+                  <th>已用</th>
+                  <th>注册</th>
+                  <th>最后登录</th>
+                  <th>状态</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td style={{ fontWeight: 600 }}>
-                      {u.name}
-                      {u.is_admin && (
-                        <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: "#fff", background: "#DC2626", padding: "1px 5px", borderRadius: 4 }}>
-                          ADMIN
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{u.email}</td>
-                    <td>{u.company || "-"}</td>
-                    <td>{u.title || "-"}</td>
-                    <td>
-                      <span style={{
-                        fontWeight: 600,
-                        color: u.credit_balance >= 500 ? "#16A34A" : u.credit_balance > 0 ? "#D97706" : "#DC2626",
-                      }}>
-                        {u.credit_balance.toLocaleString()}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                      {u.total_spent.toLocaleString()}
-                    </td>
-                    <td style={{ fontSize: "0.8rem" }}>{fmtDate(u.created_at)}</td>
-                    <td style={{ fontSize: "0.8rem" }}>{fmtDate(u.last_login)}</td>
-                    <td>
-                      <button
-                        onClick={() => { setGrantTarget(u); setGrantAmount(""); }}
-                        style={{
-                          padding: "0.25rem 0.6rem", fontSize: "0.75rem", fontWeight: 600,
-                          background: "var(--accent)", color: "#fff", border: "none",
-                          borderRadius: 5, cursor: "pointer",
-                        }}
-                      >
-                        + Credits
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {users.map((u) => {
+                  const isSelf = u.id === user!.id;
+                  return (
+                    <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
+                      <td style={{ fontWeight: 600 }}>
+                        {u.name}
+                        {u.is_admin && (
+                          <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: "#fff", background: "#DC2626", padding: "1px 5px", borderRadius: 4 }}>
+                            ADMIN
+                          </span>
+                        )}
+                        {isSelf && (
+                          <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 600, color: "#2563EB" }}>
+                            (你)
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{u.email}</td>
+                      <td>{u.company || "-"}</td>
+                      <td>
+                        {u.is_admin ? (
+                          <span style={{ color: "#7C3AED", fontWeight: 600 }}>\u221E</span>
+                        ) : (
+                          <span style={{
+                            fontWeight: 600,
+                            color: u.credit_balance >= 500 ? "#16A34A" : u.credit_balance > 0 ? "#D97706" : "#DC2626",
+                          }}>
+                            {u.credit_balance.toLocaleString()}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                        {u.total_spent.toLocaleString()}
+                      </td>
+                      <td style={{ fontSize: "0.75rem" }}>{fmtDate(u.created_at)}</td>
+                      <td style={{ fontSize: "0.75rem" }}>{fmtDate(u.last_login)}</td>
+                      <td>
+                        {u.is_active ? (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: "#16A34A", background: "#F0FDF4", padding: "1px 6px", borderRadius: 4 }}>
+                            ACTIVE
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: "#64748B", background: "#F1F5F9", padding: "1px 6px", borderRadius: 4 }}>
+                            BANNED
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {!u.is_admin && (
+                            <button
+                              onClick={() => { setGrantTarget(u); setGrantAmount(""); }}
+                              disabled={!u.is_active}
+                              style={btnStyle("accent", !u.is_active)}
+                            >
+                              +积分
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleToggleAdmin(u)}
+                            disabled={isSelf}
+                            style={btnStyle(u.is_admin ? "gray" : "purple", isSelf)}
+                            title={isSelf ? "不能修改自己" : ""}
+                          >
+                            {u.is_admin ? "撤销Admin" : "设Admin"}
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(u)}
+                            disabled={isSelf}
+                            style={btnStyle(u.is_active ? "red" : "green", isSelf)}
+                            title={isSelf ? "不能停用自己" : ""}
+                          >
+                            {u.is_active ? "停用" : "启用"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -202,16 +256,16 @@ export default function AdminPage() {
                 boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
               }}>
                 <h3 style={{ margin: "0 0 1rem", fontSize: "0.95rem" }}>
-                  Grant Credits to {grantTarget.name}
+                  发放积分给 {grantTarget.name}
                 </h3>
                 <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                  Current balance: {grantTarget.credit_balance.toLocaleString()}
+                  当前余额: {grantTarget.credit_balance.toLocaleString()}
                 </p>
                 <input
                   type="number"
                   value={grantAmount}
                   onChange={(e) => setGrantAmount(e.target.value)}
-                  placeholder="Amount (e.g. 5000)"
+                  placeholder="数量（例如 5000）"
                   autoFocus
                   style={{
                     width: "100%", padding: "0.6rem", fontSize: "0.9rem",
@@ -224,7 +278,7 @@ export default function AdminPage() {
                     onClick={() => setGrantTarget(null)}
                     style={{ padding: "0.4rem 1rem", fontSize: "0.85rem", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer" }}
                   >
-                    Cancel
+                    取消
                   </button>
                   <button
                     onClick={handleGrant}
@@ -235,14 +289,14 @@ export default function AdminPage() {
                       borderRadius: 6, cursor: granting ? "not-allowed" : "pointer",
                     }}
                   >
-                    {granting ? "..." : "Grant"}
+                    {granting ? "..." : "发放"}
                   </button>
                 </div>
               </div>
             </div>
           )}
         </div>
-      ) : tab === "codes" ? (
+      ) : (
         <div className="card">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.75rem" }}>
             <button
@@ -253,19 +307,19 @@ export default function AdminPage() {
                 borderRadius: 6, cursor: "pointer",
               }}
             >
-              + New Code
+              + 新建邀请码
             </button>
           </div>
           <div className="data-table-wrapper">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Code</th>
-                  <th>Uses</th>
-                  <th>Max Uses</th>
-                  <th>Created</th>
-                  <th>Expires</th>
-                  <th>Actions</th>
+                  <th>邀请码</th>
+                  <th>已使用</th>
+                  <th>最大次数</th>
+                  <th>创建时间</th>
+                  <th>过期</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -281,7 +335,7 @@ export default function AdminPage() {
                     </td>
                     <td>{c.max_uses}</td>
                     <td style={{ fontSize: "0.8rem" }}>{fmtDate(c.created_at)}</td>
-                    <td style={{ fontSize: "0.8rem" }}>{c.expires_at ? fmtDate(c.expires_at) : "Never"}</td>
+                    <td style={{ fontSize: "0.8rem" }}>{c.expires_at ? fmtDate(c.expires_at) : "永不"}</td>
                     <td>
                       <button
                         onClick={() => handleDeleteCode(c.code)}
@@ -291,47 +345,14 @@ export default function AdminPage() {
                           borderRadius: 4, cursor: "pointer",
                         }}
                       >
-                        Revoke
+                        撤销
                       </button>
                     </td>
                   </tr>
                 ))}
                 {codes.length === 0 && (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text-secondary)" }}>No invite codes yet</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text-secondary)" }}>暂无邀请码</td></tr>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div className="card">
-          <div className="data-table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Deal</th>
-                  <th>Type</th>
-                  <th>Buyer</th>
-                  <th>Seller</th>
-                  <th>Asset</th>
-                  <th>Upfront ($M)</th>
-                  <th>Total ($M)</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deals.map((d: any, i: number) => (
-                  <tr key={d["\u4ea4\u6613\u540d\u79f0"] || i}>
-                    <td style={{ fontWeight: 600 }}>{d["\u4ea4\u6613\u540d\u79f0"] || "-"}</td>
-                    <td>{d["\u4ea4\u6613\u7c7b\u578b"] || "-"}</td>
-                    <td>{d["\u4e70\u65b9\u516c\u53f8"] || "-"}</td>
-                    <td>{d["\u5356\u65b9/\u5408\u4f5c\u65b9"] || "-"}</td>
-                    <td>{d["\u8d44\u4ea7\u540d\u79f0"] || "-"}</td>
-                    <td>{d["\u9996\u4ed8\u6b3e($M)"] || "-"}</td>
-                    <td>{d["\u4ea4\u6613\u603b\u989d($M)"] || "-"}</td>
-                    <td>{d["\u5ba3\u5e03\u65e5\u671f"] || "-"}</td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>
@@ -339,4 +360,25 @@ export default function AdminPage() {
       )}
     </div>
   );
+}
+
+function btnStyle(
+  variant: "accent" | "red" | "green" | "purple" | "gray",
+  disabled: boolean,
+): React.CSSProperties {
+  const colors = {
+    accent: { bg: "var(--accent)", fg: "#fff", border: "none" },
+    red: { bg: "#fff", fg: "#DC2626", border: "1px solid #DC2626" },
+    green: { bg: "#fff", fg: "#16A34A", border: "1px solid #16A34A" },
+    purple: { bg: "#fff", fg: "#7C3AED", border: "1px solid #7C3AED" },
+    gray: { bg: "#fff", fg: "#64748B", border: "1px solid #CBD5E1" },
+  };
+  const c = colors[variant];
+  return {
+    padding: "0.25rem 0.55rem", fontSize: "0.7rem", fontWeight: 600,
+    background: c.bg, color: c.fg, border: c.border,
+    borderRadius: 5, cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.4 : 1,
+    whiteSpace: "nowrap",
+  };
 }

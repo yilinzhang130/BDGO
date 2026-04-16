@@ -163,7 +163,7 @@ def admin_dashboard(_: dict = Depends(_require_admin)):
     """Users + credit balances for admin UI."""
     with transaction() as cur:
         cur.execute("""
-            SELECT u.id, u.email, u.name, u.is_admin, u.company, u.title,
+            SELECT u.id, u.email, u.name, u.is_admin, u.is_active, u.company, u.title,
                    u.created_at, u.last_login,
                    COALESCE(c.balance, 0) AS credit_balance,
                    COALESCE(c.total_granted, 0) AS total_granted,
@@ -183,6 +183,43 @@ def admin_dashboard(_: dict = Depends(_require_admin)):
         users.append(u)
 
     return {"users": users}
+
+
+class SetFlagBody(BaseModel):
+    user_id: str
+    value: bool
+
+
+@router.post("/users/set-active-ui")
+def set_user_active(body: SetFlagBody, admin: dict = Depends(_require_admin)):
+    """Ban/unban a user (JWT auth)."""
+    if body.user_id == admin["id"] and body.value is False:
+        raise HTTPException(400, "不能停用自己的账户")
+    with transaction() as cur:
+        cur.execute(
+            "UPDATE users SET is_active = %s WHERE id = %s RETURNING id, email, is_active",
+            (body.value, body.user_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, "User not found")
+    return {"ok": True, "user_id": str(row["id"]), "is_active": row["is_active"]}
+
+
+@router.post("/users/set-admin-ui")
+def set_user_admin_ui(body: SetFlagBody, admin: dict = Depends(_require_admin)):
+    """Grant/revoke admin flag (JWT auth)."""
+    if body.user_id == admin["id"] and body.value is False:
+        raise HTTPException(400, "不能撤销自己的管理员权限")
+    with transaction() as cur:
+        cur.execute(
+            "UPDATE users SET is_admin = %s WHERE id = %s RETURNING id, email, is_admin",
+            (body.value, body.user_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, "User not found")
+    return {"ok": True, "user_id": str(row["id"]), "is_admin": row["is_admin"]}
 
 
 class GrantCreditsUI(BaseModel):

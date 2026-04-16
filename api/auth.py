@@ -86,7 +86,7 @@ def serialize_user_row(row: dict) -> dict:
 
 _USER_COLUMNS = (
     "id, email, name, avatar_url, provider, created_at, last_login, "
-    "company, title, phone, bio, preferences_json, is_admin"
+    "company, title, phone, bio, preferences_json, is_admin, is_active"
 )
 
 
@@ -102,7 +102,10 @@ def _lookup_user(user_id: str) -> dict:
 
     if not row:
         raise HTTPException(status_code=401, detail="User not found")
-    return serialize_user_row(row)
+    user = serialize_user_row(row)
+    if user.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="账户已被停用，请联系管理员")
+    return user
 
 
 def get_current_user(authorization: str = Header(None)) -> dict:

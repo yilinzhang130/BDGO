@@ -351,6 +351,7 @@ export interface AdminUser {
   email: string;
   name: string;
   is_admin: boolean;
+  is_active: boolean;
   company?: string;
   title?: string;
   created_at: string | null;
@@ -384,3 +385,9 @@ export const createInviteCode = (maxUses: number = 1) =>
 
 export const deleteInviteCode = (code: string) =>
   del(`${BASE}/admin/invite-codes-ui/${encodeURIComponent(code)}`);
+
+export const setUserActive = (userId: string, value: boolean) =>
+  post(`${BASE}/admin/users/set-active-ui`, { user_id: userId, value });
+
+export const setUserAdmin = (userId: string, value: boolean) =>
+  post(`${BASE}/admin/users/set-admin-ui`, { user_id: userId, value });
