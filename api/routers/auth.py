@@ -66,6 +66,7 @@ class UserResponse(BaseModel):
     phone: str | None = None
     bio: str | None = None
     preferences_json: str | None = None
+    is_admin: bool = False
 
 
 # ---------------------------------------------------------------------------
