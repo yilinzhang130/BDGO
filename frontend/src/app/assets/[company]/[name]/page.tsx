@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchAsset, fetchAssetTrials } from "@/lib/api";
+import { fetchAsset, fetchAssetTrials, updateRecord, deleteRecord } from "@/lib/api";
 import { phaseBadgeClass, resultBadgeClass, parseNum } from "@/lib/utils";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
+import { EditableField } from "@/components/ui/EditableField";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useAuth } from "@/components/AuthProvider";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip,
@@ -85,24 +88,19 @@ const SECTIONS: Section[] = [
   },
 ];
 
-function ReadField({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
-      <span style={{ fontSize: "0.85rem", color: value ? "var(--text)" : "var(--text-secondary)" }}>{value || "—"}</span>
-    </div>
-  );
-}
-
 export default function AssetDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const company = decodeURIComponent(params.company as string);
   const name = decodeURIComponent(params.name as string);
 
   const [asset, setAsset] = useState<any>(null);
   const [trials, setTrials] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const isAdmin = user?.is_admin === true;
+
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     SECTIONS.forEach((s) => { init[s.title] = s.defaultOpen ?? false; });
@@ -116,6 +114,16 @@ export default function AssetDetailPage() {
 
   if (notFound) return <div className="loading">Asset not found</div>;
   if (!asset) return <div className="loading">Loading...</div>;
+
+  const handleFieldSave = async (dbCol: string, newValue: string) => {
+    await updateRecord("资产", name, { [dbCol]: newValue }, company);
+    setAsset({ ...asset, [dbCol]: newValue });
+  };
+
+  const handleDelete = async () => {
+    await deleteRecord("资产", name, company);
+    router.push(`/companies/${encodeURIComponent(company)}`);
+  };
 
   const q1 = parseNum(asset["Q1_生物学"]);
   const q2 = parseNum(asset["Q2_药物形式"]);
@@ -148,6 +156,14 @@ export default function AssetDetailPage() {
               {asset["靶点"] && <span>Target: {asset["靶点"]}</span>}
             </div>
           </div>
+          {isAdmin && (
+            <button
+              onClick={() => setShowDelete(true)}
+              style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
@@ -192,9 +208,21 @@ export default function AssetDetailPage() {
           </h3>
           {openSections[section.title] && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.6rem", fontSize: "0.85rem", marginTop: "0.75rem" }}>
-              {section.fields.map(([label, dbCol]) => (
-                <ReadField key={dbCol} label={label} value={String(asset[dbCol] ?? "")} />
-              ))}
+              {section.fields.map(([label, dbCol]) =>
+                isAdmin ? (
+                  <EditableField
+                    key={dbCol}
+                    label={label}
+                    value={String(asset[dbCol] ?? "")}
+                    onSave={(v) => handleFieldSave(dbCol, v)}
+                  />
+                ) : (
+                  <div key={dbCol} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
+                    <span style={{ fontSize: "0.85rem", color: asset[dbCol] ? "var(--text)" : "var(--text-secondary)" }}>{asset[dbCol] || "—"}</span>
+                  </div>
+                )
+              )}
             </div>
           )}
         </div>
@@ -227,6 +255,13 @@ export default function AssetDetailPage() {
           </table>
         </div>
       </div>
+      {showDelete && isAdmin && (
+        <ConfirmDialog
+          message={`Delete asset "${name}" (${company})?`}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDelete(false)}
+        />
+      )}
     </div>
   );
 }

@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchCompany, fetchCompanyAssets, fetchCompanyTrials, fetchCompanyDeals, fetchBuyer } from "@/lib/api";
+import { fetchCompany, fetchCompanyAssets, fetchCompanyTrials, fetchCompanyDeals, fetchBuyer, updateRecord, deleteRecord } from "@/lib/api";
 import { phaseBadgeClass, priorityBadgeClass, resultBadgeClass } from "@/lib/utils";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
+import { EditableField } from "@/components/ui/EditableField";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useAuth } from "@/components/AuthProvider";
 
 interface Section { title: string; fields: [string, string][]; defaultOpen?: boolean; }
 
@@ -72,18 +75,10 @@ const SECTIONS: Section[] = [
   },
 ];
 
-function ReadField({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
-      <span style={{ fontSize: "0.85rem", color: value ? "var(--text)" : "var(--text-secondary)" }}>{value || "—"}</span>
-    </div>
-  );
-}
-
 export default function CompanyDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const name = decodeURIComponent(params.name as string);
 
   const [company, setCompany] = useState<any>(null);
@@ -93,11 +88,14 @@ export default function CompanyDetailPage() {
   const [buyerProfile, setBuyerProfile] = useState<any>(null);
   const [tab, setTab] = useState("assets");
   const [notFound, setNotFound] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     SECTIONS.forEach((s) => { init[s.title] = s.defaultOpen ?? false; });
     return init;
   });
+
+  const isAdmin = user?.is_admin === true;
 
   useEffect(() => {
     fetchCompany(name).then(setCompany).catch(() => setNotFound(true));
@@ -109,6 +107,16 @@ export default function CompanyDetailPage() {
 
   if (notFound) return <div className="loading">Company not found</div>;
   if (!company) return <div className="loading">Loading...</div>;
+
+  const handleFieldSave = async (dbCol: string, newValue: string) => {
+    await updateRecord("公司", name, { [dbCol]: newValue });
+    setCompany({ ...company, [dbCol]: newValue });
+  };
+
+  const handleDelete = async () => {
+    await deleteRecord("公司", name);
+    router.push("/companies");
+  };
 
   return (
     <div>
@@ -130,6 +138,14 @@ export default function CompanyDetailPage() {
               )}
             </div>
           </div>
+          {isAdmin && (
+            <button
+              onClick={() => setShowDelete(true)}
+              style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
@@ -155,15 +171,27 @@ export default function CompanyDetailPage() {
             style={{ margin: 0, fontSize: "0.95rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
           >
             <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
-              {openSections[section.title] ? "\u25BC" : "\u25B6"}
+              {openSections[section.title] ? "▼" : "▶"}
             </span>
             {section.title}
           </h3>
           {openSections[section.title] && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.6rem", fontSize: "0.85rem", marginTop: "0.75rem" }}>
-              {section.fields.map(([label, dbCol]) => (
-                <ReadField key={dbCol} label={label} value={company[dbCol] || ""} />
-              ))}
+              {section.fields.map(([label, dbCol]) =>
+                isAdmin ? (
+                  <EditableField
+                    key={dbCol}
+                    label={label}
+                    value={String(company[dbCol] ?? "")}
+                    onSave={(v) => handleFieldSave(dbCol, v)}
+                  />
+                ) : (
+                  <div key={dbCol} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
+                    <span style={{ fontSize: "0.85rem", color: company[dbCol] ? "var(--text)" : "var(--text-secondary)" }}>{company[dbCol] || "—"}</span>
+                  </div>
+                )
+              )}
             </div>
           )}
         </div>
@@ -192,9 +220,7 @@ export default function CompanyDetailPage() {
           <div className="data-table-wrapper">
             <table className="data-table">
               <thead>
-                <tr>
-                  <th>Asset</th><th>Platform</th><th>Disease</th><th>Indication</th><th>Phase</th><th>Target</th><th>Score</th>
-                </tr>
+                <tr><th>Asset</th><th>Platform</th><th>Disease</th><th>Indication</th><th>Phase</th><th>Target</th><th>Score</th></tr>
               </thead>
               <tbody>
                 {assets?.data?.map((a: any) => (
@@ -219,9 +245,7 @@ export default function CompanyDetailPage() {
           <div className="data-table-wrapper">
             <table className="data-table">
               <thead>
-                <tr>
-                  <th>Trial ID</th><th>Asset</th><th>Indication</th><th>Phase</th><th>Primary Endpoint</th><th>Result</th><th>Status</th>
-                </tr>
+                <tr><th>Trial ID</th><th>Asset</th><th>Indication</th><th>Phase</th><th>Primary Endpoint</th><th>Result</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {trials?.data?.map((t: any) => (
@@ -246,9 +270,7 @@ export default function CompanyDetailPage() {
           <div className="data-table-wrapper">
             <table className="data-table">
               <thead>
-                <tr>
-                  <th>Deal</th><th>Type</th><th>Buyer</th><th>Seller</th><th>Asset</th><th>Upfront ($M)</th><th>Total ($M)</th><th>Date</th>
-                </tr>
+                <tr><th>Deal</th><th>Type</th><th>Buyer</th><th>Seller</th><th>Asset</th><th>Upfront ($M)</th><th>Total ($M)</th><th>Date</th></tr>
               </thead>
               <tbody>
                 {deals?.map((d: any) => (
@@ -274,32 +296,29 @@ export default function CompanyDetailPage() {
           {buyerProfile.dna_summary && (
             <div style={{ marginBottom: "1rem" }}>
               <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.95rem" }}>DNA Summary</h3>
-              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-                {buyerProfile.dna_summary}
-              </p>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{buyerProfile.dna_summary}</p>
             </div>
           )}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.5rem", fontSize: "0.85rem", marginBottom: "1rem" }}>
-            {[
-              ["Heritage TA", buyerProfile.heritage_ta],
-              ["Risk Appetite", buyerProfile.risk_appetite],
-              ["Deal Size", buyerProfile.deal_size_preference],
-              ["CEO", buyerProfile.ceo_name],
-              ["Head of BD", buyerProfile.head_bd_name],
-            ].map(([label, value]) => (
+            {[["Heritage TA", buyerProfile.heritage_ta], ["Risk Appetite", buyerProfile.risk_appetite], ["Deal Size", buyerProfile.deal_size_preference], ["CEO", buyerProfile.ceo_name], ["Head of BD", buyerProfile.head_bd_name]].map(([label, value]) => (
               <div key={label}>
                 <span style={{ color: "var(--text-secondary)" }}>{label}: </span>
                 <strong>{value || "-"}</strong>
               </div>
             ))}
           </div>
-          <button
-            onClick={() => router.push(`/buyers/${encodeURIComponent(name)}`)}
-            style={{ padding: "0.4rem 0.9rem", background: "var(--accent)", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}
-          >
+          <button onClick={() => router.push(`/buyers/${encodeURIComponent(name)}`)} style={{ padding: "0.4rem 0.9rem", background: "var(--accent)", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}>
             View Full Profile &rarr;
           </button>
         </div>
+      )}
+
+      {showDelete && isAdmin && (
+        <ConfirmDialog
+          message={`Delete company "${name}" and all its data?`}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDelete(false)}
+        />
       )}
     </div>
   );

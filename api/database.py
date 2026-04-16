@@ -125,6 +125,17 @@ CREATE TABLE IF NOT EXISTS user_watchlists (
 );
 CREATE INDEX IF NOT EXISTS idx_watchlist_user ON user_watchlists(user_id);
 
+-- Invite codes (required for registration)
+CREATE TABLE IF NOT EXISTS invite_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    max_uses INTEGER NOT NULL DEFAULT 1,
+    use_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+
 -- Credits + usage logging (see credits.py)
 CREATE TABLE IF NOT EXISTS credits (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
