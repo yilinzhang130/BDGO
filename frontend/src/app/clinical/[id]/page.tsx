@@ -6,7 +6,7 @@ import { fetchClinicalRecord, updateRecord, deleteRecord } from "@/lib/api";
 import { phaseBadgeClass, resultBadgeClass } from "@/lib/utils";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { AgentButton } from "@/components/ui/AgentButton";
+import { useAuth } from "@/components/AuthProvider";
 
 interface Section {
   title: string;
@@ -119,7 +119,9 @@ const SECTIONS: Section[] = [
 export default function ClinicalDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const id = decodeURIComponent(params.id as string);
+  const isAdmin = user?.is_admin === true;
 
   const [record, setRecord] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
@@ -176,21 +178,14 @@ export default function ClinicalDetailPage() {
               {record["数据状态"] && <span>{record["数据状态"]}</span>}
             </div>
           </div>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
-            <AgentButton
-              label="Enrich Data"
-              message={`分析临床试验 ${record["试验ID"] || id} (${record["公司名称"] || ""})`}
-              onComplete={() => {
-                fetchClinicalRecord(id).then(setRecord);
-              }}
-            />
+          {isAdmin && (
             <button
               onClick={() => setShowDelete(true)}
               style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
             >
               Delete
             </button>
-          </div>
+          )}
         </div>
       </div>
 
@@ -207,14 +202,21 @@ export default function ClinicalDetailPage() {
           </h3>
           {openSections[section.title] && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.6rem", fontSize: "0.85rem", marginTop: "0.75rem" }}>
-              {section.fields.map(([label, dbCol]) => (
-                <EditableField
-                  key={dbCol}
-                  label={label}
-                  value={String(record[dbCol] ?? "")}
-                  onSave={(v) => handleFieldSave(dbCol, v)}
-                />
-              ))}
+              {section.fields.map(([label, dbCol]) =>
+                isAdmin ? (
+                  <EditableField
+                    key={dbCol}
+                    label={label}
+                    value={String(record[dbCol] ?? "")}
+                    onSave={(v) => handleFieldSave(dbCol, v)}
+                  />
+                ) : (
+                  <div key={dbCol} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
+                    <span style={{ fontSize: "0.85rem", color: record[dbCol] ? "var(--text)" : "var(--text-secondary)" }}>{record[dbCol] || "\u2014"}</span>
+                  </div>
+                )
+              )}
             </div>
           )}
         </div>

@@ -157,6 +157,10 @@ const TOOLS: NavItem[] = [
   { href: "/reports",   label: "报告",    icon: Icon.fileText },
 ];
 
+const ADMIN_NAV: NavItem[] = [
+  { href: "/admin", label: "管理",  icon: Icon.shield },
+];
+
 // ---------------------------------------------------------------------------
 // Nav Group (collapsible section)
 // ---------------------------------------------------------------------------
@@ -330,6 +334,9 @@ export function Sidebar() {
 
         {/* Tools (always visible) */}
         <NavGroup label="工具" items={TOOLS} />
+
+        {/* Admin (admin only) */}
+        {user?.is_admin && <NavGroup label="管理员" items={ADMIN_NAV} />}
       </div>
 
       <SidebarFooter />

@@ -341,3 +341,46 @@ export async function fetchSharedReport(token: string): Promise<{ title: string;
   if (!res.ok) throw new Error(`Share fetch failed: ${res.status}`);
   return res.json();
 }
+
+// ═══════════════════════════════════════════
+// Admin Dashboard
+// ═══════════════════════════════════════════
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  is_admin: boolean;
+  company?: string;
+  title?: string;
+  created_at: string | null;
+  last_login: string | null;
+  credit_balance: number;
+  total_granted: number;
+  total_spent: number;
+}
+
+export interface InviteCode {
+  id: string;
+  code: string;
+  note: string | null;
+  max_uses: number;
+  use_count: number;
+  expires_at: string | null;
+  created_at: string | null;
+}
+
+export const fetchAdminDashboard = () =>
+  get<{ users: AdminUser[] }>(`${BASE}/admin/dashboard`);
+
+export const grantCredits = (userId: string, amount: number) =>
+  post(`${BASE}/admin/credits/grant-ui`, { user_id: userId, amount });
+
+export const fetchAdminInviteCodes = () =>
+  get<{ codes: InviteCode[] }>(`${BASE}/admin/invite-codes-ui`);
+
+export const createInviteCode = (maxUses: number = 1) =>
+  post<InviteCode>(`${BASE}/admin/invite-codes-ui`, { max_uses: maxUses });
+
+export const deleteInviteCode = (code: string) =>
+  del(`${BASE}/admin/invite-codes-ui/${encodeURIComponent(code)}`);

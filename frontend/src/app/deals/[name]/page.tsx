@@ -6,7 +6,7 @@ import { fetchDeal, updateRecord, deleteRecord } from "@/lib/api";
 import { phaseBadgeClass } from "@/lib/utils";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { AgentButton } from "@/components/ui/AgentButton";
+import { useAuth } from "@/components/AuthProvider";
 
 interface Section {
   title: string;
@@ -63,7 +63,9 @@ const SECTIONS: Section[] = [
 export default function DealDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const name = decodeURIComponent(params.name as string);
+  const isAdmin = user?.is_admin === true;
 
   const [deal, setDeal] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
@@ -116,21 +118,14 @@ export default function DealDetailPage() {
               )}
             </div>
           </div>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
-            <AgentButton
-              label="Enrich Data"
-              message={`分析交易 ${name}`}
-              onComplete={() => {
-                fetchDeal(name).then(setDeal);
-              }}
-            />
+          {isAdmin && (
             <button
               onClick={() => setShowDelete(true)}
               style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
             >
               Delete
             </button>
-          </div>
+          )}
         </div>
       </div>
 
@@ -178,19 +173,26 @@ export default function DealDetailPage() {
         <div key={section.title} className="card" style={{ marginBottom: "0.75rem" }}>
           <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem" }}>{section.title}</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.6rem", fontSize: "0.85rem" }}>
-            {section.fields.map(([label, dbCol]) => (
-              <EditableField
-                key={dbCol}
-                label={label}
-                value={String(deal[dbCol] ?? "")}
-                onSave={(v) => handleFieldSave(dbCol, v)}
-              />
-            ))}
+            {section.fields.map(([label, dbCol]) =>
+              isAdmin ? (
+                <EditableField
+                  key={dbCol}
+                  label={label}
+                  value={String(deal[dbCol] ?? "")}
+                  onSave={(v) => handleFieldSave(dbCol, v)}
+                />
+              ) : (
+                <div key={dbCol} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
+                  <span style={{ fontSize: "0.85rem", color: deal[dbCol] ? "var(--text)" : "var(--text-secondary)" }}>{deal[dbCol] || "\u2014"}</span>
+                </div>
+              )
+            )}
           </div>
         </div>
       ))}
 
-      {showDelete && (
+      {showDelete && isAdmin && (
         <ConfirmDialog
           message={`Delete deal "${name}"?`}
           onConfirm={handleDelete}

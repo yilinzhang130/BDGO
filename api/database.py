@@ -129,12 +129,16 @@ CREATE INDEX IF NOT EXISTS idx_watchlist_user ON user_watchlists(user_id);
 CREATE TABLE IF NOT EXISTS invite_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
+    note VARCHAR(255),
     max_uses INTEGER NOT NULL DEFAULT 1,
     use_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     expires_at TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
+DO $$ BEGIN
+    ALTER TABLE invite_codes ADD COLUMN note VARCHAR(255);
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 -- Credits + usage logging (see credits.py)
 CREATE TABLE IF NOT EXISTS credits (
