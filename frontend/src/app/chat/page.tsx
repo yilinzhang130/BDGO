@@ -12,6 +12,8 @@ import {
 import { ChatMessage } from "@/components/ui/ChatMessage";
 import { ContextPanel } from "@/components/ui/ContextPanel";
 import { Sidebar } from "@/components/ui/Sidebar";
+import { ModelPicker } from "@/components/ui/ModelPicker";
+import { getSelectedModel, applyCreditsUsage, refreshCredits } from "@/lib/credits";
 
 const SUGGESTIONS = [
   "AbbVie\u6709\u51E0\u4E2A Phase 3 \u7684\u8D44\u4EA7\uFF1F",
@@ -141,7 +143,7 @@ export default function ChatPage() {
       setIsStreaming(true);
 
       try {
-        const res = await chatStream(msg, targetSessionId, currentFiles);
+        const res = await chatStream(msg, targetSessionId, currentFiles, getSelectedModel() || undefined);
         const reader = res.body?.getReader();
         if (!reader) throw new Error("No response stream");
 
@@ -200,8 +202,16 @@ export default function ChatPage() {
                     `\n\n**Error:** ${data.message}`,
                   );
                   markMessageDone(targetSessionId, assistantMsgId);
+                } else if (data.type === "usage") {
+                  // Optimistically update credit balance from server-reported usage
+                  applyCreditsUsage(
+                    data.credits_charged ?? 0,
+                    data.balance ?? null,
+                  );
                 } else if (data.type === "done") {
                   markMessageDone(targetSessionId, assistantMsgId);
+                  // Reconcile credit balance after turn completes
+                  void refreshCredits();
                 }
               } catch {
                 /* ignore parse errors */
@@ -294,6 +304,7 @@ export default function ChatPage() {
             </div>
           )}
           <div className="chat-header-actions">
+            <ModelPicker compact />
             {contextCollapsed && (
               <button
                 className="icon-btn"

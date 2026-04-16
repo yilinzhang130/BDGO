@@ -36,6 +36,51 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 // ═══════════════════════════════════════════
+// Error message translator
+// ═══════════════════════════════════════════
+// Turn raw HTTP status + backend detail into user-facing Chinese messages.
+// Never show "Login failed: 502" — those are noise to end users.
+
+function friendlyAuthError(
+  action: "login" | "register" | "google",
+  status: number,
+  detail?: string,
+): string {
+  // Backend-provided detail wins if it's already human-readable Chinese
+  if (detail && /[\u4e00-\u9fa5]/.test(detail)) return detail;
+
+  if (status === 401) {
+    return action === "login" ? "邮箱或密码错误，请重试" : "身份验证失败";
+  }
+  if (status === 403) return detail || "没有访问权限";
+  if (status === 404) {
+    return action === "login" ? "该邮箱未注册，请先注册账户" : "接口不存在";
+  }
+  if (status === 409) return "该邮箱已被注册";
+  if (status === 400) return detail || "请求格式有误";
+  if (status === 422) return detail || "填写的信息不完整";
+  if (status === 429) return "请求过于频繁，请稍后再试";
+  if (status >= 500 && status < 600) {
+    return "服务暂时不可用，请稍后再试（后端异常）";
+  }
+  if (status === 0) {
+    // Network-level failure (caller sets status=0 on fetch throw)
+    return "无法连接服务器，请检查网络或稍后再试";
+  }
+  return detail || "操作失败，请稍后重试";
+}
+
+async function parseErrorDetail(res: Response): Promise<string | undefined> {
+  try {
+    const body = await res.json();
+    if (typeof body?.detail === "string") return body.detail;
+    if (Array.isArray(body?.detail) && body.detail[0]?.msg)
+      return body.detail[0].msg;
+  } catch {}
+  return undefined;
+}
+
+// ═══════════════════════════════════════════
 // Hook
 // ═══════════════════════════════════════════
 
@@ -101,14 +146,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading, pathname, router]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      throw new Error(friendlyAuthError("login", 0));
+    }
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `Login failed: ${res.status}`);
+      const detail = await parseErrorDetail(res);
+      throw new Error(friendlyAuthError("login", res.status, detail));
     }
     const data = await res.json();
     setAuth(data.token, data.user);
@@ -119,14 +169,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (email: string, password: string, name: string, inviteCode: string) => {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, invite_code: inviteCode }),
-      });
+      let res: Response;
+      try {
+        res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, name, invite_code: inviteCode }),
+        });
+      } catch {
+        throw new Error(friendlyAuthError("register", 0));
+      }
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Registration failed: ${res.status}`);
+        const detail = await parseErrorDetail(res);
+        throw new Error(friendlyAuthError("register", res.status, detail));
       }
       const data = await res.json();
       setAuth(data.token, data.user);
@@ -139,14 +194,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = useCallback(
     async (idToken: string) => {
-      const res = await fetch("/api/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_token: idToken }),
-      });
+      let res: Response;
+      try {
+        res = await fetch("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_token: idToken }),
+        });
+      } catch {
+        throw new Error(friendlyAuthError("google", 0));
+      }
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Google login failed: ${res.status}`);
+        const detail = await parseErrorDetail(res);
+        throw new Error(friendlyAuthError("google", res.status, detail));
       }
       const data = await res.json();
       setAuth(data.token, data.user);

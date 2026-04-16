@@ -8,15 +8,11 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from db import query, query_one, count
-from config import (
-    BP_DIR,
-    MINIMAX_ANTHROPIC_VERSION,
-    MINIMAX_KEY,
-    MINIMAX_MODEL as MODEL,
-    MINIMAX_URL,
-)
+from config import BP_DIR
 from database import transaction
 from auth import get_current_user
+from models import resolve_model, ModelSpec
+import credits as credits_mod
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1099,14 +1095,26 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
     file_ids: list[str] = []
+    model_id: str | None = None   # selected from /api/models; falls back to default
     # user_id is injected by the endpoint, not sent by the client
     user_id: str | None = None
 
 
-async def _call_minimax_stream(client: httpx.AsyncClient, messages: list, tool_results_buffer: list):
-    """Single call to MiniMax; yields SSE events and collects tool_use blocks."""
+async def _call_minimax_stream(
+    client: httpx.AsyncClient,
+    messages: list,
+    tool_results_buffer: list,
+    model: ModelSpec,
+    usage_accum: dict,
+):
+    """Single call to the selected LLM; yields SSE events and collects tool_use blocks.
+
+    `usage_accum` is a dict with keys {input_tokens, output_tokens} that this
+    function adds to as the provider reports usage in `message_start` /
+    `message_delta` events (Anthropic-compat shape).
+    """
     body = {
-        "model": MODEL,
+        "model": model.api_model,
         "system": SYSTEM_PROMPT,
         "messages": messages,
         "max_tokens": 4096,
@@ -1114,10 +1122,11 @@ async def _call_minimax_stream(client: httpx.AsyncClient, messages: list, tool_r
         "tools": TOOLS,
     }
     headers = {
-        "x-api-key": MINIMAX_KEY,
+        "x-api-key": model.api_key,
         "Content-Type": "application/json",
-        "anthropic-version": MINIMAX_ANTHROPIC_VERSION,
     }
+    if model.anthropic_version:
+        headers["anthropic-version"] = model.anthropic_version
 
     collected_content = []
     current_tool_use = None
@@ -1127,7 +1136,7 @@ async def _call_minimax_stream(client: httpx.AsyncClient, messages: list, tool_r
     # 529 = server overloaded — retry up to 3 times with backoff
     max_retries = 3
     for attempt in range(max_retries):
-        async with client.stream("POST", MINIMAX_URL, json=body, headers=headers) as resp:
+        async with client.stream("POST", model.api_url, json=body, headers=headers) as resp:
             if resp.status_code == 529:
                 await resp.aread()  # drain body
                 if attempt < max_retries - 1:
@@ -1157,6 +1166,20 @@ async def _call_minimax_stream(client: httpx.AsyncClient, messages: list, tool_r
                         continue
 
                     et = data.get("type", "")
+
+                    # ── Usage tracking (Anthropic-compat shape) ──
+                    # message_start carries the initial {input_tokens, output_tokens=N}
+                    # message_delta.usage updates the running output_tokens total
+                    if et == "message_start":
+                        u = (data.get("message", {}) or {}).get("usage") or {}
+                        usage_accum["input_tokens"] += int(u.get("input_tokens") or 0)
+                        usage_accum["output_tokens"] += int(u.get("output_tokens") or 0)
+                    elif et == "message_delta":
+                        u = data.get("usage") or {}
+                        # Providers report the *final* output_tokens here, not a delta.
+                        # Stash it and reconcile when we see message_stop.
+                        if "output_tokens" in u:
+                            usage_accum["_pending_output"] = int(u["output_tokens"] or 0)
 
                     if et == "content_block_start":
                         block = data.get("content_block", {})
@@ -1202,6 +1225,11 @@ async def _call_minimax_stream(client: httpx.AsyncClient, messages: list, tool_r
                         stop_reason = data.get("delta", {}).get("stop_reason")
 
                     elif et == "message_stop":
+                        # Promote the pending output_tokens total from message_delta
+                        # into the accumulator, then reset for the next round.
+                        pending = usage_accum.pop("_pending_output", 0)
+                        if pending:
+                            usage_accum["output_tokens"] += pending
                         break
 
         # Successful stream completed — yield end event and stop retrying
@@ -1213,6 +1241,14 @@ async def _stream_chat(req: ChatRequest):
     """Main chat handler: tool-use loop with streaming."""
     session_id = req.session_id
     user_id = req.user_id
+
+    # Resolve model (falls back to default if unknown/None)
+    model = resolve_model(req.model_id)
+
+    # Usage accumulator — incremented inside _call_minimax_stream across
+    # all tool-use rounds in this request. Debited from the user's balance
+    # once the stream completes.
+    usage_accum = {"input_tokens": 0, "output_tokens": 0}
 
     # Ensure session exists in Postgres (auto-create if needed)
     if user_id:
@@ -1272,7 +1308,9 @@ async def _stream_chat(req: ChatRequest):
                 final_content = None
                 final_stop_reason = None
 
-                async for event_type, payload in _call_minimax_stream(client, history, tool_results_buffer):
+                async for event_type, payload in _call_minimax_stream(
+                    client, history, tool_results_buffer, model, usage_accum
+                ):
                     if event_type == "chunk":
                         yield f"data: {json.dumps({'type': 'chunk', 'content': payload})}\n\n"
                     elif event_type == "tool_call_start":
@@ -1344,6 +1382,39 @@ async def _stream_chat(req: ChatRequest):
         # Persist all extracted context entities
         _save_entities(session_id, all_entities)
 
+        # ── Bill credits for this request ──
+        # Debit after the stream finishes so we never charge for a failed turn.
+        credits_charged = 0.0
+        if user_id:
+            credits_charged = credits_mod.record_usage(
+                user_id=user_id,
+                session_id=session_id,
+                model_id=model.id,
+                input_tokens=usage_accum.get("input_tokens", 0),
+                output_tokens=usage_accum.get("output_tokens", 0),
+                input_weight=model.input_weight,
+                output_weight=model.output_weight,
+            )
+            try:
+                balance_info = credits_mod.get_balance(user_id)
+                balance_remaining = balance_info["balance"]
+            except Exception:
+                balance_remaining = None
+        else:
+            balance_remaining = None
+
+        yield (
+            "data: "
+            + json.dumps({
+                "type": "usage",
+                "model": model.id,
+                "input_tokens": usage_accum.get("input_tokens", 0),
+                "output_tokens": usage_accum.get("output_tokens", 0),
+                "credits_charged": credits_charged,
+                "balance": balance_remaining,
+            })
+            + "\n\n"
+        )
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     except httpx.TimeoutException:
@@ -1358,6 +1429,8 @@ async def _stream_chat(req: ChatRequest):
 @router.post("")
 async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
     req.user_id = user["id"]
+    # Fail fast with a clean 402 if the user is out of credits — never mid-stream.
+    credits_mod.ensure_balance(user["id"])
     return StreamingResponse(
         _stream_chat(req),
         media_type="text/event-stream",

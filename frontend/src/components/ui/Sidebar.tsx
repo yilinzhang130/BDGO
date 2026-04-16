@@ -8,6 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { parsePreferences } from "@/lib/auth";
 import { SessionList } from "./SessionList";
 import { SearchModal } from "./SearchModal";
+import { CreditBadge } from "./CreditBadge";
 
 // ---------------------------------------------------------------------------
 // SVG Icons
@@ -238,7 +239,10 @@ function SidebarFooter() {
               </span>
             )}
           </div>
-          <div className="user-role">{role}</div>
+          <div className="user-role" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {role}
+            <CreditBadge compact />
+          </div>
         </div>
       </Link>
       <button className="icon-btn" aria-label="退出" title="退出登录" onClick={logout}

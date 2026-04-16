@@ -124,6 +124,30 @@ CREATE TABLE IF NOT EXISTS user_watchlists (
     UNIQUE(user_id, entity_type, entity_key)
 );
 CREATE INDEX IF NOT EXISTS idx_watchlist_user ON user_watchlists(user_id);
+
+-- Credits + usage logging (see credits.py)
+CREATE TABLE IF NOT EXISTS credits (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    balance NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    total_granted NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    total_spent NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS usage_logs (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id VARCHAR(12),
+    model_id VARCHAR(64) NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    credits_charged NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_user_created
+    ON usage_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_session
+    ON usage_logs(session_id);
 """
 
 # ---------------------------------------------------------------------------

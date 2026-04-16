@@ -72,16 +72,58 @@ export const searchSessions = (q: string, limit = 6) =>
   get<{ id: string; title: string; updated_at: string }[]>(`${BASE}/sessions/search`, { q, limit });
 
 // Chat (returns raw Response for streaming)
-export async function chatStream(message: string, sessionId: string, fileIds: string[] = []): Promise<Response> {
+export async function chatStream(
+  message: string,
+  sessionId: string,
+  fileIds: string[] = [],
+  modelId?: string,
+): Promise<Response> {
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ message, session_id: sessionId, file_ids: fileIds }),
+    body: JSON.stringify({
+      message,
+      session_id: sessionId,
+      file_ids: fileIds,
+      ...(modelId ? { model_id: modelId } : {}),
+    }),
   });
   handle401(res);
-  if (!res.ok) throw new Error(`Chat failed: ${res.status}`);
+  if (!res.ok) {
+    // Surface 402 credit-exhausted errors with their backend message
+    let detail = `Chat failed: ${res.status}`;
+    try {
+      const body = await res.clone().json();
+      if (body?.detail) detail = body.detail;
+    } catch {}
+    throw new Error(detail);
+  }
   return res;
 }
+
+// Credits + models
+export interface CreditBalance {
+  balance: number;
+  total_granted: number;
+  total_spent: number;
+  updated_at: string | null;
+}
+export const fetchCreditBalance = () =>
+  get<CreditBalance>(`${BASE}/credits/balance`);
+export const fetchCreditUsage = (limit = 50) =>
+  get<{ items: any[] }>(`${BASE}/credits/usage`, { limit });
+
+export interface ModelInfo {
+  id: string;
+  display_name: string;
+  provider: string;
+  input_weight: number;
+  output_weight: number;
+  context_note: string;
+  available: boolean;
+}
+export const fetchModels = () =>
+  get<{ models: ModelInfo[] }>(`${BASE}/models`);
 
 // Stats
 export const fetchOverview = () => get(`${BASE}/stats/overview`);
