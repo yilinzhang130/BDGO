@@ -237,3 +237,89 @@ def build_plan_constraint(plan_title: str, selected_steps: list[dict]) -> str:
         + "\n  - ".join(lines)
         + "\n完成所有步骤后综合输出最终结论。"
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# Context compaction (layer 2) — LLM summary of old turns
+# ─────────────────────────────────────────────────────────────
+
+SUMMARIZER_SYSTEM_PROMPT = """你是会话摘要专家。用户和 BD AI 助手的对话已经很长，需要把**较旧的轮次**压缩成一段精简的会话摘要，供后续对话继续参考。
+
+**输出要求**：
+- 只输出一段中文纯文本（不要 JSON、不要 markdown 标题）
+- 80–250 字，信息密度高
+- 覆盖：用户关心的核心问题、已查询过的公司/资产/试验/交易、重要结论、用户的明确偏好
+- 省略：客套话、已被后续回答覆盖的中间推理、工具调用细节
+- 如果已存在一段"此前摘要"（会提供），请基于它 **增量更新**，不要遗忘原有要点
+
+输出格式示例：
+"用户聚焦 AbbVie 神经免疫 BD 机会。已查过 AbbVie 管线（23 个活跃资产）、近 3 年交易（8 笔，平均首付 4.5 亿）、买方偏好（偏好 II 期及以上）。核心结论：AbbVie 在 MS 和 ALS 管线薄弱，中国有 3 家 biotech 值得推荐。用户下一步想看具体靶点匹配。"
+"""
+
+
+async def summarize_history(
+    old_turns: list[dict],
+    existing_brief: str | None,
+    model: ModelSpec,
+) -> str | None:
+    """Call the summarizer LLM on old turns (+ any existing brief).
+
+    Returns the new brief text, or None if the call fails.
+    """
+    # Serialize old turns as readable text for the summarizer
+    lines: list[str] = []
+    if existing_brief:
+        lines.append(f"[此前摘要]\n{existing_brief}\n")
+    for m in old_turns:
+        role = "用户" if m.get("role") == "user" else "助手"
+        content = m.get("content")
+        if isinstance(content, list):
+            text = " ".join(
+                b.get("text", "")
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            ).strip()
+        else:
+            text = str(content or "").strip()
+        if not text:
+            continue
+        # Cap each turn at 800 chars to keep summarizer input manageable
+        if len(text) > 800:
+            text = text[:800] + "…"
+        lines.append(f"{role}: {text}")
+
+    payload = "\n\n".join(lines)
+    if not payload.strip():
+        return existing_brief
+
+    body = {
+        "model": model.api_model,
+        "system": SUMMARIZER_SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": payload}],
+        "max_tokens": 600,
+        "stream": False,
+    }
+    headers = {
+        "x-api-key": model.api_key,
+        "Content-Type": "application/json",
+    }
+    if model.anthropic_version:
+        headers["anthropic-version"] = model.anthropic_version
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(model.api_url, json=body, headers=headers)
+            if resp.status_code != 200:
+                logger.warning("Summarizer LLM returned %d: %s", resp.status_code, resp.text[:200])
+                return None
+            data = resp.json()
+    except Exception:
+        logger.exception("Summarizer LLM call failed")
+        return None
+
+    text = ""
+    for block in data.get("content", []):
+        if block.get("type") == "text":
+            text += block.get("text", "")
+    text = text.strip()
+    return text or None

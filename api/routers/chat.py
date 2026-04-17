@@ -34,6 +34,74 @@ def _ensure_session(session_id: str, user_id: str) -> None:
             )
 
 
+# Context-compaction tuning knobs
+COMPACT_KEEP_VERBATIM = 4            # last N turns (user+assistant pairs) kept as-is
+COMPACT_TOKEN_BUDGET = 40_000        # target tokens after layer 1; triggers layer 2 if exceeded
+COMPACT_CHARS_PER_TOKEN = 2.5        # rough estimator for mixed CJK+ASCII
+
+
+def _estimate_tokens(history: list[dict]) -> int:
+    """Cheap char-based token estimate for a history list."""
+    total_chars = 0
+    for m in history:
+        c = m.get("content")
+        if isinstance(c, list):
+            for b in c:
+                if not isinstance(b, dict):
+                    continue
+                # text / tool_use input / tool_result content all count
+                t = b.get("text")
+                if isinstance(t, str):
+                    total_chars += len(t)
+                tr = b.get("content")
+                if isinstance(tr, list):
+                    for sub in tr:
+                        if isinstance(sub, dict):
+                            total_chars += len(sub.get("text", "") or "")
+                elif isinstance(tr, str):
+                    total_chars += len(tr)
+                inp = b.get("input")
+                if isinstance(inp, dict):
+                    total_chars += len(json.dumps(inp, ensure_ascii=False))
+        elif isinstance(c, str):
+            total_chars += len(c)
+    return int(total_chars / COMPACT_CHARS_PER_TOKEN)
+
+
+def _strip_tool_blocks_from_old(history: list[dict], keep_last_n: int) -> list[dict]:
+    """Layer 1: strip non-text content blocks from messages older than the last
+    `keep_last_n` user turns. Preserves tool/result pairs in the recent zone so
+    the LLM can still reason over them.
+    """
+    user_idx = [i for i, m in enumerate(history) if m.get("role") == "user"]
+    if len(user_idx) <= keep_last_n:
+        return history  # nothing to strip
+
+    boundary = user_idx[-keep_last_n]  # messages before this are "old"
+
+    result: list[dict] = []
+    for i, m in enumerate(history):
+        if i >= boundary:
+            result.append(m)
+            continue
+
+        content = m.get("content")
+        if isinstance(content, list):
+            # Keep only text blocks in old zone
+            text_blocks = [
+                b for b in content
+                if isinstance(b, dict) and b.get("type") == "text" and b.get("text", "").strip()
+            ]
+            if text_blocks:
+                result.append({"role": m["role"], "content": text_blocks})
+            # else: message was only tool_use/tool_result/empty — drop it
+        elif isinstance(content, str) and content.strip():
+            result.append(m)
+        # else: empty — drop
+
+    return result
+
+
 def _load_history(session_id: str) -> list[dict]:
     """Load the last 20 messages for a session from Postgres.
 
@@ -49,7 +117,7 @@ def _load_history(session_id: str) -> list[dict]:
     with transaction() as cur:
         cur.execute(
             "SELECT role, content, tools_json FROM messages "
-            "WHERE session_id = %s ORDER BY created_at DESC LIMIT 25",
+            "WHERE session_id = %s ORDER BY created_at DESC LIMIT 100",
             (session_id,),
         )
         rows = cur.fetchall()
@@ -81,9 +149,8 @@ def _load_history(session_id: str) -> list[dict]:
             pass
         history.append({"role": r["role"], "content": content})
 
-    # Cap to 20 after filtering so we keep 20 useful turns.
-    if len(history) > 20:
-        history = history[-20:]
+    # No hard cap here — _compact_if_needed decides what to drop / summarize
+    # based on token budget, not raw count.
     return history
 
 
@@ -110,7 +177,100 @@ def _save_message(session_id: str, role: str, content, tools_json: str | None = 
         logger.exception("Failed to save message for session %s", session_id)
 
 
-def _save_entities(session_id: str, entities: list[dict]) -> None:
+def _get_session_brief(session_id: str) -> tuple[str | None, str | None]:
+    """Return (brief_text, brief_ts_iso) for a session, or (None, None)."""
+    try:
+        with transaction() as cur:
+            cur.execute(
+                "SELECT brief, brief_ts FROM sessions WHERE id = %s",
+                (session_id,),
+            )
+            row = cur.fetchone()
+    except Exception:
+        logger.exception("Failed to load session brief")
+        return (None, None)
+    if not row:
+        return (None, None)
+    brief = row.get("brief")
+    ts = row.get("brief_ts")
+    return (brief, ts.isoformat() if ts else None)
+
+
+def _save_session_brief(session_id: str, brief: str, brief_ts: str | None) -> None:
+    try:
+        with transaction() as cur:
+            cur.execute(
+                "UPDATE sessions SET brief = %s, brief_ts = COALESCE(%s::timestamp, brief_ts) "
+                "WHERE id = %s",
+                (brief, brief_ts, session_id),
+            )
+    except Exception:
+        logger.exception("Failed to save session brief")
+
+
+async def _compact_if_needed(
+    session_id: str,
+    history: list[dict],
+    model: "ModelSpec",
+) -> list[dict]:
+    """Apply layer-1 (strip old tool blocks) + layer-2 (LLM summary) if
+    the estimated token count exceeds the budget. Returns the compacted
+    history ready to pass to the LLM. Cached summary is reused across
+    turns so we only pay the summarization cost once per high-watermark.
+    """
+    # Layer 1: always applied — cheap and reduces noise even when not over budget
+    compacted = _strip_tool_blocks_from_old(history, COMPACT_KEEP_VERBATIM)
+
+    # Fast path: within budget, just return layer-1 result
+    est = _estimate_tokens(compacted)
+    if est <= COMPACT_TOKEN_BUDGET:
+        return compacted
+
+    # Layer 2: prepare the old turns (everything before the keep-verbatim zone)
+    # plus any existing brief, ask the summarizer LLM to produce a new brief.
+    user_idx = [i for i, m in enumerate(compacted) if m.get("role") == "user"]
+    if len(user_idx) <= COMPACT_KEEP_VERBATIM:
+        return compacted  # can't compact further
+
+    boundary = user_idx[-COMPACT_KEEP_VERBATIM]
+    old_turns = compacted[:boundary]
+    recent = compacted[boundary:]
+
+    existing_brief, _ = _get_session_brief(session_id)
+
+    # Cheap cache-hit path: if a brief already exists and substituting it for
+    # the old turns would be within budget, reuse it — no LLM call needed.
+    if existing_brief:
+        estimated_with_cached = _estimate_tokens([
+            {"role": "user", "content": existing_brief}
+        ] + recent)
+        if estimated_with_cached <= COMPACT_TOKEN_BUDGET:
+            brief_turn = {
+                "role": "user",
+                "content": f"[会话早前内容的摘要，供你参考]\n{existing_brief}\n\n[以下是最近几轮对话的原文]",
+            }
+            return [brief_turn] + recent
+
+    # Otherwise regenerate brief incorporating old_turns + prior brief.
+    new_brief = await planner_mod.summarize_history(old_turns, existing_brief, model)
+    if not new_brief:
+        # Summarizer failed — fall back to layer-1 only
+        return compacted
+
+    # Cache the new brief (idempotent across turns)
+    _save_session_brief(session_id, new_brief, None)
+
+    # Compose final history: a single assistant turn carrying the brief,
+    # then recent verbatim turns. Wrapping as assistant text works with
+    # any Anthropic-compat provider and doesn't require extra role support.
+    brief_turn = {
+        "role": "user",
+        "content": f"[会话早前内容的摘要，供你参考]\n{new_brief}\n\n[以下是最近几轮对话的原文]",
+    }
+    return [brief_turn] + recent
+
+
+
     """Upsert context entities extracted from tool results."""
     if not entities:
         return
@@ -1361,16 +1521,17 @@ async def _stream_chat(req: ChatRequest):
 
     if is_executing_plan:
         # User message was already saved + already in history from plan phase.
-        # Just cap to 20.
-        if len(history) > 20:
-            history[:] = history[-20:]
+        pass
     else:
         history.append({"role": "user", "content": user_text})
-        if len(history) > 20:
-            history[:] = history[-20:]
 
         # Persist the user message
         _save_message(session_id, "user", user_text, attachments_json=attachments_json)
+
+    # Auto-compact: strip old tool blocks; summarize if still over budget.
+    # The final history has at most ~COMPACT_TOKEN_BUDGET tokens regardless
+    # of how long the session gets.
+    history = await _compact_if_needed(session_id, history, model)
 
     # Collect entities across all tool-call rounds for persistence
     all_entities: list[dict] = []

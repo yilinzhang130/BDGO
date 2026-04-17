@@ -45,6 +45,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+-- Context compaction cache: brief summary of messages with created_at <= brief_ts
+DO $$ BEGIN
+    ALTER TABLE sessions ADD COLUMN brief TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE sessions ADD COLUMN brief_ts TIMESTAMP;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS messages (
     id VARCHAR(12) PRIMARY KEY,
