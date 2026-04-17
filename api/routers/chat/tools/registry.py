@@ -1,18 +1,5 @@
-"""Central tool-dispatch gate.
-
-``execute_tool`` is called from the streaming loop for every tool_use
-block the LLM emits. It:
-
-  1. Looks up the impl from the assembled ``IMPL`` dict (see ``__init__.py``)
-  2. Rejects ``count_by`` on hidden columns for external users
-  3. Invokes the impl, injecting ``_user_id`` where needed
-  4. Applies field-visibility stripping to CRM results
-  5. Returns a truncated JSON string
-
-Field visibility is enforced here, NOT in individual tool impls — so
-every CRM data path gets consistent treatment regardless of which tool
-the LLM picked.
-"""
+"""Central tool-dispatch gate: enforces field visibility and count_by guard
+before any CRM data reaches the LLM."""
 
 from __future__ import annotations
 
@@ -98,9 +85,7 @@ def execute_tool(
 
     try:
         kwargs = dict(inp or {})
-        if user_id and name == "add_to_watchlist":
-            kwargs["_user_id"] = user_id
-        elif user_id and name.startswith("generate_"):
+        if user_id and (name == "add_to_watchlist" or name.startswith("generate_")):
             kwargs["_user_id"] = user_id
 
         result = fn(**kwargs)
@@ -114,4 +99,4 @@ def execute_tool(
         return s
     except Exception as e:
         logger.exception("Tool %s failed", name)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(e), "_tool_failed": True})

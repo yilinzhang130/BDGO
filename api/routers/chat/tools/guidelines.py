@@ -1,28 +1,48 @@
-"""Clinical guidelines tools.
-
-Queries against ``guidelines.db`` (a separate SQLite file from the CRM
-database). Read-only; no field-visibility policy applies.
-"""
+"""Clinical guidelines tools — read-only SQLite queries against
+``guidelines.db`` (separate from the CRM database)."""
 
 from __future__ import annotations
 
-import os
+import logging
 import sqlite3
+import threading
 
 from config import GUIDELINES_DB_PATH
 
+logger = logging.getLogger(__name__)
+
+# Open once, share across tool calls. SQLite in read-only URI mode supports
+# concurrent reads safely; use a lock around cursor use to keep sqlite3's
+# per-connection state consistent under asyncio.to_thread dispatch.
+_conn: sqlite3.Connection | None = None
+_conn_lock = threading.Lock()
+
+
+def _get_conn() -> sqlite3.Connection | None:
+    global _conn
+    if _conn is not None:
+        return _conn
+    try:
+        c = sqlite3.connect(
+            f"file:{GUIDELINES_DB_PATH}?mode=ro",
+            uri=True,
+            check_same_thread=False,
+        )
+        c.row_factory = sqlite3.Row
+        _conn = c
+        return _conn
+    except sqlite3.OperationalError:
+        logger.warning("Guidelines database not available at %s", GUIDELINES_DB_PATH)
+        return None
+
 
 def _guidelines_query(sql: str, params: tuple = ()) -> list[dict]:
-    """Query guidelines.db (separate from CRM). Returns list of dicts."""
-    if not os.path.exists(GUIDELINES_DB_PATH):
+    conn = _get_conn()
+    if conn is None:
         return [{"error": "Guidelines database not found"}]
-    conn = sqlite3.connect(f"file:{GUIDELINES_DB_PATH}?mode=ro", uri=True)
-    conn.row_factory = sqlite3.Row
-    try:
+    with _conn_lock:
         rows = conn.execute(sql, params).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
+    return [dict(r) for r in rows]
 
 
 def query_treatment_guidelines(disease="", line="", source="", limit=20):

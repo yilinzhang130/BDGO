@@ -27,6 +27,7 @@ data/
 # Build
 dist/
 build/
+*.tsbuildinfo
 
 # Reports output (generated files, not source)
 api/reports_output/

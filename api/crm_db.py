@@ -10,7 +10,7 @@ crm_db.py — CRM 数据库抽象层 (SQLite / PostgreSQL 双后端)
     export CRM_BACKEND=sqlite        # 用 SQLite（默认，向后兼容）
 
 PostgreSQL 连接串：
-    export CRM_PG_DSN="dbname=openclaw_crm"   # 默认值
+    export CRM_PG_DSN="dbname=bdgo"   # 默认值
 
 Public API:
     load(table)          -> (list[dict], list[str])   与原 load_csv 完全兼容
@@ -40,7 +40,7 @@ if _env_file.exists() and 'CRM_BACKEND' not in os.environ:
 
 # ─── 后端选择 ───
 CRM_BACKEND = os.environ.get('CRM_BACKEND', 'sqlite').lower()
-PG_DSN = os.environ.get('CRM_PG_DSN', 'dbname=openclaw_crm')
+PG_DSN = os.environ.get('CRM_PG_DSN', 'dbname=bdgo')
 
 # ─── 路径 ───
 _default = os.path.expanduser('~/.openclaw/workspace')

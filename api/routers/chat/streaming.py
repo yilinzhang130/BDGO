@@ -1,17 +1,4 @@
-"""LLM streaming core.
-
-Three async generators:
-  - ``call_minimax_stream`` — single LLM round, yields (event_type, payload)
-    tuples internally. Handles Anthropic-compat SSE parsing, usage tracking,
-    and retry on 529.
-  - ``stream_chat`` — main tool-use loop. Composes session history +
-    user message, runs up to 8 tool-call rounds, emits SSE events for
-    chunks / tool_calls / tool_results / context_entities / usage / done,
-    persists messages + entities + credit usage.
-  - ``stream_plan_only`` — planner-phase short-circuit. Generates a plan,
-    emits one ``plan_proposal`` SSE event, falls back to ``stream_chat``
-    on planner failure.
-"""
+"""LLM streaming core: tool-use loop, plan-only phase, SSE framing."""
 
 from __future__ import annotations
 
@@ -47,14 +34,12 @@ logger = logging.getLogger(__name__)
 async def call_minimax_stream(
     client: httpx.AsyncClient,
     messages: list,
-    tool_results_buffer: list,
     model: ModelSpec,
     usage_accum: dict,
     system_prompt: str | None = None,
 ):
     """Single call to the selected LLM; yields (event_type, payload) pairs.
 
-    Caller appends detected tool_use blocks to ``tool_results_buffer``.
     ``usage_accum`` is updated in place with input/output token counts
     reported via message_start / message_delta events.
 
@@ -162,7 +147,6 @@ async def call_minimax_stream(
                                 "name": current_tool_use["name"],
                                 "input": inp,
                             })
-                            tool_results_buffer.append(current_tool_use)
                             current_tool_use = None
                         elif current_text:
                             collected_content.append({"type": "text", "text": current_text})
@@ -201,7 +185,7 @@ async def stream_chat(req):
     if req.plan_confirm and req.plan_confirm.selected_steps:
         active_system_prompt = SYSTEM_PROMPT + planner_mod.build_plan_constraint(
             req.plan_confirm.plan_title,
-            req.plan_confirm.selected_steps,
+            [s.model_dump() for s in req.plan_confirm.selected_steps],
         )
 
     usage_accum = {"input_tokens": 0, "output_tokens": 0}
@@ -238,10 +222,14 @@ async def stream_chat(req):
     user_text = req.message
     attachments_json = None
     if req.file_ids:
+        # Extract all attachments concurrently — each PDF may run OCR
+        # (seconds of blocking CPU), so a sequential loop is O(N * OCR).
+        extracted_list = await asyncio.gather(
+            *(asyncio.to_thread(extract_text, fid) for fid in req.file_ids)
+        )
         attachment_parts = []
         failed_extractions = []
-        for fid in req.file_ids:
-            extracted = await asyncio.to_thread(extract_text, fid)
+        for fid, extracted in zip(req.file_ids, extracted_list):
             if extracted:
                 logger.info("Extracted %d chars from attachment: %s", len(extracted), fid)
                 attachment_parts.append(f"\n\n[附件内容: {fid}]\n{extracted}")
@@ -275,16 +263,19 @@ async def stream_chat(req):
     history = await compact_if_needed(session_id, history, model)
 
     all_entities: list[dict] = []
+    # Per-request tool error counter: tool_name → consecutive failure count.
+    # If any tool fails twice in a row, we inject a stop hint so the LLM
+    # doesn't burn all 8 rounds retrying the same broken tool.
+    tool_error_counts: dict[str, int] = {}
 
     try:
         async with httpx.AsyncClient(timeout=300) as client:
             for _iteration in range(8):  # up to 8 tool-call rounds
-                tool_results_buffer: list = []
                 final_content = None
                 final_stop_reason = None
 
                 async for event_type, payload in call_minimax_stream(
-                    client, history, tool_results_buffer, model, usage_accum,
+                    client, history, model, usage_accum,
                     system_prompt=active_system_prompt,
                 ):
                     if event_type == "chunk":
@@ -304,47 +295,68 @@ async def stream_chat(req):
 
                 history.append({"role": "assistant", "content": final_content})
 
-                if final_stop_reason == "tool_use" and tool_results_buffer:
+                tool_uses = [b for b in final_content if b.get("type") == "tool_use"]
+                if final_stop_reason == "tool_use" and tool_uses:
                     tool_results_msg = []
                     tool_events = []
-                    for tu in tool_results_buffer:
-                        try:
-                            inp = json.loads(tu["input_json"] or "{}")
-                        except json.JSONDecodeError:
-                            inp = {}
+                    for tu in tool_uses:
+                        name = tu["name"]
+                        inp = tu.get("input") or {}
                         result_str = execute_tool(
-                            TOOL_IMPL, tu["name"], inp,
+                            TOOL_IMPL, name, inp,
                             user_id=user_id,
                             can_see_internal=can_see_internal,
                         )
-                        yield f"data: {json.dumps({'type': 'tool_result', 'name': tu['name']})}\n\n"
 
-                        # Emit report_task event for async report tools so
-                        # the frontend can show an inline polling card.
-                        if tu["name"].startswith("generate_"):
-                            try:
-                                _rd = json.loads(result_str)
-                                if _rd.get("status") == "queued" and _rd.get("task_id"):
-                                    yield (
-                                        "data: "
-                                        + json.dumps({
-                                            "type": "report_task",
-                                            "task_id": _rd["task_id"],
-                                            "slug": tu["name"].replace("generate_", "", 1),
-                                            "estimated_seconds": _rd.get("estimated_seconds", 60),
-                                        })
-                                        + "\n\n"
-                                    )
-                            except Exception:
-                                pass
+                        # Parse once — reused for circuit-breaker, report_task,
+                        # and entity extraction below.
+                        try:
+                            result_obj = json.loads(result_str)
+                        except (json.JSONDecodeError, TypeError):
+                            result_obj = None
+
+                        # Circuit-breaker: stop retrying a tool that fails twice.
+                        if isinstance(result_obj, dict) and result_obj.get("_tool_failed"):
+                            tool_error_counts[name] = tool_error_counts.get(name, 0) + 1
+                            if tool_error_counts[name] >= 2:
+                                result_str = json.dumps({
+                                    "error": result_obj.get("error", "工具执行失败"),
+                                    "instruction": (
+                                        "此工具已连续失败，请停止调用它，"
+                                        "直接用中文告知用户遇到了技术问题并结束本次任务。"
+                                    ),
+                                }, ensure_ascii=False)
+                                result_obj = json.loads(result_str)
+                        else:
+                            tool_error_counts.pop(name, None)
+
+                        yield f"data: {json.dumps({'type': 'tool_result', 'name': name})}\n\n"
+
+                        # Emit report_task event for async report tools.
+                        if (
+                            name.startswith("generate_")
+                            and isinstance(result_obj, dict)
+                            and result_obj.get("status") == "queued"
+                            and result_obj.get("task_id")
+                        ):
+                            yield (
+                                "data: "
+                                + json.dumps({
+                                    "type": "report_task",
+                                    "task_id": result_obj["task_id"],
+                                    "slug": name[len("generate_"):],
+                                    "estimated_seconds": result_obj.get("estimated_seconds", 60),
+                                })
+                                + "\n\n"
+                            )
 
                         tool_events.append({
-                            "name": tu["name"],
+                            "name": name,
                             "input": inp,
                             "result_preview": result_str[:500],
                         })
 
-                        for entity in extract_context_entities(tu["name"], result_str):
+                        for entity in extract_context_entities(name, result_str):
                             yield f"data: {json.dumps(entity, ensure_ascii=False)}\n\n"
                             all_entities.append(entity)
 
@@ -464,14 +476,16 @@ async def stream_plan_only(req):
         except Exception:
             logger.exception("Failed to record planner usage")
 
-    # Persist the plan as a placeholder assistant message so it survives reload
+    # Persist the plan as a placeholder assistant message so it survives reload.
+    # "kind": "plan_card" is an explicit marker used by load_history to skip
+    # this row when building LLM context (plan cards are UI-only artifacts).
     if req.user_id:
         save_message(
             req.session_id,
             "assistant",
             "",
             tools_json=json.dumps(
-                {"plan": plan, "original_message": req.message},
+                {"kind": "plan_card", "plan": plan, "original_message": req.message},
                 ensure_ascii=False,
             ),
         )

@@ -15,7 +15,7 @@ https://bdgo-iota.vercel.app
   ├── Docker: bdgo_nginx       ← Nginx，端口 80，upstream → 172.17.0.1:8001
   └── PostgreSQL 15            ← 宿主机直接运行，端口 5432
         ├── bdgo        (用户/报告数据库)
-        └── openclaw_crm (CRM 数据库)
+        └── bdgo (CRM 数据库)
 ```
 
 **关键约束**：
@@ -89,7 +89,7 @@ npx vercel env rm KEY production --yes                 # 删除
 
 ```
 DATABASE_URL=postgresql://bdgo:...@172.17.0.1:5432/bdgo
-CRM_PG_DSN=host=172.17.0.1 dbname=openclaw_crm user=bdgo password=...
+CRM_PG_DSN=host=172.17.0.1 dbname=bdgo user=bdgo password=...
 JWT_SECRET=<随机32字节hex>
 MINIMAX_API_KEY=sk-cp-...
 CORS_ORIGINS=https://bdgo-iota.vercel.app,http://localhost:3000

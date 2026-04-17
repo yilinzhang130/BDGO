@@ -4,7 +4,7 @@
 # =============================================================================
 #
 # Syncs:
-#   1. CRM data (PostgreSQL): pg_dump openclaw_crm | ssh | psql
+#   1. CRM data (PostgreSQL): pg_dump bdgo | ssh | psql
 #   2. Guidelines SQLite DB:  rsync to ~/bdgo/data/
 #
 # Usage:
@@ -30,7 +30,7 @@ set -euo pipefail
 # Configuration
 # ---------------------------------------------------------------------------
 LOCAL_GUIDELINES_DB="${HOME}/.openclaw/workspace/guidelines/guidelines.db"
-LOCAL_PG_DB="openclaw_crm"
+LOCAL_PG_DB="bdgo"
 LOCAL_PG_DUMP="/opt/homebrew/opt/postgresql@17/bin/pg_dump"  # macOS Homebrew path
 LOCAL_PSQL="/opt/homebrew/opt/postgresql@17/bin/psql"
 
@@ -105,7 +105,7 @@ for table in "${CRM_TABLES[@]}"; do
   log "  Local ${table}: ${count} rows"
 done
 
-log "Dumping and restoring openclaw_crm via SSH pipe..."
+log "Dumping and restoring bdgo via SSH pipe..."
 "${LOCAL_PG_DUMP}" \
   -d "${LOCAL_PG_DB}" \
   --clean --if-exists \
@@ -114,7 +114,7 @@ log "Dumping and restoring openclaw_crm via SSH pipe..."
   | ssh -o ConnectTimeout=15 \
       ${SSH_KEY:+-i "${SSH_KEY}"} \
       "${REMOTE_USER}@${VM_IP}" \
-      "sudo -u postgres psql -d openclaw_crm -q"
+      "sudo -u postgres psql -d bdgo -q"
 
 log "CRM dump+restore done"
 
@@ -122,7 +122,7 @@ log "CRM dump+restore done"
 log "Verifying remote row counts..."
 VERIFY_PASS=true
 while IFS='=' read -r table local_count; do
-  remote_count="$(ssh_cmd "sudo -u postgres psql -d openclaw_crm -tAc \"SELECT COUNT(*) FROM \\\"${table}\\\";\"" 2>/dev/null || echo "?")"
+  remote_count="$(ssh_cmd "sudo -u postgres psql -d bdgo -tAc \"SELECT COUNT(*) FROM \\\"${table}\\\";\"" 2>/dev/null || echo "?")"
   if [[ "${remote_count}" == "${local_count}" ]]; then
     log "  PASS  ${table}: ${local_count}"
   else

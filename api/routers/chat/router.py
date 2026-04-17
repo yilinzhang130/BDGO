@@ -7,9 +7,11 @@ execution). Delegates everything else to submodules.
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 import credits as credits_mod
 from auth import get_current_user
@@ -17,16 +19,51 @@ from auth import get_current_user
 from .planning import should_plan
 from .streaming import stream_chat, stream_plan_only
 
+_STEP_ID_RE = re.compile(r"^s\d+$")
+
 
 # ─────────────────────────────────────────────────────────────
 # Request models
 # ─────────────────────────────────────────────────────────────
 
+class PlanStep(BaseModel):
+    id: str
+    title: str
+    description: str = ""
+    tools_expected: list[str] = []
+    required: bool = False
+    default_selected: bool = True
+    estimated_seconds: int = 30
+
+    @field_validator("id")
+    @classmethod
+    def id_must_be_step_id(cls, v: str) -> str:
+        if not _STEP_ID_RE.match(v):
+            raise ValueError(f"Invalid step id '{v}': must match s<number> (e.g. s1, s2)")
+        return v
+
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Step title must not be empty")
+        return v
+
+
 class PlanConfirm(BaseModel):
     plan_id: str
     plan_title: str
-    selected_steps: list[dict]      # [{id, title, description, tools_expected}]
+    selected_steps: list[PlanStep]
     original_message: str
+
+    @field_validator("selected_steps")
+    @classmethod
+    def steps_not_empty(cls, v: list) -> list:
+        if not v:
+            raise ValueError("selected_steps must contain at least one step")
+        if len(v) > 10:
+            raise ValueError("selected_steps exceeds maximum of 10 steps")
+        return v
 
 
 class ChatRequest(BaseModel):

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
 
 from database import transaction
@@ -24,12 +25,11 @@ logger = logging.getLogger(__name__)
 def ensure_session(session_id: str, user_id: str) -> None:
     """Create the session row if it doesn't exist yet."""
     with transaction() as cur:
-        cur.execute("SELECT id FROM sessions WHERE id = %s", (session_id,))
-        if not cur.fetchone():
-            cur.execute(
-                "INSERT INTO sessions (id, user_id, title) VALUES (%s, %s, %s)",
-                (session_id, user_id, "New Chat"),
-            )
+        cur.execute(
+            "INSERT INTO sessions (id, user_id, title) VALUES (%s, %s, %s) "
+            "ON CONFLICT (id) DO NOTHING",
+            (session_id, user_id, "New Chat"),
+        )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -65,11 +65,17 @@ def load_history(session_id: str) -> list[dict]:
         content = r["content"]
         tools_json = r.get("tools_json")
 
-        # Skip plan placeholders: empty-content assistant with a plan blob.
-        if r["role"] == "assistant" and not (content or "").strip() and tools_json:
+        # Skip plan placeholder messages — they're UI-only and the LLM
+        # must never see them. Identified by "kind": "plan_card" in tools_json
+        # (explicit marker added since 2026-04). Legacy rows (plain empty
+        # content + plan blob) are also matched for backwards compatibility.
+        if r["role"] == "assistant" and tools_json:
             try:
                 parsed_tools = json.loads(tools_json)
-                if isinstance(parsed_tools, dict) and parsed_tools.get("plan"):
+                if isinstance(parsed_tools, dict) and (
+                    parsed_tools.get("kind") == "plan_card"
+                    or (parsed_tools.get("plan") and not (content or "").strip())
+                ):
                     continue
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -100,20 +106,26 @@ def save_message(
     else:
         content_str = str(content) if content else ""
 
-    try:
-        with transaction() as cur:
-            cur.execute(
-                "INSERT INTO messages (id, session_id, role, content, tools_json, attachments_json) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (uuid.uuid4().hex[:12], session_id, role, content_str,
-                 tools_json, attachments_json),
-            )
-            cur.execute(
-                "UPDATE sessions SET updated_at = NOW() WHERE id = %s",
-                (session_id,),
-            )
-    except Exception:
-        logger.exception("Failed to save message for session %s", session_id)
+    for attempt in range(2):
+        try:
+            with transaction() as cur:
+                cur.execute(
+                    "INSERT INTO messages (id, session_id, role, content, tools_json, attachments_json) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (uuid.uuid4().hex[:12], session_id, role, content_str,
+                     tools_json, attachments_json),
+                )
+                cur.execute(
+                    "UPDATE sessions SET updated_at = NOW() WHERE id = %s",
+                    (session_id,),
+                )
+            return
+        except Exception:
+            if attempt == 0:
+                logger.warning("Retrying save_message for session %s", session_id)
+                time.sleep(0.5)
+            else:
+                logger.exception("Failed to save message for session %s (gave up)", session_id)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -121,13 +133,7 @@ def save_message(
 # ─────────────────────────────────────────────────────────────
 
 def save_entities(session_id: str, entities: list[dict]) -> None:
-    """Upsert context entities extracted from tool results.
-
-    This was accidentally orphaned (lost its ``def`` line) in the earlier
-    compaction refactor. Restoring it here fixes the silent tail-end
-    NameError that every tool-using chat turn was emitting into the
-    outer try/except.
-    """
+    """Upsert context entities extracted from tool results."""
     if not entities:
         return
     try:

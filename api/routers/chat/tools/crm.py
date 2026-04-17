@@ -1,13 +1,6 @@
-"""CRM search + lookup tools (companies, assets, clinical, deals, patents,
-buyer profiles, aggregation, global search, watchlist write).
-
-Each tool is a plain function that returns a JSON-serialisable dict or
-list. Field-visibility enforcement happens centrally in
-``tools.registry._strip_tool_result`` after the function returns.
-
-Schemas and implementations are colocated — no need to hunt in two places
-when adding a parameter.
-"""
+"""CRM search + lookup tools. Field-visibility enforcement happens
+centrally in ``tools.registry._strip_tool_result`` after each function
+returns."""
 
 from __future__ import annotations
 
@@ -182,23 +175,23 @@ def get_buyer_profile(company):
 # Aggregate
 # ═════════════════════════════════════════════════════════════════
 
+_COUNT_BY_TABLES = {"公司", "资产", "临床", "交易", "IP"}
+
+
 def count_by(table, group_by):
-    # NOTE: column validation currently uses SQLite's `PRAGMA table_info`
-    # which returns empty on Postgres — that's a separate bug tracked
-    # elsewhere. Leaving behavior identical to pre-refactor.
-    table_map = {"公司": "公司", "资产": "资产", "临床": "临床", "交易": "交易", "IP": "IP"}
-    physical = table_map.get(table, table)
-    if table not in table_map:
+    # NOTE: column validation uses SQLite's PRAGMA which returns empty on
+    # Postgres — tracked as a separate bug. Behavior unchanged from pre-refactor.
+    if table not in _COUNT_BY_TABLES:
         return {"error": f"Invalid table: {table}"}
     try:
-        cols = [r["name"] for r in query(f'PRAGMA table_info("{physical}")')]
+        cols = [r["name"] for r in query(f'PRAGMA table_info("{table}")')]
     except Exception:
         cols = []
     if group_by not in cols:
         return {"error": f"Invalid column '{group_by}' for table '{table}'"}
     sql = (
         f'SELECT "{group_by}" as value, COUNT(*) as count '
-        f'FROM "{physical}" WHERE "{group_by}" IS NOT NULL AND "{group_by}" != \'\' '
+        f'FROM "{table}" WHERE "{group_by}" IS NOT NULL AND "{group_by}" != \'\' '
         f'GROUP BY "{group_by}" ORDER BY count DESC LIMIT 50'
     )
     try:
