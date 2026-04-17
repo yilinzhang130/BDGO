@@ -18,6 +18,7 @@ export interface AuthUser {
   bio?: string;
   preferences_json?: string;
   is_admin?: boolean;
+  is_internal?: boolean;
 }
 
 const TOKEN_KEY = "bdgo.auth.token";

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 import {
   fetchOverview,
   fetchCompaniesByCountry,
@@ -17,6 +19,8 @@ import {
 } from "recharts";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [overview, setOverview] = useState<any>(null);
   const [byCountry, setByCountry] = useState<any[]>([]);
   const [byType, setByType] = useState<any[]>([]);
@@ -25,6 +29,10 @@ export default function DashboardPage() {
   const [timeline, setTimeline] = useState<any[]>([]);
 
   useEffect(() => {
+    if (user && !user.is_admin && !user.is_internal) {
+      router.replace("/chat");
+      return;
+    }
     fetchOverview().then(setOverview);
     fetchCompaniesByCountry().then(setByCountry);
     fetchCompaniesByType().then(setByType);

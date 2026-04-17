@@ -387,8 +387,13 @@ export function Sidebar() {
         {showDatabase && <NavGroup label="数据库" items={DATABASE} />}
         {showDatabase && <NavGroup label="资讯" items={NEWS} />}
 
-        {/* Tools (always visible) */}
-        <NavGroup label="工具" items={TOOLS} />
+        {/* Tools — 仪表盘仅内部/管理员可见 */}
+        <NavGroup
+          label="工具"
+          items={TOOLS.filter(item =>
+            item.href !== "/dashboard" || user?.is_admin || user?.is_internal
+          )}
+        />
 
         {/* AIDD 立项中心 */}
         <div className="nav-section">
