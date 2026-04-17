@@ -105,6 +105,10 @@ def _make_report_tool(_svc):
 
 SCHEMAS: list[dict] = []
 IMPLS: dict = {}
+# Maps chat tool name (e.g. "analyze_ip") → canonical service slug
+# (e.g. "ip-landscape"). Consumed by the streaming dispatcher so it can
+# emit report_task SSE events for any report tool, regardless of name.
+TOOL_NAME_TO_SLUG: dict[str, str] = {}
 
 try:
     from services import REPORT_SERVICES
@@ -116,6 +120,7 @@ try:
             "input_schema": _svc.chat_tool_input_schema,
         })
         IMPLS[_svc.chat_tool_name] = _make_report_tool(_svc)
+        TOOL_NAME_TO_SLUG[_svc.chat_tool_name] = _svc.slug
 
     logger.info("Registered %d report services as Chat tools", len(REPORT_SERVICES))
 except Exception:

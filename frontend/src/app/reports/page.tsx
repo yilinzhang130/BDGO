@@ -5,8 +5,11 @@ import { fetchReportServices, reportDownloadUrl, createShareLink, fetchReportTas
 import { downloadWithAuth } from "@/lib/download";
 import { useReportsStore, removeCompletedReport, addCompletedReport, type CompletedReport } from "@/lib/reports";
 import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
+import { useAuth } from "@/components/AuthProvider";
+import { parsePreferences } from "@/lib/auth";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import Link from "next/link";
 
 interface ReportService {
   slug: string;
@@ -28,6 +31,8 @@ interface RunningTask {
 }
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const showReportCards = parsePreferences(user).show_report_cards === true;
   const [services, setServices] = useState<ReportService[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ReportService | null>(null);
@@ -77,48 +82,78 @@ export default function ReportsPage() {
         <h1>Reports</h1>
       </div>
 
-      {/* Available report services */}
-      <section style={{ marginBottom: "2rem" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: "0.75rem",
-          }}
-        >
-          <h2 style={{ fontSize: "0.95rem", margin: 0, fontWeight: 700 }}>Generate New Report</h2>
-          <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-            {services.length} {services.length === 1 ? "type" : "types"} available
-          </span>
-        </div>
-
-        {loading ? (
-          <div className="loading">Loading services...</div>
-        ) : services.length === 0 ? (
-          <div className="card">
-            <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-              No report services available. Check backend logs.
-            </p>
-          </div>
-        ) : (
+      {/* Available report services (gated by preference) */}
+      {showReportCards ? (
+        <section style={{ marginBottom: "2rem" }}>
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-              gap: "0.85rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: "0.75rem",
             }}
           >
-            {services.map((svc) => (
-              <ServiceCard
-                key={svc.slug}
-                service={svc}
-                onClick={() => setSelected(svc)}
-              />
-            ))}
+            <h2 style={{ fontSize: "0.95rem", margin: 0, fontWeight: 700 }}>Generate New Report</h2>
+            <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+              {services.length} {services.length === 1 ? "type" : "types"} available
+            </span>
           </div>
-        )}
-      </section>
+
+          {loading ? (
+            <div className="loading">Loading services...</div>
+          ) : services.length === 0 ? (
+            <div className="card">
+              <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                No report services available. Check backend logs.
+              </p>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                gap: "0.85rem",
+              }}
+            >
+              {services.map((svc) => (
+                <ServiceCard
+                  key={svc.slug}
+                  service={svc}
+                  onClick={() => setSelected(svc)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <section
+          className="card"
+          style={{
+            marginBottom: "2rem",
+            padding: "1rem 1.1rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "1rem",
+          }}
+        >
+          <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+            报告功能已简化为 chat 内的 slash command。在对话框输入 <code style={{ background: "var(--bg-subtle)", padding: "1px 6px", borderRadius: 4, fontSize: "0.78rem" }}>/</code> 查看可用命令，或直接用自然语言描述需求。
+          </div>
+          <Link
+            href="/profile"
+            style={{
+              fontSize: "0.75rem",
+              color: "var(--accent)",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+              fontWeight: 500,
+            }}
+          >
+            显示卡片 →
+          </Link>
+        </section>
+      )}
 
       {/* Running tasks */}
       {runningTasks.length > 0 && (

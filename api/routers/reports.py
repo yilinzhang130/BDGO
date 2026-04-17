@@ -24,6 +24,7 @@ from database import transaction
 from auth import get_current_user
 from config import REPORTS_DIR, safe_path_within
 from services import REPORT_SERVICES, get_service, list_services
+from services.helpers.llm import extract_params_from_text
 from services.report_builder import (
     ReportContext,
     create_task,
@@ -162,6 +163,45 @@ def list_report_services():
     return {
         "services": [svc.to_api_dict() for svc in list_services()],
     }
+
+
+class ParseArgsRequest(BaseModel):
+    slug: str
+    text: str  # freeform user text, e.g. "辉瑞 focus on oncology"
+
+
+@router.post("/parse-args")
+def parse_report_args(req: ParseArgsRequest, user: dict = Depends(get_current_user)):
+    """Use the LLM to extract structured params from freeform text for a given report.
+
+    Returns:
+        params: extracted params (may be partial)
+        missing: list of required field names that were not extracted
+        complete: True iff all required fields are present AND input_model validates
+    """
+    service = get_service(req.slug)
+    if not service:
+        raise HTTPException(status_code=404, detail=f"Unknown service: {req.slug}")
+
+    params = extract_params_from_text(
+        req.text,
+        service.chat_tool_input_schema,
+        service.display_name,
+    )
+
+    required = service.chat_tool_input_schema.get("required", [])
+    missing = [name for name in required if not params.get(name)]
+
+    complete = False
+    if not missing:
+        try:
+            service.input_model(**params)
+            complete = True
+        except Exception as e:
+            logger.info("parse_args: params failed model validation for %s: %s", req.slug, e)
+            missing = missing or ["__validation_failed__"]
+
+    return {"params": params, "missing": missing, "complete": complete}
 
 
 @router.get("/tasks")

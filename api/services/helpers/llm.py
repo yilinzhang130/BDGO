@@ -6,12 +6,14 @@ Used by report services via ReportContext.llm(). For streaming + tool_use, see c
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 import time
 
 import httpx
 
-from models import MODELS, ModelSpec, fallback_chain
+from models import DEFAULT_MODEL_ID, MODELS, OVERLOAD_MSG, ModelSpec, fallback_chain
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +87,7 @@ def call_llm_sync(
     system: str,
     messages: list[dict],
     max_tokens: int = 4096,
-    model_id: str = "minimax-m1",
+    model_id: str = DEFAULT_MODEL_ID,
     timeout: float = DEFAULT_TIMEOUT,
 ) -> str:
     """Call LLM non-streaming, return final assistant text.
@@ -102,7 +104,7 @@ def call_llm_sync(
     Raises:
         RuntimeError on API failure or all providers overloaded
     """
-    primary = MODELS.get(model_id) or MODELS["minimax-m1"]
+    primary = MODELS.get(model_id) or MODELS[DEFAULT_MODEL_ID]
     models_to_try = [primary] + fallback_chain(primary.id)
 
     for model in models_to_try:
@@ -112,4 +114,81 @@ def call_llm_sync(
             continue
         return result
 
-    raise RuntimeError("所有AI服务当前负载较高，请稍后重试")
+    raise RuntimeError(OVERLOAD_MSG)
+
+
+def _extract_json_object(text: str) -> dict | None:
+    """Pull the first JSON object out of arbitrary LLM text. Tolerates markdown fences
+    and surrounding commentary. Returns None if nothing parseable is found."""
+    if not text:
+        return None
+    # Strip ```json ... ``` fences if present
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fenced:
+        try:
+            return json.loads(fenced.group(1))
+        except json.JSONDecodeError:
+            pass
+    # Fallback: grab the first {...} block by brace matching
+    start = text.find("{")
+    while start != -1:
+        depth = 0
+        for i in range(start, len(text)):
+            ch = text[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : i + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        break
+        start = text.find("{", start + 1)
+    return None
+
+
+def extract_params_from_text(
+    freeform_text: str,
+    schema: dict,
+    service_name: str,
+    timeout: float = 30.0,
+) -> dict:
+    """Use the LLM to map freeform user text onto a JSON-schema-shaped param object.
+
+    Returns the parsed object (may be partial — caller validates against the
+    service's Pydantic model). Returns {} if the LLM can't produce anything usable.
+    """
+    if not freeform_text.strip():
+        return {}
+
+    props = schema.get("properties", {})
+    required = schema.get("required", [])
+    field_desc_lines = []
+    for name, spec in props.items():
+        marker = "(REQUIRED)" if name in required else "(optional)"
+        desc = spec.get("description", "")
+        t = spec.get("type", "string")
+        field_desc_lines.append(f"- {name} {marker} [{t}]: {desc}")
+
+    system = (
+        f"You extract structured arguments for the '{service_name}' report service from "
+        "Chinese or English user text. Respond with ONLY a JSON object containing the "
+        "fields you can confidently extract from the user's text — omit fields you "
+        "cannot determine. Do not invent values. Do not wrap in markdown fences.\n\n"
+        "Available fields:\n" + "\n".join(field_desc_lines)
+    )
+    messages = [{"role": "user", "content": freeform_text.strip()}]
+
+    try:
+        raw = call_llm_sync(system=system, messages=messages, max_tokens=512, timeout=timeout)
+    except Exception as e:
+        logger.warning("extract_params_from_text: LLM call failed: %s", e)
+        return {}
+
+    obj = _extract_json_object(raw)
+    if not isinstance(obj, dict):
+        return {}
+    # Only keep keys that are actually part of the schema — filter out hallucinated fields
+    return {k: v for k, v in obj.items() if k in props}

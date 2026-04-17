@@ -96,6 +96,7 @@ _MODELS: list[ModelSpec] = [
 
 MODELS: dict[str, ModelSpec] = {m.id: m for m in _MODELS}
 DEFAULT_MODEL_ID = "minimax-m1"
+OVERLOAD_MSG = "所有AI服务当前负载较高，请稍后重试。"
 
 
 def resolve_model(model_id: str | None) -> ModelSpec:

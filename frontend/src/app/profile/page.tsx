@@ -129,6 +129,65 @@ const twoColStyle: React.CSSProperties = {
 };
 
 // ---------------------------------------------------------------------------
+// Toggle row
+// ---------------------------------------------------------------------------
+
+function ToggleRow({
+  title,
+  description,
+  checked,
+  disabled,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}>
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>{title}</div>
+        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2, maxWidth: 520 }}>{description}</div>
+      </div>
+      <button
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        style={{
+          position: "relative",
+          width: 44,
+          height: 24,
+          borderRadius: 12,
+          border: "none",
+          background: checked ? "#2563eb" : "#d1d5db",
+          cursor: disabled ? "wait" : "pointer",
+          transition: "background 0.2s",
+          flexShrink: 0,
+          marginLeft: 16,
+        }}
+      >
+        <span
+          style={{
+            position: "absolute",
+            top: 2,
+            left: checked ? 22 : 2,
+            width: 20,
+            height: 20,
+            borderRadius: "50%",
+            background: "#fff",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            transition: "left 0.2s",
+          }}
+        />
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Profile Page
 // ---------------------------------------------------------------------------
 
@@ -148,8 +207,9 @@ export default function ProfilePage() {
   const [preferences, setPreferences] = useState("");
   const [savingPrefs, setSavingPrefs] = useState(false);
 
-  // Display preferences state
+  // UI preferences state
   const [showDatabaseNav, setShowDatabaseNav] = useState(false);
+  const [showReportCards, setShowReportCards] = useState(false);
   const [savingDisplay, setSavingDisplay] = useState(false);
 
   // Populate from user
@@ -161,7 +221,9 @@ export default function ProfilePage() {
     setPhone(user.phone || "");
     setBio(user.bio || "");
     setPreferences(user.preferences_json || "");
-    setShowDatabaseNav(parsePreferences(user).show_database_nav === true);
+    const prefs = parsePreferences(user);
+    setShowDatabaseNav(prefs.show_database_nav === true);
+    setShowReportCards(prefs.show_report_cards === true);
   }, [user]);
 
   const showToast = useCallback((message: string, type: "success" | "error") => {
@@ -195,22 +257,46 @@ export default function ProfilePage() {
     }
   };
 
-  const handleToggleDatabaseNav = async (checked: boolean) => {
-    setShowDatabaseNav(checked);
+  const persistPref = async <K extends keyof UserPreferences>(
+    key: K,
+    value: UserPreferences[K],
+    revert: () => void,
+    successMsg: string,
+  ) => {
     setSavingDisplay(true);
     try {
       let existing: UserPreferences = {};
       try { existing = JSON.parse(preferences) as UserPreferences; } catch { /* use empty */ }
-      const merged = JSON.stringify({ ...existing, show_database_nav: checked });
+      const merged = JSON.stringify({ ...existing, [key]: value });
       const updated = await updateProfile({ preferences_json: merged });
       updateUser(updated);
-      showToast(checked ? "Database navigation enabled" : "Database navigation hidden", "success");
+      showToast(successMsg, "success");
     } catch (err: any) {
-      setShowDatabaseNav(!checked); // revert
-      showToast(err.message || "Failed to save display preference", "error");
+      revert();
+      showToast(err.message || "Failed to save preference", "error");
     } finally {
       setSavingDisplay(false);
     }
+  };
+
+  const handleToggleDatabaseNav = (checked: boolean) => {
+    setShowDatabaseNav(checked);
+    persistPref(
+      "show_database_nav",
+      checked,
+      () => setShowDatabaseNav(!checked),
+      checked ? "Database navigation enabled" : "Database navigation hidden",
+    );
+  };
+
+  const handleToggleReportCards = (checked: boolean) => {
+    setShowReportCards(checked);
+    persistPref(
+      "show_report_cards",
+      checked,
+      () => setShowReportCards(!checked),
+      checked ? "Report cards shown" : "Report cards hidden",
+    );
   };
 
   if (!user) return null;
@@ -341,50 +427,51 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* ─── Display Preferences ─── */}
+      {/* ─── UI ─── */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Display Preferences</div>
-        <div style={sectionDescStyle}>Customize your navigation and interface layout.</div>
+        <div style={sectionTitleStyle}>UI</div>
+        <div style={sectionDescStyle}>Toggle optional interface surfaces. Default is a minimal chat-first layout.</div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
+        <ToggleRow
+          title="Show report cards"
+          description='Display the "Generate New Report" card grid on the Reports page. Off by default — use slash commands in chat instead.'
+          checked={showReportCards}
+          disabled={savingDisplay}
+          onChange={handleToggleReportCards}
+        />
+
+        <div style={{ borderTop: "1px solid #f3f4f6" }} />
+
+        <ToggleRow
+          title="Show Database & Deals in sidebar"
+          description="Display data tables (Companies, Assets, Clinical, Patents, Buyers, Deals) in the navigation."
+          checked={showDatabaseNav}
+          disabled={savingDisplay}
+          onChange={handleToggleDatabaseNav}
+        />
+
+        <div style={{ borderTop: "1px solid #f3f4f6" }} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", opacity: 0.5 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>Show Database & Deals in sidebar</div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
+              Dark mode <span style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", marginLeft: 6 }}>Coming soon</span>
+            </div>
             <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>
-              Display data tables (Companies, Assets, Clinical, Patents, Buyers, Deals) in the navigation.
-              Turn off for a cleaner chat-focused experience.
+              Switch between light and dark themes.
             </div>
           </div>
           <button
             role="switch"
-            aria-checked={showDatabaseNav}
-            disabled={savingDisplay}
-            onClick={() => handleToggleDatabaseNav(!showDatabaseNav)}
+            aria-checked={false}
+            disabled
             style={{
               position: "relative",
-              width: 44,
-              height: 24,
-              borderRadius: 12,
-              border: "none",
-              background: showDatabaseNav ? "#2563eb" : "#d1d5db",
-              cursor: savingDisplay ? "wait" : "pointer",
-              transition: "background 0.2s",
-              flexShrink: 0,
-              marginLeft: 16,
+              width: 44, height: 24, borderRadius: 12, border: "none",
+              background: "#d1d5db", cursor: "not-allowed", flexShrink: 0, marginLeft: 16,
             }}
           >
-            <span
-              style={{
-                position: "absolute",
-                top: 2,
-                left: showDatabaseNav ? 22 : 2,
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                background: "#fff",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                transition: "left 0.2s",
-              }}
-            />
+            <span style={{ position: "absolute", top: 2, left: 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
           </button>
         </div>
       </div>

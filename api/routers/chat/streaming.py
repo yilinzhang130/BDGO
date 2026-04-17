@@ -10,7 +10,7 @@ import httpx
 
 import credits as credits_mod
 import planner as planner_mod
-from models import ModelSpec, fallback_chain, resolve_model
+from models import OVERLOAD_MSG, ModelSpec, fallback_chain, resolve_model
 
 from .attachments import extract_text
 from .compaction import compact_if_needed
@@ -22,7 +22,7 @@ from .session_store import (
     save_message,
 )
 from .system_prompt import SYSTEM_PROMPT
-from .tools import TOOL_IMPL, TOOLS, execute_tool
+from .tools import REPORT_TOOL_NAME_TO_SLUG, TOOL_IMPL, TOOLS, execute_tool
 from .tools.registry import TOOL_FAILED_KEY
 
 logger = logging.getLogger(__name__)
@@ -184,18 +184,16 @@ async def _stream_with_fallback(
     """
     models_to_try = [model] + fallback_chain(model.id)
     for try_model in models_to_try:
-        overloaded = False
         async for event_type, payload in call_minimax_stream(
             client, messages, try_model, usage_accum, system_prompt
         ):
             if event_type == "overloaded":
-                overloaded = True
                 logger.warning("Model %s overloaded, trying fallback", try_model.id)
                 break
             yield event_type, payload
-        if not overloaded:
-            return
-    yield ("error", "所有AI服务当前负载较高，请稍等片刻后重试。")
+        else:
+            return  # inner loop finished without break → success
+    yield ("error", OVERLOAD_MSG)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -365,9 +363,8 @@ async def stream_chat(req):
 
                         yield f"data: {json.dumps({'type': 'tool_result', 'name': name})}\n\n"
 
-                        # Emit report_task event for async report tools.
                         if (
-                            name.startswith("generate_")
+                            name in REPORT_TOOL_NAME_TO_SLUG
                             and isinstance(result_obj, dict)
                             and result_obj.get("status") == "queued"
                             and result_obj.get("task_id")
@@ -377,7 +374,7 @@ async def stream_chat(req):
                                 + json.dumps({
                                     "type": "report_task",
                                     "task_id": result_obj["task_id"],
-                                    "slug": name[len("generate_"):],
+                                    "slug": REPORT_TOOL_NAME_TO_SLUG[name],
                                     "estimated_seconds": result_obj.get("estimated_seconds", 60),
                                 })
                                 + "\n\n"

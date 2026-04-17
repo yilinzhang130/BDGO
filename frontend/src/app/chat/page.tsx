@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { chatStream, uploadBP, type PlanMode, type PlanConfirmPayload } from "@/lib/api";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { chatStream, uploadBP, fetchReportServices, parseReportArgs, generateReport, type PlanMode, type PlanConfirmPayload } from "@/lib/api";
 import {
   useSessionStore,
   getContextCollapsed,
@@ -13,6 +13,13 @@ import { ChatMessage } from "@/components/ui/ChatMessage";
 import { ContextPanel } from "@/components/ui/ContextPanel";
 import { Sidebar } from "@/components/ui/Sidebar";
 import { ModelPicker } from "@/components/ui/ModelPicker";
+import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
+import {
+  SlashCommandPopup,
+  SLASH_COMMANDS,
+  filterCommands,
+  type SlashCommand,
+} from "@/components/ui/SlashCommandPopup";
 import { getSelectedModel, applyCreditsUsage, refreshCredits } from "@/lib/credits";
 
 const SUGGESTIONS = [
@@ -51,6 +58,11 @@ export default function ChatPage() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
 
+  // Slash command state
+  const [reportServices, setReportServices] = useState<any[]>([]);
+  const [slashActiveIndex, setSlashActiveIndex] = useState(0);
+  const [selectedServiceForDialog, setSelectedServiceForDialog] = useState<any | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,7 +86,40 @@ export default function ChatPage() {
     const probe = new Image();
     probe.onload = () => { if (probe.naturalWidth > 0) setLogoReady(true); };
     probe.src = "/logo.png";
+    // Load report service catalog once — powers the slash command popup
+    fetchReportServices()
+      .then((data: any) => setReportServices(data?.services || []))
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Merge static alias list with fetched service metadata to get display names.
+  const slashCommandsAll = useMemo<SlashCommand[]>(() => {
+    return SLASH_COMMANDS.map((base) => {
+      const svc = reportServices.find((s) => s.slug === base.slug);
+      return {
+        alias: base.alias,
+        slug: base.slug,
+        displayName: svc?.display_name || base.slug,
+        description: svc?.description || "",
+        estimatedSeconds: svc?.estimated_seconds,
+      };
+    });
+  }, [reportServices]);
+
+  // Derive popup state from the current input text.
+  const slashQuery = input.startsWith("/") ? input.slice(1).split(/\s/)[0] : null;
+  const slashOpen = slashQuery !== null && !isStreaming;
+  const filteredSlashCommands = useMemo(
+    () => (slashQuery === null ? [] : filterCommands(slashCommandsAll, slashQuery)),
+    [slashCommandsAll, slashQuery],
+  );
+
+  // Clamp active index whenever the filtered list shrinks.
+  useEffect(() => {
+    if (slashActiveIndex >= filteredSlashCommands.length && filteredSlashCommands.length > 0) {
+      setSlashActiveIndex(0);
+    }
+  }, [filteredSlashCommands.length, slashActiveIndex]);
 
   const cyclePlanMode = () => {
     const next: PlanMode = planMode === "auto" ? "on" : planMode === "on" ? "off" : "auto";
@@ -353,6 +398,98 @@ export default function ChatPage() {
     [activeId, active, updatePlanStatus, addMessage, streamInto],
   );
 
+  const [slashPrefillParams, setSlashPrefillParams] = useState<Record<string, any>>({});
+  const [slashParsing, setSlashParsing] = useState(false);
+
+  const handleReportStarted = useCallback(
+    (info: { task_id: string; slug: string; estimated_seconds: number; params: Record<string, any> }) => {
+      const currentSession = activeId;
+      if (!currentSession) return;
+      const svc = reportServices.find((s) => s.slug === info.slug);
+      const displayName = svc?.display_name || info.slug;
+
+      const paramSummary = Object.entries(info.params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== "" && v !== false)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(", ");
+
+      const userMsgId = crypto.randomUUID().slice(0, 12);
+      const assistantMsgId = crypto.randomUUID().slice(0, 12);
+
+      addMessage(currentSession, {
+        id: userMsgId,
+        role: "user",
+        content: `生成 ${displayName}${paramSummary ? `（${paramSummary}）` : ""}`,
+        createdAt: Date.now(),
+      });
+      addMessage(currentSession, {
+        id: assistantMsgId,
+        role: "assistant",
+        content: `正在生成 **${displayName}**，完成后会附下载链接。`,
+        tools: [],
+        streaming: false,
+        createdAt: Date.now(),
+      });
+      addReportTask(currentSession, assistantMsgId, {
+        task_id: info.task_id,
+        slug: info.slug,
+        estimated_seconds: info.estimated_seconds,
+      });
+      markMessageDone(currentSession, assistantMsgId);
+      autoTitleFromFirstMessage(currentSession);
+      setSelectedServiceForDialog(null);
+    },
+    [activeId, reportServices, addMessage, addReportTask, markMessageDone],
+  );
+
+  // "/mnc" opens the dialog blank; "/mnc 辉瑞 ..." runs an LLM parse first
+  // and skips the dialog when every required field can be extracted.
+  const handleSlashSelect = useCallback(
+    async (cmd: SlashCommand) => {
+      const svc = reportServices.find((s) => s.slug === cmd.slug);
+      if (!svc) {
+        setInput(`/${cmd.alias} `);
+        inputRef.current?.focus();
+        return;
+      }
+
+      const rest = input.startsWith("/")
+        ? input.slice(1).replace(/^\S+\s*/, "").trim()
+        : "";
+
+      if (!rest) {
+        setInput("");
+        setSlashPrefillParams({});
+        setSelectedServiceForDialog(svc);
+        return;
+      }
+
+      setSlashParsing(true);
+      setInput("");
+      try {
+        const parsed = await parseReportArgs(cmd.slug, rest);
+        if (parsed.complete) {
+          const resp: any = await generateReport(cmd.slug, parsed.params);
+          handleReportStarted({
+            task_id: resp.task_id,
+            slug: cmd.slug,
+            estimated_seconds: svc.estimated_seconds,
+            params: parsed.params,
+          });
+          return;
+        }
+        setSlashPrefillParams(parsed.params || {});
+        setSelectedServiceForDialog(svc);
+      } catch {
+        setSlashPrefillParams({});
+        setSelectedServiceForDialog(svc);
+      } finally {
+        setSlashParsing(false);
+      }
+    },
+    [reportServices, input, handleReportStarted],
+  );
+
   const handlePlanCancel = useCallback(
     (planMsgId: string) => {
       const currentSession = activeId;
@@ -551,27 +688,70 @@ export default function ChatPage() {
               >
                 {uploading ? "\u2026" : "\uD83D\uDCCE"}
               </button>
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    if (input.trim() && !isStreaming) handleSend();
+              <div style={{ flex: 1, position: "relative" }}>
+                {slashOpen && (
+                  <SlashCommandPopup
+                    commands={filteredSlashCommands}
+                    activeIndex={slashActiveIndex}
+                    onSelect={handleSlashSelect}
+                    onHover={setSlashActiveIndex}
+                  />
+                )}
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (slashOpen && filteredSlashCommands.length > 0) {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setSlashActiveIndex((i) => (i + 1) % filteredSlashCommands.length);
+                        return;
+                      }
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setSlashActiveIndex((i) =>
+                          (i - 1 + filteredSlashCommands.length) % filteredSlashCommands.length,
+                        );
+                        return;
+                      }
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSlashSelect(filteredSlashCommands[slashActiveIndex]);
+                        return;
+                      }
+                      if (e.key === "Tab") {
+                        e.preventDefault();
+                        handleSlashSelect(filteredSlashCommands[slashActiveIndex]);
+                        return;
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setInput("");
+                        return;
+                      }
+                    }
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (input.startsWith("/")) return;
+                      if (input.trim() && !isStreaming) handleSend();
+                    }
+                  }}
+                  placeholder={
+                    slashParsing
+                      ? "解析参数中…"
+                      : attachments.length > 0
+                      ? "Ask about the attached files..."
+                      : "Ask anything, or type / for report commands..."
                   }
-                }}
-                placeholder={
-                  attachments.length > 0
-                    ? "Ask about the attached files..."
-                    : "Ask anything about BD, deals, pipelines..."
-                }
-                disabled={isStreaming}
-                rows={1}
-              />
+                  disabled={isStreaming || slashParsing}
+                  rows={1}
+                  style={{ width: "100%" }}
+                />
+              </div>
               <button
                 onClick={() => handleSend()}
-                disabled={!input.trim() || isStreaming}
+                disabled={!input.trim() || isStreaming || input.startsWith("/")}
                 className="chat-send-btn"
               >
                 {isStreaming ? "\u2026" : "\u2191"}
@@ -580,6 +760,15 @@ export default function ChatPage() {
           </div>
         </div>
       </section>
+
+      {selectedServiceForDialog && (
+        <ReportGenerateDialog
+          service={selectedServiceForDialog}
+          onClose={() => setSelectedServiceForDialog(null)}
+          onStarted={handleReportStarted}
+          initialParams={slashPrefillParams}
+        />
+      )}
 
       {!contextCollapsed && activeId && (
         <ContextPanel

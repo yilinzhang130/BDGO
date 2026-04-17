@@ -16,5 +16,13 @@ for _mod in _MODULES:
     TOOLS.extend(_mod.SCHEMAS)
     TOOL_IMPL.update(_mod.IMPLS)
 
+REPORT_TOOL_NAME_TO_SLUG: dict[str, str] = dict(reports.TOOL_NAME_TO_SLUG)
 
-__all__ = ["TOOLS", "TOOL_IMPL", "TOOL_TABLE", "execute_tool"]
+
+__all__ = [
+    "TOOLS",
+    "TOOL_IMPL",
+    "TOOL_TABLE",
+    "execute_tool",
+    "REPORT_TOOL_NAME_TO_SLUG",
+]

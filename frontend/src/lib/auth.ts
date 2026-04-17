@@ -60,6 +60,7 @@ export function isLoggedIn(): boolean {
 
 export interface UserPreferences {
   show_database_nav?: boolean;
+  show_report_cards?: boolean;
 }
 
 export function parsePreferences(user: AuthUser | null): UserPreferences {

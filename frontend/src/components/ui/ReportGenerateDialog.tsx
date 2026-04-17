@@ -26,6 +26,16 @@ interface ReportService {
 interface Props {
   service: ReportService;
   onClose: () => void;
+  // When set, fires once the task has been created (async services) or
+  // completed inline (sync). Caller is responsible for closing the dialog
+  // and rendering progress elsewhere (e.g. as a chat message card).
+  onStarted?: (info: {
+    task_id: string;
+    slug: string;
+    estimated_seconds: number;
+    params: Record<string, any>;
+  }) => void;
+  initialParams?: Record<string, any>;
 }
 
 const STAGE = {
@@ -36,9 +46,9 @@ const STAGE = {
 } as const;
 type Stage = typeof STAGE[keyof typeof STAGE];
 
-export function ReportGenerateDialog({ service, onClose }: Props) {
+export function ReportGenerateDialog({ service, onClose, onStarted, initialParams }: Props) {
   const [stage, setStage] = useState<Stage>("form");
-  const [params, setParams] = useState<Record<string, any>>({});
+  const [params, setParams] = useState<Record<string, any>>(initialParams || {});
   const [taskId, setTaskId] = useState<string | null>(null);
   const [progressLog, setProgressLog] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -112,6 +122,15 @@ export function ReportGenerateDialog({ service, onClose }: Props) {
     try {
       const resp = await generateReport(service.slug, params);
       setTaskId(resp.task_id);
+      if (onStarted) {
+        onStarted({
+          task_id: resp.task_id,
+          slug: service.slug,
+          estimated_seconds: service.estimated_seconds,
+          params,
+        });
+        return;
+      }
       if (resp.status === "completed") {
         // sync mode — already done
         setResult(resp.result);
