@@ -4,19 +4,21 @@
 
 ```
 用户浏览器
-    │
+    │  https://bdgo.tech
     ▼
 Vercel (Next.js 前端)          ← git push main 自动部署
-https://bdgo-iota.vercel.app
-    │  /api/* 反向代理
+https://bdgo.tech  (自定义域名)
+https://bdgo-iota.vercel.app   (Vercel 原始域名，仍有效)
+    │  /api/* 服务器端 rewrite（浏览器不直接访问 VM）
     ▼
 腾讯云 VM: 146.56.247.221
   ├── Docker: bdgo_backend     ← FastAPI，端口 8001（代码打包进镜像）
   ├── Docker: bdgo_nginx       ← Nginx，端口 80，upstream → 172.17.0.1:8001
   └── PostgreSQL 15            ← 宿主机直接运行，端口 5432
-        ├── bdgo        (用户/报告数据库)
-        └── bdgo (CRM 数据库)
+        └── bdgo               (用户/报告/CRM 数据库)
 ```
+
+> VM 不需要 SSL 证书 — 浏览器只访问 Vercel HTTPS；Vercel → VM 是服务器间 HTTP，属内部调用。
 
 **关键约束**：
 - VM 在国内，**无法访问 Google / GitHub / PyPI 官方源**（pip 用腾讯镜像）
@@ -80,7 +82,7 @@ npx vercel env rm KEY production --yes                 # 删除
 已配置的变量：
 | 变量名 | 说明 |
 |--------|------|
-| `NEXT_PUBLIC_API_URL` | `http://146.56.247.221`（VM 公网 IP） |
+| `NEXT_PUBLIC_API_URL` | `http://146.56.247.221`（VM 公网 IP，服务器端 rewrite 用，不暴露给浏览器） |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth（已删除前端入口，保留备用） |
 
 ---
@@ -92,7 +94,7 @@ DATABASE_URL=postgresql://bdgo:...@172.17.0.1:5432/bdgo
 CRM_PG_DSN=host=172.17.0.1 dbname=bdgo user=bdgo password=...
 JWT_SECRET=<随机32字节hex>
 MINIMAX_API_KEY=sk-cp-...
-CORS_ORIGINS=https://bdgo-iota.vercel.app,http://localhost:3000
+CORS_ORIGINS=https://bdgo.tech,https://www.bdgo.tech,https://bdgo-iota.vercel.app,http://localhost:3000
 GOOGLE_CLIENT_ID=488166218680-...（后端保留，前端已不使用）
 ```
 
