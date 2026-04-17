@@ -9,6 +9,7 @@ import { parsePreferences } from "@/lib/auth";
 import { SessionList } from "./SessionList";
 import { SearchModal } from "./SearchModal";
 import { CreditBadge } from "./CreditBadge";
+import { getToken } from "@/lib/auth";
 
 // ---------------------------------------------------------------------------
 // SVG Icons
@@ -160,6 +161,60 @@ const TOOLS: NavItem[] = [
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "管理",  icon: Icon.shield },
 ];
+
+// ---------------------------------------------------------------------------
+// AIDD 立项中心 SSO button
+// ---------------------------------------------------------------------------
+
+function AiddButton() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleClick() {
+    setLoading(true);
+    try {
+      const token = getToken();
+      const res = await fetch(
+        `/api/aidd-sso-url?redirect=${encodeURIComponent("/project-assessment")}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!res.ok) throw new Error("failed");
+      const { url } = await res.json();
+      window.open(url, "_blank", "noopener");
+    } catch {
+      alert("生成跳转链接失败，请稍后重试");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+        padding: "8px 12px",
+        margin: "4px 0",
+        background: loading ? "#f3f4f6" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        color: loading ? "#9ca3af" : "#fff",
+        border: "none",
+        borderRadius: 8,
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: loading ? "not-allowed" : "pointer",
+        textAlign: "left",
+        transition: "opacity 0.15s",
+      }}
+    >
+      <span style={{ fontSize: 15 }}>🧬</span>
+      <span>{loading ? "跳转中…" : "立项中心 (AIDD)"}</span>
+      {!loading && <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.8 }}>↗</span>}
+    </button>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Nav Group (collapsible section)
@@ -334,6 +389,11 @@ export function Sidebar() {
 
         {/* Tools (always visible) */}
         <NavGroup label="工具" items={TOOLS} />
+
+        {/* AIDD 立项中心 */}
+        <div className="nav-section">
+          <AiddButton />
+        </div>
 
         {/* Admin (admin only) */}
         {user?.is_admin && <NavGroup label="管理员" items={ADMIN_NAV} />}
