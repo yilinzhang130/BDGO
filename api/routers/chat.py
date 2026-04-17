@@ -12,6 +12,7 @@ from config import BP_DIR
 from database import transaction
 from auth import get_current_user
 from models import resolve_model, ModelSpec
+from field_policy import strip_hidden, HIDDEN_FIELDS
 import credits as credits_mod
 import planner as planner_mod
 
@@ -937,11 +938,70 @@ except Exception as _e:
     logger.exception("Failed to register report services as Chat tools: %s", _e)
 
 
-def _execute_tool(name: str, inp: dict, user_id: str | None = None) -> str:
-    """Execute a tool and return JSON-serialized result (truncated for context)."""
+# Map each CRM tool to its source table so we can apply field visibility.
+# Tools NOT in this map (watchlist / reports / skill calls) are not filtered.
+_TOOL_TABLE: dict[str, str] = {
+    "search_companies": "公司",
+    "get_company": "公司",
+    "search_assets": "资产",
+    "get_asset": "资产",
+    "search_clinical": "临床",
+    "search_deals": "交易",
+}
+
+
+def _strip_tool_result(name: str, result, can_see_internal: bool):
+    """Apply field_policy to a tool's return value. External users only.
+
+    Handles the 6 individual CRM tools plus search_global (which returns a
+    dict of {companies, assets, deals, clinical} sub-lists).
+    """
+    if can_see_internal or result is None:
+        return result
+
+    table = _TOOL_TABLE.get(name)
+    if table:
+        # strip_hidden handles both dict (single row) and list[dict]
+        if isinstance(result, dict) and "error" in result:
+            return result
+        return strip_hidden(result, table, False)
+
+    if name == "search_global" and isinstance(result, dict):
+        pairs = (("companies", "公司"), ("assets", "资产"),
+                 ("deals", "交易"), ("clinical", "临床"))
+        for key, tbl in pairs:
+            if key in result and result[key]:
+                result[key] = strip_hidden(result[key], tbl, False)
+        return result
+
+    return result
+
+
+def _execute_tool(
+    name: str,
+    inp: dict,
+    user_id: str | None = None,
+    can_see_internal: bool = False,
+) -> str:
+    """Execute a tool and return JSON-serialized result (truncated for context).
+
+    `can_see_internal` = True for admins and internal-flagged users.
+    When False, hidden CRM fields (BD priority, Q scores, strategic analysis,
+    internal notes, etc.) are stripped from the returned rows before the LLM
+    ever sees them — matches the REST-side field_policy enforcement.
+    """
     fn = TOOL_IMPL.get(name)
     if not fn:
         return json.dumps({"error": f"Unknown tool: {name}"})
+
+    # Block count_by on hidden columns for external users — otherwise they
+    # could extract the distribution of internal fields (e.g. BD priority counts).
+    if name == "count_by" and not can_see_internal:
+        table = (inp or {}).get("table", "")
+        group_by = (inp or {}).get("group_by", "")
+        if group_by in HIDDEN_FIELDS.get(table, set()):
+            return json.dumps({"error": f"字段 '{group_by}' 不对外部用户开放"}, ensure_ascii=False)
+
     try:
         kwargs = dict(inp or {})
         if user_id and name in ("add_to_watchlist",):
@@ -949,6 +1009,10 @@ def _execute_tool(name: str, inp: dict, user_id: str | None = None) -> str:
         elif user_id and name.startswith("generate_"):
             kwargs["_user_id"] = user_id
         result = fn(**kwargs)
+
+        # Enforce three-tier field visibility before handing data to the LLM.
+        result = _strip_tool_result(name, result, can_see_internal)
+
         s = json.dumps(result, ensure_ascii=False, default=str)
         if len(s) > 8000:
             s = s[:8000] + "\n...[truncated]"
@@ -1286,9 +1350,10 @@ class ChatRequest(BaseModel):
     # Plan mode: "auto" (heuristic), "on" (always plan), "off" (skip planning)
     plan_mode: str = "auto"
     plan_confirm: PlanConfirm | None = None
-    # user_id and is_admin are injected by the endpoint, not sent by the client
+    # user_id / is_admin / is_internal are injected by the endpoint, not sent by the client
     user_id: str | None = None
     is_admin: bool = False
+    is_internal: bool = False
 
 
 async def _call_minimax_stream(
@@ -1436,6 +1501,9 @@ async def _stream_chat(req: ChatRequest):
     """Main chat handler: tool-use loop with streaming."""
     session_id = req.session_id
     user_id = req.user_id
+    # Field visibility: admins + internal employees see everything;
+    # external users get HIDDEN_FIELDS stripped from tool results.
+    can_see_internal = bool(req.is_admin or req.is_internal)
 
     # Resolve model (falls back to default if unknown/None)
     model = resolve_model(req.model_id)
@@ -1572,7 +1640,11 @@ async def _stream_chat(req: ChatRequest):
                             inp = json.loads(tu["input_json"] or "{}")
                         except json.JSONDecodeError:
                             inp = {}
-                        result_str = _execute_tool(tu["name"], inp, user_id=user_id)
+                        result_str = _execute_tool(
+                            tu["name"], inp,
+                            user_id=user_id,
+                            can_see_internal=can_see_internal,
+                        )
                         yield f"data: {json.dumps({'type': 'tool_result', 'name': tu['name']})}\n\n"
 
                         # Emit report_task event for async report tools so the
@@ -1747,6 +1819,7 @@ async def _stream_plan_only(req: ChatRequest):
 async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
     req.user_id = user["id"]
     req.is_admin = bool(user.get("is_admin"))
+    req.is_internal = bool(user.get("is_internal"))
     # Admin users bypass credit check (still logged, just never blocked).
     if not req.is_admin:
         # Fail fast with a clean 402 if the user is out of credits — never mid-stream.
