@@ -41,11 +41,15 @@ def _load_history(session_id: str) -> list[dict]:
     content column holds a JSON-encoded list of content blocks (text /
     tool_use).  For user messages with tool_results, the content column
     holds the JSON-encoded list.
+
+    Plan-card placeholder messages (assistant with empty content + a plan
+    stored in tools_json) are skipped — they're UI-only artifacts; the LLM
+    never needs to see "the user saw a plan card at this point".
     """
     with transaction() as cur:
         cur.execute(
             "SELECT role, content, tools_json FROM messages "
-            "WHERE session_id = %s ORDER BY created_at DESC LIMIT 20",
+            "WHERE session_id = %s ORDER BY created_at DESC LIMIT 25",
             (session_id,),
         )
         rows = cur.fetchall()
@@ -56,6 +60,17 @@ def _load_history(session_id: str) -> list[dict]:
     history: list[dict] = []
     for r in rows:
         content = r["content"]
+        tools_json = r.get("tools_json")
+
+        # Skip plan placeholders: empty-content assistant with a plan blob.
+        if r["role"] == "assistant" and not (content or "").strip() and tools_json:
+            try:
+                parsed_tools = json.loads(tools_json)
+                if isinstance(parsed_tools, dict) and parsed_tools.get("plan"):
+                    continue
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         # Try parsing JSON content (structured content blocks / tool results)
         try:
             parsed = json.loads(content)
@@ -65,6 +80,10 @@ def _load_history(session_id: str) -> list[dict]:
         except (json.JSONDecodeError, TypeError):
             pass
         history.append({"role": r["role"], "content": content})
+
+    # Cap to 20 after filtering so we keep 20 useful turns.
+    if len(history) > 20:
+        history = history[-20:]
     return history
 
 
@@ -1282,6 +1301,30 @@ async def _stream_chat(req: ChatRequest):
     # Load history from Postgres instead of in-memory dict
     history = _load_history(session_id)
 
+    # When executing a confirmed plan, the user message + empty plan-placeholder
+    # assistant message are already in history from the planner phase. Strip
+    # the empty assistant turn so the LLM sees the user prompt as the latest
+    # turn (and we skip re-appending + re-saving below).
+    is_executing_plan = req.plan_confirm is not None
+    if is_executing_plan:
+        while history and history[-1].get("role") == "assistant":
+            c = history[-1].get("content")
+            empty = (
+                not c
+                or (isinstance(c, str) and not c.strip())
+                or (
+                    isinstance(c, list)
+                    and not any(
+                        (isinstance(b, dict) and b.get("text", "").strip())
+                        for b in c
+                    )
+                )
+            )
+            if empty:
+                history.pop()
+            else:
+                break
+
     user_text = req.message
     attachments_json = None
     if req.file_ids:
@@ -1316,12 +1359,18 @@ async def _stream_chat(req: ChatRequest):
             )
         attachments_json = json.dumps(req.file_ids)
 
-    history.append({"role": "user", "content": user_text})
-    if len(history) > 20:
-        history[:] = history[-20:]
+    if is_executing_plan:
+        # User message was already saved + already in history from plan phase.
+        # Just cap to 20.
+        if len(history) > 20:
+            history[:] = history[-20:]
+    else:
+        history.append({"role": "user", "content": user_text})
+        if len(history) > 20:
+            history[:] = history[-20:]
 
-    # Persist the user message
-    _save_message(session_id, "user", user_text, attachments_json=attachments_json)
+        # Persist the user message
+        _save_message(session_id, "user", user_text, attachments_json=attachments_json)
 
     # Collect entities across all tool-call rounds for persistence
     all_entities: list[dict] = []
@@ -1477,24 +1526,27 @@ async def _stream_plan_only(req: ChatRequest):
     # Load short history for context
     history = _load_history(req.session_id)
 
-    # Persist the user message so it shows up correctly after refresh
+    # Ensure the session exists, but DON'T save the user message yet — we
+    # only save it after we know whether planner succeeds. This prevents
+    # double-save if planner fails and we fall back to _stream_chat (which
+    # saves the user message itself).
     if req.user_id:
         _ensure_session(req.session_id, req.user_id)
-        _save_message(req.session_id, "user", req.message)
 
     plan = await planner_mod.generate_plan(req.message, history, model)
 
     if plan is None:
-        # Planner failed — fall through to normal execution (skip saving user msg again)
+        # Planner failed — fall through to normal execution. _stream_chat
+        # will save the user message as part of its normal flow.
         logger.warning("Planner returned no plan; falling back to normal execution")
-        # Clone req with plan_mode=off so _stream_chat won't re-plan, and
-        # skip message persist since we already did it above.
         fallback_req = req.model_copy(update={"plan_mode": "off"})
-        # Re-run normal flow but without double-saving the user message:
-        # _stream_chat also calls _save_message. Easiest: just stream.
         async for chunk in _stream_chat(fallback_req):
             yield chunk
         return
+
+    # Planner succeeded — now we commit to the plan flow, save user msg.
+    if req.user_id:
+        _save_message(req.session_id, "user", req.message)
 
     # Bill planner tokens (admins skip)
     usage = plan.pop("_usage", {}) or {}
