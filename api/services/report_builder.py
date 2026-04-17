@@ -89,12 +89,21 @@ class ReportContext:
         messages: list[dict],
         max_tokens: int = 4096,
     ) -> str:
-        """Call MiniMax and return final assistant text (non-streaming).
-
-        messages = [{"role": "user"|"assistant", "content": str}]
-        """
+        """Call LLM and return final assistant text (non-streaming)."""
         from services.helpers.llm import call_llm_sync
         return call_llm_sync(system=system, messages=messages, max_tokens=max_tokens)
+
+    # ── QC ──────────────────────────────────────────────────
+    def qc(self, markdown: str) -> "QCResult":  # noqa: F821
+        """Run QC on a markdown string and return QCResult (with .badge_md)."""
+        from services.helpers.qc import QCResult, run_qc
+        try:
+            return run_qc(markdown, self)
+        except Exception as e:
+            logger.warning("QC failed: %s", e)
+            result = QCResult()
+            result.badge_md = "\n\n---\n## 🔎 QC 审核报告\n\n> QC 执行失败，请人工审核。\n"
+            return result
 
     # ── CRM ─────────────────────────────────────────────────
     def crm_query(self, sql: str, params: tuple = ()) -> list[dict]:
@@ -157,6 +166,7 @@ class ReportService(ABC):
     output_formats: list[str] = ["md"]
     estimated_seconds: int = 30
     category: str = "report"  # "report" | "analysis" | "research"
+    enable_qc: bool = False    # set True to append QC badge after run()
 
     # Optional conditional visibility rules consumed by the frontend form.
     # Format: { field_name: { "visible_when": { discriminator_field: value_or_list } } }
@@ -243,9 +253,12 @@ def execute_task(task_id: str, service: ReportService, params: dict) -> None:
     try:
         ctx = ReportContext(task_id, progress_log)
         result = service.run(params, ctx)
-        # Ensure files list reflects what ctx collected (services can return new GeneratedFile list OR rely on ctx.save_file)
         if not result.files and ctx.files:
             result.files = ctx.files
+
+        if service.enable_qc and result.markdown:
+            qc_result = ctx.qc(result.markdown)
+            result.markdown += qc_result.badge_md
         task["result"] = {
             "markdown": result.markdown,
             "files": [
