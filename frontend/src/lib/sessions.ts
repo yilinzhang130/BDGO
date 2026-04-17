@@ -14,6 +14,35 @@ import {
 import { isBrowser, bg } from "./utils";
 import { getToken } from "./auth";
 
+// Parse the tools_json column — it may hold either the legacy array of
+// ToolEvent objects or an object with {plan, tools, ...} when the message
+// is a plan proposal.
+function parseStoredTools(raw: string | null | undefined): {
+  tools?: any[];
+  plan?: any;
+  planStatus?: any;
+  planSelectedIds?: string[];
+  originalMessage?: string;
+} {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return { tools: parsed };
+    }
+    if (parsed && typeof parsed === "object") {
+      return {
+        tools: parsed.tools,
+        plan: parsed.plan,
+        planStatus: parsed.planStatus || (parsed.plan ? "pending" : undefined),
+        planSelectedIds: parsed.planSelectedIds,
+        originalMessage: parsed.originalMessage || parsed.original_message,
+      };
+    }
+  } catch {}
+  return {};
+}
+
 // Extract plain text from stored content (may be JSON content-blocks array)
 function extractText(raw: string): string {
   if (!raw) return "";
@@ -46,6 +75,25 @@ export interface ReportTask {
   estimated_seconds: number;
 }
 
+export interface PlanStep {
+  id: string;
+  title: string;
+  description: string;
+  tools_expected: string[];
+  required: boolean;
+  default_selected: boolean;
+  estimated_seconds: number;
+}
+
+export interface PlanProposal {
+  plan_id: string;
+  title: string;
+  summary: string;
+  steps: PlanStep[];
+}
+
+export type PlanStatus = "pending" | "confirmed" | "cancelled";
+
 export interface ChatMessage {
   id: string;
   role: Role;
@@ -53,6 +101,10 @@ export interface ChatMessage {
   tools?: ToolEvent[];
   attachments?: string[];
   reportTasks?: ReportTask[];
+  plan?: PlanProposal;
+  planStatus?: PlanStatus;
+  planSelectedIds?: string[]; // remembers which steps were ticked on confirm
+  originalMessage?: string;   // original user prompt when plan was generated
   streaming?: boolean;
   createdAt: number;
 }
@@ -131,15 +183,22 @@ function mapServerSession(raw: any): ChatSession {
     title: raw.title || "New Chat",
     createdAt: new Date(raw.created_at).getTime(),
     updatedAt: new Date(raw.updated_at).getTime(),
-    messages: (raw.messages || []).map((m: any) => ({
-      id: m.id,
-      role: m.role as Role,
-      content: extractText(m.content || ""),
-      tools: m.tools_json ? JSON.parse(m.tools_json) : undefined,
-      attachments: m.attachments_json ? JSON.parse(m.attachments_json) : undefined,
-      streaming: false,
-      createdAt: new Date(m.created_at || raw.created_at).getTime(),
-    })),
+    messages: (raw.messages || []).map((m: any) => {
+      const parsed = parseStoredTools(m.tools_json);
+      return {
+        id: m.id,
+        role: m.role as Role,
+        content: extractText(m.content || ""),
+        tools: parsed.tools,
+        plan: parsed.plan,
+        planStatus: parsed.planStatus,
+        planSelectedIds: parsed.planSelectedIds,
+        originalMessage: parsed.originalMessage,
+        attachments: m.attachments_json ? JSON.parse(m.attachments_json) : undefined,
+        streaming: false,
+        createdAt: new Date(m.created_at || raw.created_at).getTime(),
+      };
+    }),
     contextEntities: (raw.context_entities || []).map((e: any) => ({
       id: e.id,
       entityType: e.entity_type as EntityType,
@@ -382,17 +441,66 @@ export function markMessageDone(sessionId: string, msgId: string) {
   const session = getSession(sessionId);
   const msg = session?.messages.find((m) => m.id === msgId);
   if (msg && msg.role === "assistant") {
+    const toolsJson = msg.plan
+      ? JSON.stringify({
+          plan: msg.plan,
+          planStatus: msg.planStatus,
+          planSelectedIds: msg.planSelectedIds,
+          originalMessage: msg.originalMessage,
+          tools: msg.tools,
+        })
+      : msg.tools
+      ? JSON.stringify(msg.tools)
+      : undefined;
     bg(
       postMessage(sessionId, {
         id: msg.id,
         role: msg.role,
         content: msg.content,
-        tools_json: msg.tools ? JSON.stringify(msg.tools) : undefined,
+        tools_json: toolsJson,
         attachments_json: msg.attachments ? JSON.stringify(msg.attachments) : undefined,
       }),
       "markMessageDone",
     );
   }
+}
+
+export function setMessagePlan(
+  sessionId: string,
+  msgId: string,
+  plan: PlanProposal,
+  originalMessage: string,
+) {
+  touchSession(sessionId, (s) => ({
+    ...s,
+    messages: s.messages.map((m) =>
+      m.id === msgId
+        ? {
+            ...m,
+            plan,
+            planStatus: "pending" as PlanStatus,
+            originalMessage,
+            streaming: false,
+          }
+        : m,
+    ),
+  }));
+}
+
+export function updatePlanStatus(
+  sessionId: string,
+  msgId: string,
+  status: PlanStatus,
+  selectedIds?: string[],
+) {
+  touchSession(sessionId, (s) => ({
+    ...s,
+    messages: s.messages.map((m) =>
+      m.id === msgId
+        ? { ...m, planStatus: status, planSelectedIds: selectedIds ?? m.planSelectedIds }
+        : m,
+    ),
+  }));
 }
 
 export function addContextEntity(sessionId: string, entity: ContextEntity) {
@@ -483,6 +591,8 @@ export function useSessionStore() {
     addToolEvent,
     addReportTask,
     markMessageDone,
+    setMessagePlan,
+    updatePlanStatus,
     addContextEntity,
     removeContextEntity,
     clearContextEntities,

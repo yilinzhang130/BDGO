@@ -13,6 +13,7 @@ from database import transaction
 from auth import get_current_user
 from models import resolve_model, ModelSpec
 import credits as credits_mod
+import planner as planner_mod
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1091,11 +1092,21 @@ def _extract_text(filename: str) -> str:
 
 # ── Chat streaming ───────────────────────────────────────────
 
+class PlanConfirm(BaseModel):
+    plan_id: str
+    plan_title: str
+    selected_steps: list[dict]      # [{id, title, description, tools_expected}]
+    original_message: str
+
+
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
     file_ids: list[str] = []
     model_id: str | None = None   # selected from /api/models; falls back to default
+    # Plan mode: "auto" (heuristic), "on" (always plan), "off" (skip planning)
+    plan_mode: str = "auto"
+    plan_confirm: PlanConfirm | None = None
     # user_id and is_admin are injected by the endpoint, not sent by the client
     user_id: str | None = None
     is_admin: bool = False
@@ -1107,16 +1118,20 @@ async def _call_minimax_stream(
     tool_results_buffer: list,
     model: ModelSpec,
     usage_accum: dict,
+    system_prompt: str | None = None,
 ):
     """Single call to the selected LLM; yields SSE events and collects tool_use blocks.
 
     `usage_accum` is a dict with keys {input_tokens, output_tokens} that this
     function adds to as the provider reports usage in `message_start` /
     `message_delta` events (Anthropic-compat shape).
+
+    `system_prompt` overrides the default SYSTEM_PROMPT — used to inject
+    plan constraints when executing an approved plan.
     """
     body = {
         "model": model.api_model,
-        "system": SYSTEM_PROMPT,
+        "system": system_prompt or SYSTEM_PROMPT,
         "messages": messages,
         "max_tokens": 4096,
         "stream": True,
@@ -1246,6 +1261,15 @@ async def _stream_chat(req: ChatRequest):
     # Resolve model (falls back to default if unknown/None)
     model = resolve_model(req.model_id)
 
+    # If the client confirmed a plan, inject its constraints into the system
+    # prompt so the LLM sticks to the approved steps.
+    active_system_prompt: str | None = None
+    if req.plan_confirm and req.plan_confirm.selected_steps:
+        active_system_prompt = SYSTEM_PROMPT + planner_mod.build_plan_constraint(
+            req.plan_confirm.plan_title,
+            req.plan_confirm.selected_steps,
+        )
+
     # Usage accumulator — incremented inside _call_minimax_stream across
     # all tool-use rounds in this request. Debited from the user's balance
     # once the stream completes.
@@ -1310,7 +1334,8 @@ async def _stream_chat(req: ChatRequest):
                 final_stop_reason = None
 
                 async for event_type, payload in _call_minimax_stream(
-                    client, history, tool_results_buffer, model, usage_accum
+                    client, history, tool_results_buffer, model, usage_accum,
+                    system_prompt=active_system_prompt,
                 ):
                     if event_type == "chunk":
                         yield f"data: {json.dumps({'type': 'chunk', 'content': payload})}\n\n"
@@ -1427,6 +1452,84 @@ async def _stream_chat(req: ChatRequest):
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
 
+_PLAN_KEYWORDS = (
+    "分析", "深度", "画像", "scout", "找出", "筛选",
+    "BD机会", "BD 机会", "机会分析", "对比", "评估",
+    "深入", "盘点", "梳理", "报告", "全面",
+)
+
+
+def _should_plan(message: str) -> bool:
+    """Heuristic: decide if an auto-mode request warrants a plan phase."""
+    if not message or len(message.strip()) < 8:
+        return False
+    if len(message) > 150:
+        return True
+    return any(kw in message for kw in _PLAN_KEYWORDS)
+
+
+async def _stream_plan_only(req: ChatRequest):
+    """Phase 1 stream: generate a plan proposal, emit one SSE event, done.
+
+    Falls back to normal execution (_stream_chat) if planner fails.
+    """
+    model = resolve_model(req.model_id)
+    # Load short history for context
+    history = _load_history(req.session_id)
+
+    # Persist the user message so it shows up correctly after refresh
+    if req.user_id:
+        _ensure_session(req.session_id, req.user_id)
+        _save_message(req.session_id, "user", req.message)
+
+    plan = await planner_mod.generate_plan(req.message, history, model)
+
+    if plan is None:
+        # Planner failed — fall through to normal execution (skip saving user msg again)
+        logger.warning("Planner returned no plan; falling back to normal execution")
+        # Clone req with plan_mode=off so _stream_chat won't re-plan, and
+        # skip message persist since we already did it above.
+        fallback_req = req.model_copy(update={"plan_mode": "off"})
+        # Re-run normal flow but without double-saving the user message:
+        # _stream_chat also calls _save_message. Easiest: just stream.
+        async for chunk in _stream_chat(fallback_req):
+            yield chunk
+        return
+
+    # Bill planner tokens (admins skip)
+    usage = plan.pop("_usage", {}) or {}
+    credits_charged = 0.0
+    balance_remaining = None
+    if req.user_id and not req.is_admin:
+        try:
+            credits_charged = credits_mod.record_usage(
+                user_id=req.user_id,
+                session_id=req.session_id,
+                model_id=model.id,
+                input_tokens=usage.get("input_tokens", 0),
+                output_tokens=usage.get("output_tokens", 0),
+                input_weight=model.input_weight,
+                output_weight=model.output_weight,
+            )
+            balance_remaining = credits_mod.get_balance(req.user_id)["balance"]
+        except Exception:
+            logger.exception("Failed to record planner usage")
+
+    # Persist the plan as a placeholder assistant message so it survives reload
+    if req.user_id:
+        _save_message(
+            req.session_id,
+            "assistant",
+            "",
+            tools_json=json.dumps({"plan": plan, "original_message": req.message}, ensure_ascii=False),
+        )
+
+    yield f"data: {json.dumps({'type': 'plan_proposal', 'plan': plan, 'original_message': req.message}, ensure_ascii=False)}\n\n"
+    if credits_charged:
+        yield f"data: {json.dumps({'type': 'usage', 'credits_charged': credits_charged, 'balance': balance_remaining})}\n\n"
+    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+
 @router.post("")
 async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
     req.user_id = user["id"]
@@ -1435,8 +1538,27 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
     if not req.is_admin:
         # Fail fast with a clean 402 if the user is out of credits — never mid-stream.
         credits_mod.ensure_balance(user["id"])
+
+    # Decide: planning phase, execution phase, or normal (no-plan) flow.
+    is_confirming = req.plan_confirm is not None
+    should_plan_now = (
+        not is_confirming
+        and req.plan_mode != "off"
+        and (req.plan_mode == "on" or _should_plan(req.message))
+    )
+
+    if should_plan_now:
+        generator = _stream_plan_only(req)
+    else:
+        # Normal execution — either no plan mode, or user confirmed a plan.
+        # When confirming, use the original message as the chat input so the
+        # LLM sees the actual question (not "executed plan confirmation").
+        if is_confirming and req.plan_confirm:
+            req = req.model_copy(update={"message": req.plan_confirm.original_message})
+        generator = _stream_chat(req)
+
     return StreamingResponse(
-        _stream_chat(req),
+        generator,
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )

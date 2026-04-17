@@ -72,11 +72,27 @@ export const searchSessions = (q: string, limit = 6) =>
   get<{ id: string; title: string; updated_at: string }[]>(`${BASE}/sessions/search`, { q, limit });
 
 // Chat (returns raw Response for streaming)
+export type PlanMode = "auto" | "on" | "off";
+
+export interface PlanConfirmPayload {
+  plan_id: string;
+  plan_title: string;
+  selected_steps: {
+    id: string;
+    title: string;
+    description: string;
+    tools_expected: string[];
+  }[];
+  original_message: string;
+}
+
 export async function chatStream(
   message: string,
   sessionId: string,
   fileIds: string[] = [],
   modelId?: string,
+  planMode: PlanMode = "auto",
+  planConfirm?: PlanConfirmPayload,
 ): Promise<Response> {
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
@@ -86,6 +102,8 @@ export async function chatStream(
       session_id: sessionId,
       file_ids: fileIds,
       ...(modelId ? { model_id: modelId } : {}),
+      plan_mode: planMode,
+      ...(planConfirm ? { plan_confirm: planConfirm } : {}),
     }),
   });
   handle401(res);

@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
-import { type ReportTask } from "@/lib/sessions";
+import { type ReportTask, type PlanProposal, type PlanStatus } from "@/lib/sessions";
 import { downloadWithAuth } from "@/lib/download";
+import { PlanCard } from "./PlanCard";
 
 interface ToolEvent {
   type: "tool_call" | "tool_result";
@@ -19,6 +20,12 @@ interface Props {
   tools?: ToolEvent[];
   attachments?: string[];
   reportTasks?: ReportTask[];
+  plan?: PlanProposal;
+  planStatus?: PlanStatus;
+  planSelectedIds?: string[];
+  onPlanConfirm?: (selectedIds: string[]) => void;
+  onPlanSkip?: () => void;
+  onPlanCancel?: () => void;
 }
 
 // ── Tool display config ──────────────────────────────────────────────
@@ -231,7 +238,11 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
 
 
 // ── ChatMessage ──────────────────────────────────────────────────────
-export function ChatMessage({ role, content, streaming, tools, attachments, reportTasks }: Props) {
+export function ChatMessage({
+  role, content, streaming, tools, attachments, reportTasks,
+  plan, planStatus, planSelectedIds,
+  onPlanConfirm, onPlanSkip, onPlanCancel,
+}: Props) {
   if (role === "user") {
     return (
       <div className="chat-message user">
@@ -264,12 +275,22 @@ export function ChatMessage({ role, content, streaming, tools, attachments, repo
   return (
     <div className="chat-message assistant">
       <div className="chat-bubble assistant">
+        {plan && (
+          <PlanCard
+            plan={plan}
+            status={planStatus || "pending"}
+            selectedIds={planSelectedIds}
+            onConfirm={onPlanConfirm || (() => {})}
+            onSkip={onPlanSkip || (() => {})}
+            onCancel={onPlanCancel || (() => {})}
+          />
+        )}
         {hasTools && <ToolStepsPanel tools={tools!} isStreaming={!!streaming} />}
         {content && <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>}
         {reportTasks && reportTasks.map((rt) => (
           <ReportTaskCard key={rt.task_id} {...rt} />
         ))}
-        {streaming && !hasTools && <span className="chat-cursor">|</span>}
+        {streaming && !hasTools && !plan && <span className="chat-cursor">|</span>}
       </div>
     </div>
   );

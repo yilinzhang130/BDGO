@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { chatStream, uploadBP } from "@/lib/api";
+import { chatStream, uploadBP, type PlanMode, type PlanConfirmPayload } from "@/lib/api";
 import {
   useSessionStore,
   getContextCollapsed,
@@ -32,6 +32,8 @@ export default function ChatPage() {
     addToolEvent,
     addReportTask,
     markMessageDone,
+    setMessagePlan,
+    updatePlanStatus,
     addContextEntity,
     removeContextEntity,
     clearContextEntities,
@@ -47,6 +49,7 @@ export default function ChatPage() {
   const [logoReady, setLogoReady] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
+  const [planMode, setPlanMode] = useState<PlanMode>("auto");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -56,6 +59,13 @@ export default function ChatPage() {
   useEffect(() => {
     setHydrated(true);
     setCollapsed(getContextCollapsed());
+    // Restore plan mode preference from localStorage
+    try {
+      const stored = localStorage.getItem("bdgo.planMode");
+      if (stored === "auto" || stored === "on" || stored === "off") {
+        setPlanMode(stored);
+      }
+    } catch {}
     // Ensure at least one session exists
     if (!activeId) {
       createSession();
@@ -65,6 +75,12 @@ export default function ChatPage() {
     probe.onload = () => { if (probe.naturalWidth > 0) setLogoReady(true); };
     probe.src = "/logo.png";
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const cyclePlanMode = () => {
+    const next: PlanMode = planMode === "auto" ? "on" : planMode === "on" ? "off" : "auto";
+    setPlanMode(next);
+    try { localStorage.setItem("bdgo.planMode", next); } catch {}
+  };
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -108,42 +124,28 @@ export default function ChatPage() {
     persistCollapsed(next);
   };
 
-  const handleSend = useCallback(
-    async (text?: string) => {
-      const msg = (text || input).trim();
-      if (!msg || isStreaming || !activeId) return;
-
-      // Capture session id — locked into this closure so session switches
-      // during streaming don't corrupt other sessions.
-      const targetSessionId = activeId;
-      const currentFiles = [...attachments];
-
-      setInput("");
-      setAttachments([]);
-
-      const userMsgId = crypto.randomUUID().slice(0, 12);
-      const assistantMsgId = crypto.randomUUID().slice(0, 12);
-
-      addMessage(targetSessionId, {
-        id: userMsgId,
-        role: "user",
-        content: msg,
-        attachments: currentFiles.length > 0 ? currentFiles : undefined,
-        createdAt: Date.now(),
-      });
-      addMessage(targetSessionId, {
-        id: assistantMsgId,
-        role: "assistant",
-        content: "",
-        tools: [],
-        streaming: true,
-        createdAt: Date.now(),
-      });
-
+  // Low-level streamer — shared by new sends and plan confirmation/skip.
+  // Caller provides the targetSessionId, assistantMsgId (pre-created), and options.
+  const streamInto = useCallback(
+    async (opts: {
+      targetSessionId: string;
+      assistantMsgId: string;
+      message: string;
+      files: string[];
+      planModeOverride: PlanMode;
+      planConfirm?: PlanConfirmPayload;
+    }) => {
+      const { targetSessionId, assistantMsgId, message, files, planModeOverride, planConfirm } = opts;
       setIsStreaming(true);
-
       try {
-        const res = await chatStream(msg, targetSessionId, currentFiles, getSelectedModel() || undefined);
+        const res = await chatStream(
+          message,
+          targetSessionId,
+          files,
+          getSelectedModel() || undefined,
+          planModeOverride,
+          planConfirm,
+        );
         const reader = res.body?.getReader();
         if (!reader) throw new Error("No response stream");
 
@@ -169,21 +171,22 @@ export default function ChatPage() {
                 if (data.type === "chunk") {
                   appendAssistantChunk(targetSessionId, assistantMsgId, data.content);
                 } else if (data.type === "tool_call") {
-                  addToolEvent(targetSessionId, assistantMsgId, {
-                    type: "tool_call",
-                    name: data.name,
-                  });
+                  addToolEvent(targetSessionId, assistantMsgId, { type: "tool_call", name: data.name });
                 } else if (data.type === "tool_result") {
-                  addToolEvent(targetSessionId, assistantMsgId, {
-                    type: "tool_result",
-                    name: data.name,
-                  });
+                  addToolEvent(targetSessionId, assistantMsgId, { type: "tool_result", name: data.name });
                 } else if (data.type === "report_task") {
                   addReportTask(targetSessionId, assistantMsgId, {
                     task_id: data.task_id,
                     slug: data.slug,
                     estimated_seconds: data.estimated_seconds,
                   });
+                } else if (data.type === "plan_proposal") {
+                  setMessagePlan(
+                    targetSessionId,
+                    assistantMsgId,
+                    data.plan,
+                    data.original_message || message,
+                  );
                 } else if (data.type === "context_entity") {
                   const entity: ContextEntity = {
                     id: data.id,
@@ -196,21 +199,12 @@ export default function ChatPage() {
                   };
                   addContextEntity(targetSessionId, entity);
                 } else if (data.type === "error") {
-                  appendAssistantChunk(
-                    targetSessionId,
-                    assistantMsgId,
-                    `\n\n**Error:** ${data.message}`,
-                  );
+                  appendAssistantChunk(targetSessionId, assistantMsgId, `\n\n**Error:** ${data.message}`);
                   markMessageDone(targetSessionId, assistantMsgId);
                 } else if (data.type === "usage") {
-                  // Optimistically update credit balance from server-reported usage
-                  applyCreditsUsage(
-                    data.credits_charged ?? 0,
-                    data.balance ?? null,
-                  );
+                  applyCreditsUsage(data.credits_charged ?? 0, data.balance ?? null);
                 } else if (data.type === "done") {
                   markMessageDone(targetSessionId, assistantMsgId);
-                  // Reconcile credit balance after turn completes
                   void refreshCredits();
                 }
               } catch {
@@ -220,30 +214,152 @@ export default function ChatPage() {
           }
         }
       } catch (e: any) {
-        appendAssistantChunk(
-          targetSessionId,
-          assistantMsgId,
-          `\n\nConnection error: ${e.message}`,
-        );
+        appendAssistantChunk(targetSessionId, assistantMsgId, `\n\nConnection error: ${e.message}`);
         markMessageDone(targetSessionId, assistantMsgId);
       } finally {
         setIsStreaming(false);
         markMessageDone(targetSessionId, assistantMsgId);
-        // Auto-title after first assistant message completes
         autoTitleFromFirstMessage(targetSessionId);
       }
     },
     [
-      input,
-      isStreaming,
-      activeId,
-      attachments,
-      addMessage,
       appendAssistantChunk,
       addToolEvent,
-      markMessageDone,
+      addReportTask,
+      setMessagePlan,
       addContextEntity,
+      markMessageDone,
     ],
+  );
+
+  const handleSend = useCallback(
+    async (text?: string) => {
+      const msg = (text || input).trim();
+      if (!msg || isStreaming || !activeId) return;
+
+      const targetSessionId = activeId;
+      const currentFiles = [...attachments];
+
+      setInput("");
+      setAttachments([]);
+
+      const userMsgId = crypto.randomUUID().slice(0, 12);
+      const assistantMsgId = crypto.randomUUID().slice(0, 12);
+
+      addMessage(targetSessionId, {
+        id: userMsgId,
+        role: "user",
+        content: msg,
+        attachments: currentFiles.length > 0 ? currentFiles : undefined,
+        createdAt: Date.now(),
+      });
+      addMessage(targetSessionId, {
+        id: assistantMsgId,
+        role: "assistant",
+        content: "",
+        tools: [],
+        streaming: true,
+        createdAt: Date.now(),
+      });
+
+      await streamInto({
+        targetSessionId,
+        assistantMsgId,
+        message: msg,
+        files: currentFiles,
+        planModeOverride: planMode,
+      });
+    },
+    [input, isStreaming, activeId, attachments, addMessage, streamInto, planMode],
+  );
+
+  // User confirmed / skipped / cancelled a plan card.
+  const handlePlanConfirm = useCallback(
+    async (planMsgId: string, selectedStepIds: string[]) => {
+      const currentSession = activeId;
+      if (!currentSession) return;
+      const session = active;
+      const planMsg = session?.messages.find((m) => m.id === planMsgId);
+      if (!planMsg || !planMsg.plan || !planMsg.originalMessage) return;
+
+      const selectedSteps = planMsg.plan.steps
+        .filter((s) => selectedStepIds.includes(s.id) || s.required)
+        .map((s) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          tools_expected: s.tools_expected,
+        }));
+
+      // Mark the plan card as confirmed (freezes its UI)
+      updatePlanStatus(currentSession, planMsgId, "confirmed", selectedSteps.map((s) => s.id));
+
+      // Create a new assistant message for the actual execution stream
+      const executionMsgId = crypto.randomUUID().slice(0, 12);
+      addMessage(currentSession, {
+        id: executionMsgId,
+        role: "assistant",
+        content: "",
+        tools: [],
+        streaming: true,
+        createdAt: Date.now(),
+      });
+
+      await streamInto({
+        targetSessionId: currentSession,
+        assistantMsgId: executionMsgId,
+        message: planMsg.originalMessage,
+        files: [],
+        planModeOverride: "off",
+        planConfirm: {
+          plan_id: planMsg.plan.plan_id,
+          plan_title: planMsg.plan.title,
+          selected_steps: selectedSteps,
+          original_message: planMsg.originalMessage,
+        },
+      });
+    },
+    [activeId, active, updatePlanStatus, addMessage, streamInto],
+  );
+
+  const handlePlanSkip = useCallback(
+    async (planMsgId: string) => {
+      const currentSession = activeId;
+      if (!currentSession) return;
+      const session = active;
+      const planMsg = session?.messages.find((m) => m.id === planMsgId);
+      if (!planMsg || !planMsg.originalMessage) return;
+
+      updatePlanStatus(currentSession, planMsgId, "cancelled");
+
+      const executionMsgId = crypto.randomUUID().slice(0, 12);
+      addMessage(currentSession, {
+        id: executionMsgId,
+        role: "assistant",
+        content: "",
+        tools: [],
+        streaming: true,
+        createdAt: Date.now(),
+      });
+
+      await streamInto({
+        targetSessionId: currentSession,
+        assistantMsgId: executionMsgId,
+        message: planMsg.originalMessage,
+        files: [],
+        planModeOverride: "off",
+      });
+    },
+    [activeId, active, updatePlanStatus, addMessage, streamInto],
+  );
+
+  const handlePlanCancel = useCallback(
+    (planMsgId: string) => {
+      const currentSession = activeId;
+      if (!currentSession) return;
+      updatePlanStatus(currentSession, planMsgId, "cancelled");
+    },
+    [activeId, updatePlanStatus],
   );
 
   const startTitleEdit = () => {
@@ -305,6 +421,29 @@ export default function ChatPage() {
           )}
           <div className="chat-header-actions">
             <ModelPicker compact />
+            <button
+              onClick={cyclePlanMode}
+              title={
+                planMode === "auto"
+                  ? "规划模式：智能判断（长任务自动先规划）"
+                  : planMode === "on"
+                  ? "规划模式：始终先出方案"
+                  : "规划模式：关闭（直接执行）"
+              }
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "4px 10px", fontSize: 12, fontWeight: 500,
+                background: planMode === "on" ? "#DBEAFE" : planMode === "off" ? "#F1F5F9" : "#F8FAFF",
+                border: `1px solid ${planMode === "on" ? "#1E3A8A" : "#E2E8F0"}`,
+                color: planMode === "on" ? "#1E3A8A" : planMode === "off" ? "#64748B" : "#475569",
+                borderRadius: 8, cursor: "pointer",
+              }}
+            >
+              📋
+              <span>
+                {planMode === "auto" ? "规划 · 自动" : planMode === "on" ? "规划 · 开" : "规划 · 关"}
+              </span>
+            </button>
             {contextCollapsed && (
               <button
                 className="icon-btn"
@@ -355,6 +494,12 @@ export default function ChatPage() {
                   tools={m.tools}
                   attachments={m.attachments}
                   reportTasks={m.reportTasks}
+                  plan={m.plan}
+                  planStatus={m.planStatus}
+                  planSelectedIds={m.planSelectedIds}
+                  onPlanConfirm={(ids) => handlePlanConfirm(m.id, ids)}
+                  onPlanSkip={() => handlePlanSkip(m.id)}
+                  onPlanCancel={() => handlePlanCancel(m.id)}
                 />
               ))}
             </div>
