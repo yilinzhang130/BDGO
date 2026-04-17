@@ -220,8 +220,8 @@ export default function ProfilePage() {
     setTitle(user.title || "");
     setPhone(user.phone || "");
     setBio(user.bio || "");
-    setPreferences(user.preferences_json || "");
     const prefs = parsePreferences(user);
+    setPreferences(prefs.ai_context || "");
     setShowDatabaseNav(prefs.show_database_nav === true);
     setShowReportCards(prefs.show_report_cards === true);
   }, [user]);
@@ -247,7 +247,10 @@ export default function ProfilePage() {
   const handleSavePreferences = async () => {
     setSavingPrefs(true);
     try {
-      const updated = await updateProfile({ preferences_json: preferences });
+      let existing: UserPreferences = {};
+      try { existing = JSON.parse(user?.preferences_json || "{}") as UserPreferences; } catch { /* ignore */ }
+      const merged = JSON.stringify({ ...existing, ai_context: preferences });
+      const updated = await updateProfile({ preferences_json: merged });
       updateUser(updated);
       showToast("AI preferences saved", "success");
     } catch (err: any) {

@@ -60,6 +60,7 @@ export function isLoggedIn(): boolean {
 // ═══════════════════════════════════════════
 
 export interface UserPreferences {
+  ai_context?: string;
   show_database_nav?: boolean;
   show_report_cards?: boolean;
 }
