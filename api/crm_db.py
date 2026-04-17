@@ -21,6 +21,11 @@ Public API:
     get_conn()           获取数据库连接（高级用法）
 
 作者: Claude (for Peter) | 2026-03-27 | PG迁移 2026-04-11
+
+CHANGELOG (最新在上):
+    2026-04-11  PG_DSN 默认值从 openclaw_crm 改为 bdgo（数据库统一）
+    2026-04-11  PostgreSQL 后端升为推荐选项；SQLite 仅作只读备份
+    2026-03-27  初始版本：SQLite 单后端，替代 CSV 读写
 """
 
 import csv, json, os, sqlite3, shutil

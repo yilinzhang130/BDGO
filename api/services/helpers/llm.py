@@ -11,63 +11,53 @@ import time
 
 import httpx
 
-from config import MINIMAX_ANTHROPIC_VERSION, MINIMAX_KEY, MINIMAX_MODEL, MINIMAX_URL
+from models import MODELS, ModelSpec, fallback_chain
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 300.0
 
 
-def call_llm_sync(
+def _call_one_sync(
+    model: ModelSpec,
     system: str,
     messages: list[dict],
-    max_tokens: int = 4096,
-    model: str = MINIMAX_MODEL,
-    timeout: float = DEFAULT_TIMEOUT,
-) -> str:
-    """Call MiniMax non-streaming, return final assistant text.
-
-    Args:
-        system: system prompt
-        messages: [{"role": "user"|"assistant", "content": str}, ...]
-        max_tokens: response token budget
-    Returns:
-        concatenated text from all `text` content blocks (ignoring `thinking` blocks)
-    Raises:
-        RuntimeError on API failure
-    """
+    max_tokens: int,
+    timeout: float,
+) -> str | None:
+    """Single provider attempt. Returns text on success, None on 529 overload, raises on other errors."""
     body = {
-        "model": model,
+        "model": model.api_model,
         "system": system,
         "messages": messages,
         "max_tokens": max_tokens,
     }
     headers = {
-        "x-api-key": MINIMAX_KEY,
+        "x-api-key": model.api_key,
         "Content-Type": "application/json",
-        "anthropic-version": MINIMAX_ANTHROPIC_VERSION,
     }
+    if model.anthropic_version:
+        headers["anthropic-version"] = model.anthropic_version
 
-    max_retries = 3
     resp = None
     try:
         with httpx.Client(timeout=timeout) as client:
-            for attempt in range(max_retries):
+            for attempt in range(3):
                 try:
-                    resp = client.post(MINIMAX_URL, json=body, headers=headers)
+                    resp = client.post(model.api_url, json=body, headers=headers)
                 except httpx.TimeoutException as e:
                     raise RuntimeError(f"LLM request timed out after {timeout}s") from e
                 except httpx.HTTPError as e:
                     raise RuntimeError(f"LLM HTTP error: {e}") from e
 
                 if resp.status_code == 529:
-                    if attempt < max_retries - 1:
-                        wait = 2 ** attempt  # 1s, 2s
-                        logger.warning("MiniMax 529 overload (attempt %d/%d), retrying in %ds", attempt + 1, max_retries, wait)
+                    if attempt < 2:
+                        wait = 2 ** attempt
+                        logger.warning("%s 529 overload (attempt %d/3), retrying in %ds", model.id, attempt + 1, wait)
                         time.sleep(wait)
                         continue
-                    raise RuntimeError("AI服务当前负载较高，请稍后重试（已重试3次）")
-                break  # non-529 — success or other error, stop retrying
+                    return None  # signal overload to caller for fallback
+                break
     except RuntimeError:
         raise
 
@@ -79,18 +69,47 @@ def call_llm_sync(
     except Exception as e:
         raise RuntimeError(f"LLM response JSON parse error: {e}") from e
 
-    # MiniMax/Anthropic returns content as an array of blocks.
-    # Each block is either {"type": "text", "text": "..."} or {"type": "thinking", ...}.
     content_blocks = data.get("content", [])
-    texts = []
-    for block in content_blocks:
-        if isinstance(block, dict) and block.get("type") == "text":
-            t = block.get("text", "")
-            if t:
-                texts.append(t)
-
+    texts = [
+        block["text"]
+        for block in content_blocks
+        if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
+    ]
     if not texts:
         logger.warning("LLM returned no text blocks. Full response: %s", data)
         return ""
-
     return "\n".join(texts)
+
+
+def call_llm_sync(
+    system: str,
+    messages: list[dict],
+    max_tokens: int = 4096,
+    model_id: str = "minimax-m1",
+    timeout: float = DEFAULT_TIMEOUT,
+) -> str:
+    """Call LLM non-streaming, return final assistant text.
+
+    Falls back to alternative providers if the primary returns 529 overloaded.
+
+    Args:
+        system: system prompt
+        messages: [{"role": "user"|"assistant", "content": str}, ...]
+        max_tokens: response token budget
+        model_id: key from models.MODELS (default: minimax-m1)
+    Returns:
+        concatenated text from all `text` content blocks
+    Raises:
+        RuntimeError on API failure or all providers overloaded
+    """
+    primary = MODELS.get(model_id) or MODELS["minimax-m1"]
+    models_to_try = [primary] + fallback_chain(primary.id)
+
+    for model in models_to_try:
+        result = _call_one_sync(model, system, messages, max_tokens, timeout)
+        if result is None:
+            logger.warning("Model %s overloaded, trying fallback", model.id)
+            continue
+        return result
+
+    raise RuntimeError("所有AI服务当前负载较高，请稍后重试")

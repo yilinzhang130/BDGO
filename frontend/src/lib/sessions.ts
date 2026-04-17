@@ -14,6 +14,33 @@ import {
 import { isBrowser, bg } from "./utils";
 import { getToken } from "./auth";
 
+// Types live in session-types.ts; re-exported here so all existing
+// import { type X } from "@/lib/sessions" paths continue to work.
+import type {
+  Role,
+  ToolEvent,
+  ReportTask,
+  PlanStep,
+  PlanProposal,
+  PlanStatus,
+  ChatMessage,
+  EntityType,
+  ContextEntity,
+  ChatSession,
+} from "./session-types";
+export type {
+  Role,
+  ToolEvent,
+  ReportTask,
+  PlanStep,
+  PlanProposal,
+  PlanStatus,
+  ChatMessage,
+  EntityType,
+  ContextEntity,
+  ChatSession,
+} from "./session-types";
+
 // Parse the tools_json column — it may hold either the legacy array of
 // ToolEvent objects or an object with {plan, tools, ...} when the message
 // is a plan proposal.
@@ -56,84 +83,6 @@ function extractText(raw: string): string {
     }
   } catch {}
   return raw;
-}
-
-// ═══════════════════════════════════════════
-// Types
-// ═══════════════════════════════════════════
-
-export type Role = "user" | "assistant";
-
-export interface ToolEvent {
-  type: "tool_call" | "tool_result";
-  name: string;
-}
-
-export interface ReportTask {
-  task_id: string;
-  slug: string;
-  estimated_seconds: number;
-}
-
-export interface PlanStep {
-  id: string;
-  title: string;
-  description: string;
-  tools_expected: string[];
-  required: boolean;
-  default_selected: boolean;
-  estimated_seconds: number;
-}
-
-export interface PlanProposal {
-  plan_id: string;
-  title: string;
-  summary: string;
-  steps: PlanStep[];
-}
-
-export type PlanStatus = "pending" | "confirmed" | "cancelled";
-
-export interface ChatMessage {
-  id: string;
-  role: Role;
-  content: string;
-  tools?: ToolEvent[];
-  attachments?: string[];
-  reportTasks?: ReportTask[];
-  plan?: PlanProposal;
-  planStatus?: PlanStatus;
-  planSelectedIds?: string[]; // remembers which steps were ticked on confirm
-  originalMessage?: string;   // original user prompt when plan was generated
-  streaming?: boolean;
-  createdAt: number;
-}
-
-export type EntityType =
-  | "company"
-  | "asset"
-  | "clinical"
-  | "deal"
-  | "patent"
-  | "buyer";
-
-export interface ContextEntity {
-  id: string; // dedupe key: `${entity_type}:${slug}`
-  entityType: EntityType;
-  title: string;
-  subtitle?: string;
-  fields: { label: string; value: string }[];
-  href?: string;
-  addedAt: number;
-}
-
-export interface ChatSession {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  messages: ChatMessage[];
-  contextEntities: ContextEntity[];
 }
 
 // ═══════════════════════════════════════════

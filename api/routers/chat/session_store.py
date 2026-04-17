@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import uuid
 
 from database import transaction
@@ -106,6 +105,8 @@ def save_message(
     else:
         content_str = str(content) if content else ""
 
+    # Two rapid attempts — no sleep (this runs inside an async generator;
+    # blocking sleep would stall the event loop for all concurrent requests).
     for attempt in range(2):
         try:
             with transaction() as cur:
@@ -123,7 +124,6 @@ def save_message(
         except Exception:
             if attempt == 0:
                 logger.warning("Retrying save_message for session %s", session_id)
-                time.sleep(0.5)
             else:
                 logger.exception("Failed to save message for session %s (gave up)", session_id)
 
@@ -136,29 +136,34 @@ def save_entities(session_id: str, entities: list[dict]) -> None:
     """Upsert context entities extracted from tool results."""
     if not entities:
         return
-    try:
-        with transaction() as cur:
-            params = [
-                (e.get("id"), session_id, e.get("entity_type", ""),
-                 e.get("title", ""), e.get("subtitle"),
-                 json.dumps(e.get("fields", []), ensure_ascii=False) if e.get("fields") else None,
-                 e.get("href"))
-                for e in entities
-            ]
-            cur.executemany(
-                """INSERT INTO context_entities (id, session_id, entity_type, title, subtitle, fields_json, href)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)
-                   ON CONFLICT (id) DO UPDATE SET
-                       entity_type = EXCLUDED.entity_type,
-                       title = EXCLUDED.title,
-                       subtitle = EXCLUDED.subtitle,
-                       fields_json = EXCLUDED.fields_json,
-                       href = EXCLUDED.href,
-                       added_at = NOW()""",
-                params,
-            )
-    except Exception:
-        logger.exception("Failed to save entities for session %s", session_id)
+    params = [
+        (e.get("id"), session_id, e.get("entity_type", ""),
+         e.get("title", ""), e.get("subtitle"),
+         json.dumps(e.get("fields", []), ensure_ascii=False) if e.get("fields") else None,
+         e.get("href"))
+        for e in entities
+    ]
+    for attempt in range(2):
+        try:
+            with transaction() as cur:
+                cur.executemany(
+                    """INSERT INTO context_entities (id, session_id, entity_type, title, subtitle, fields_json, href)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (id) DO UPDATE SET
+                           entity_type = EXCLUDED.entity_type,
+                           title = EXCLUDED.title,
+                           subtitle = EXCLUDED.subtitle,
+                           fields_json = EXCLUDED.fields_json,
+                           href = EXCLUDED.href,
+                           added_at = NOW()""",
+                    params,
+                )
+            return
+        except Exception:
+            if attempt == 0:
+                logger.warning("Retrying save_entities for session %s", session_id)
+            else:
+                logger.exception("Failed to save entities for session %s (gave up)", session_id)
 
 
 # ─────────────────────────────────────────────────────────────

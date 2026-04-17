@@ -105,6 +105,16 @@ def resolve_model(model_id: str | None) -> ModelSpec:
     return MODELS[DEFAULT_MODEL_ID]
 
 
+def fallback_chain(model_id: str) -> list[ModelSpec]:
+    """Return available fallback models excluding model_id, cheapest first."""
+    priority = ["deepseek-v3", "minimax-m1", "claude-sonnet"]
+    return [
+        MODELS[mid]
+        for mid in priority
+        if mid != model_id and mid in MODELS and MODELS[mid].api_key
+    ]
+
+
 def available_models() -> list[dict]:
     """JSON-serialisable list for the /api/models endpoint."""
     return [

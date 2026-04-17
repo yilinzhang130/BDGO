@@ -10,6 +10,9 @@ from field_policy import HIDDEN_FIELDS, strip_hidden
 
 logger = logging.getLogger(__name__)
 
+# Sentinel key injected into tool error responses so the streaming loop can
+# detect persistent failures without parsing error text.
+TOOL_FAILED_KEY = "_tool_failed"
 
 # Map each CRM tool to its source table so we can apply field visibility.
 # Tools NOT in this map (watchlist / reports / skill calls) are not filtered.
@@ -99,4 +102,4 @@ def execute_tool(
         return s
     except Exception as e:
         logger.exception("Tool %s failed", name)
-        return json.dumps({"error": str(e), "_tool_failed": True})
+        return json.dumps({"error": str(e), TOOL_FAILED_KEY: True})

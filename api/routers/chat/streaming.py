@@ -10,7 +10,7 @@ import httpx
 
 import credits as credits_mod
 import planner as planner_mod
-from models import ModelSpec, resolve_model
+from models import ModelSpec, fallback_chain, resolve_model
 
 from .attachments import extract_text
 from .compaction import compact_if_needed
@@ -23,6 +23,7 @@ from .session_store import (
 )
 from .system_prompt import SYSTEM_PROMPT
 from .tools import TOOL_IMPL, TOOLS, execute_tool
+from .tools.registry import TOOL_FAILED_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ async def call_minimax_stream(
                     )
                     await asyncio.sleep(wait)
                     continue
-                yield ("error", "AI服务当前负载较高，请稍等片刻后重试。")
+                yield ("overloaded", model.id)
                 return
             if resp.status_code != 200:
                 await resp.aread()
@@ -163,6 +164,38 @@ async def call_minimax_stream(
 
         yield ("_end", {"stop_reason": stop_reason, "content": collected_content})
         return
+
+
+# ─────────────────────────────────────────────────────────────
+# Fallback wrapper — tries primary model then alternatives on 529
+# ─────────────────────────────────────────────────────────────
+
+async def _stream_with_fallback(
+    client: httpx.AsyncClient,
+    messages: list,
+    model: ModelSpec,
+    usage_accum: dict,
+    system_prompt: str | None = None,
+):
+    """Wrap call_minimax_stream with cross-provider fallback on overload.
+
+    If the primary model signals overloaded (529 exhausted), tries each
+    model in fallback_chain() before giving up.
+    """
+    models_to_try = [model] + fallback_chain(model.id)
+    for try_model in models_to_try:
+        overloaded = False
+        async for event_type, payload in call_minimax_stream(
+            client, messages, try_model, usage_accum, system_prompt
+        ):
+            if event_type == "overloaded":
+                overloaded = True
+                logger.warning("Model %s overloaded, trying fallback", try_model.id)
+                break
+            yield event_type, payload
+        if not overloaded:
+            return
+    yield ("error", "所有AI服务当前负载较高，请稍等片刻后重试。")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -274,7 +307,7 @@ async def stream_chat(req):
                 final_content = None
                 final_stop_reason = None
 
-                async for event_type, payload in call_minimax_stream(
+                async for event_type, payload in _stream_with_fallback(
                     client, history, model, usage_accum,
                     system_prompt=active_system_prompt,
                 ):
@@ -316,7 +349,7 @@ async def stream_chat(req):
                             result_obj = None
 
                         # Circuit-breaker: stop retrying a tool that fails twice.
-                        if isinstance(result_obj, dict) and result_obj.get("_tool_failed"):
+                        if isinstance(result_obj, dict) and result_obj.get(TOOL_FAILED_KEY):
                             tool_error_counts[name] = tool_error_counts.get(name, 0) + 1
                             if tool_error_counts[name] >= 2:
                                 result_str = json.dumps({
