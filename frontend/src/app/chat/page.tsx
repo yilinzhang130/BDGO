@@ -41,6 +41,8 @@ export default function ChatPage() {
     markMessageDone,
     setMessagePlan,
     setMessageQuickSources,
+    setMessageError,
+    removeMessage,
     updatePlanStatus,
     addContextEntity,
     removeContextEntity,
@@ -189,6 +191,11 @@ export default function ChatPage() {
     }) => {
       const { targetSessionId, assistantMsgId, message, files, planModeOverride, planConfirm, searchModeOverride } = opts;
       setIsStreaming(true);
+      let errored = false;
+      const failWith = (msg: string) => {
+        errored = true;
+        setMessageError(targetSessionId, assistantMsgId, msg);
+      };
       try {
         const res = await chatStream(
           message,
@@ -258,8 +265,7 @@ export default function ChatPage() {
                   };
                   addContextEntity(targetSessionId, entity);
                 } else if (data.type === "error") {
-                  appendAssistantChunk(targetSessionId, assistantMsgId, `\n\n**Error:** ${data.message}`);
-                  markMessageDone(targetSessionId, assistantMsgId);
+                  failWith(data.message || "未知错误");
                 } else if (data.type === "usage") {
                   applyCreditsUsage(data.credits_charged ?? 0, data.balance ?? null);
                 } else if (data.type === "done") {
@@ -273,11 +279,16 @@ export default function ChatPage() {
           }
         }
       } catch (e: any) {
-        appendAssistantChunk(targetSessionId, assistantMsgId, `\n\nConnection error: ${e.message}`);
-        markMessageDone(targetSessionId, assistantMsgId);
+        failWith(
+          e?.message?.includes("credit") || e?.message?.includes("402")
+            ? e.message
+            : "网络连接失败，请检查网络后点击重试。",
+        );
       } finally {
         setIsStreaming(false);
-        markMessageDone(targetSessionId, assistantMsgId);
+        if (!errored) {
+          markMessageDone(targetSessionId, assistantMsgId);
+        }
         autoTitleFromFirstMessage(targetSessionId);
       }
     },
@@ -287,6 +298,7 @@ export default function ChatPage() {
       addReportTask,
       setMessagePlan,
       setMessageQuickSources,
+      setMessageError,
       addContextEntity,
       markMessageDone,
     ],
@@ -332,6 +344,44 @@ export default function ChatPage() {
       });
     },
     [input, isStreaming, activeId, attachments, addMessage, streamInto, planMode, searchMode],
+  );
+
+  // Retry an errored assistant reply: delete the errored message and
+  // re-send the user turn immediately before it. Preserves attachments.
+  const handleRetry = useCallback(
+    async (erroredMsgId: string) => {
+      if (!activeId || isStreaming) return;
+      const session = active;
+      if (!session) return;
+      const idx = session.messages.findIndex((m) => m.id === erroredMsgId);
+      if (idx <= 0) return;
+      // Walk back to the nearest preceding user turn.
+      let userIdx = idx - 1;
+      while (userIdx >= 0 && session.messages[userIdx].role !== "user") userIdx--;
+      if (userIdx < 0) return;
+      const userMsg = session.messages[userIdx];
+
+      removeMessage(activeId, erroredMsgId);
+      const assistantMsgId = crypto.randomUUID().slice(0, 12);
+      addMessage(activeId, {
+        id: assistantMsgId,
+        role: "assistant",
+        content: "",
+        tools: [],
+        streaming: true,
+        createdAt: Date.now(),
+      });
+
+      await streamInto({
+        targetSessionId: activeId,
+        assistantMsgId,
+        message: userMsg.content,
+        files: userMsg.attachments || [],
+        planModeOverride: planMode,
+        searchModeOverride: searchMode,
+      });
+    },
+    [activeId, active, isStreaming, addMessage, removeMessage, streamInto, planMode, searchMode],
   );
 
   // User confirmed / skipped / cancelled a plan card.
@@ -687,6 +737,8 @@ export default function ChatPage() {
                   planStatus={m.planStatus}
                   planSelectedIds={m.planSelectedIds}
                   quickSources={m.quickSources}
+                  error={m.error}
+                  onRetry={() => handleRetry(m.id)}
                   onPlanConfirm={(ids) => handlePlanConfirm(m.id, ids)}
                   onPlanSkip={() => handlePlanSkip(m.id)}
                   onPlanCancel={() => handlePlanCancel(m.id)}

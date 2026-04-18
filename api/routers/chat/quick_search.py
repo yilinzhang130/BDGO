@@ -142,9 +142,9 @@ async def stream_quick_search(req):
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     except httpx.TimeoutException:
-        yield f"data: {json.dumps({'type': 'error', 'message': 'Request timed out'})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'message': '请求超时，请点击重试。', 'retryable': True})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
     except Exception as e:
         logger.exception("Quick-search error")
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e)[:500]})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'message': '系统遇到临时故障，请点击重试。', 'retryable': True, 'detail': str(e)[:200]}, ensure_ascii=False)}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"

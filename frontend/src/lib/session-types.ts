@@ -52,6 +52,7 @@ export interface ChatMessage {
   planSelectedIds?: string[]; // remembers which steps were ticked on confirm
   originalMessage?: string;   // original user prompt when plan was generated
   quickSources?: QuickSearchSource[]; // quick-search citations
+  error?: string;               // user-facing error; presence enables retry UI
   streaming?: boolean;
   createdAt: number;
 }

@@ -396,6 +396,26 @@ export function setMessageQuickSources(
   }));
 }
 
+export function setMessageError(
+  sessionId: string,
+  msgId: string,
+  error: string,
+) {
+  touchSession(sessionId, (s) => ({
+    ...s,
+    messages: s.messages.map((m) =>
+      m.id === msgId ? { ...m, error, streaming: false } : m,
+    ),
+  }));
+}
+
+export function removeMessage(sessionId: string, msgId: string) {
+  touchSession(sessionId, (s) => ({
+    ...s,
+    messages: s.messages.filter((m) => m.id !== msgId),
+  }));
+}
+
 export function markMessageDone(sessionId: string, msgId: string) {
   touchSession(sessionId, (s) => ({
     ...s,
@@ -404,10 +424,12 @@ export function markMessageDone(sessionId: string, msgId: string) {
     ),
   }));
 
-  // Persist the completed assistant message to server
+  // Persist the completed assistant message to server.
+  // Errored messages stay client-side only so a retry doesn't leave
+  // the failed turn in the DB.
   const session = getSession(sessionId);
   const msg = session?.messages.find((m) => m.id === msgId);
-  if (msg && msg.role === "assistant") {
+  if (msg && msg.role === "assistant" && !msg.error) {
     const toolsJson = msg.plan
       ? JSON.stringify({
           plan: msg.plan,
@@ -562,6 +584,8 @@ export function useSessionStore() {
     markMessageDone,
     setMessagePlan,
     setMessageQuickSources,
+    setMessageError,
+    removeMessage,
     updatePlanStatus,
     addContextEntity,
     removeContextEntity,

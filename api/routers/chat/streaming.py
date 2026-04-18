@@ -91,7 +91,15 @@ async def call_minimax_stream(
                 return
             if resp.status_code != 200:
                 await resp.aread()
-                yield ("error", f"AI服务异常（{resp.status_code}），请稍后重试。")
+                if resp.status_code in (408, 504):
+                    msg = "请求超时，点击重试重新发送。"
+                elif resp.status_code in (401, 403):
+                    msg = "AI服务认证失败，请联系管理员。"
+                elif 500 <= resp.status_code < 600:
+                    msg = "AI服务暂时不可用，请稍后重试。"
+                else:
+                    msg = f"AI服务异常（{resp.status_code}），请稍后重试。"
+                yield ("error", msg)
                 return
 
             # ── success: process the stream ──────────────────────────
@@ -417,9 +425,9 @@ async def stream_chat(req):
         # Persist all extracted context entities
         save_entities(session_id, all_entities)
 
-        # ── Bill credits for this request ─────────────────────
-        # Debit after the stream finishes so we never charge for a
-        # failed turn. Admin users are never billed.
+        # ── Bill credits (success path only) ──────────────────
+        # All error paths `return` before reaching here, so a failed
+        # turn is never charged. Admin users are never billed.
         credits_charged = 0.0
         balance_remaining = None
         if user_id and not req.is_admin:
@@ -453,11 +461,11 @@ async def stream_chat(req):
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     except httpx.TimeoutException:
-        yield f"data: {json.dumps({'type': 'error', 'message': 'Request timed out'})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'message': '请求超时，请点击重试。', 'retryable': True})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
     except Exception as e:
         logger.exception("Chat error")
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e)[:500]})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'message': '系统遇到临时故障，请点击重试。', 'retryable': True, 'detail': str(e)[:200]}, ensure_ascii=False)}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
 

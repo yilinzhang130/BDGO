@@ -30,6 +30,8 @@ interface Props {
   planStatus?: PlanStatus;
   planSelectedIds?: string[];
   quickSources?: QuickSource[];
+  error?: string;
+  onRetry?: () => void;
   onPlanConfirm?: (selectedIds: string[]) => void;
   onPlanSkip?: () => void;
   onPlanCancel?: () => void;
@@ -270,11 +272,38 @@ function QuickSourcesList({ sources }: { sources: QuickSource[] }) {
   );
 }
 
+// ── Error box with retry button ──────────────────────────────────────
+function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div style={{
+      marginTop: 8, padding: "10px 12px",
+      background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8,
+      fontSize: 13, color: "#991B1B",
+      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+    }}>
+      <span>⚠️ {message}</span>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          style={{
+            padding: "4px 12px", fontSize: 12, fontWeight: 500,
+            background: "#fff", color: "#991B1B",
+            border: "1px solid #FECACA", borderRadius: 6, cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          🔄 重试
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── ChatMessage ──────────────────────────────────────────────────────
 export function ChatMessage({
   role, content, streaming, tools, attachments, reportTasks,
-  plan, planStatus, planSelectedIds, quickSources,
-  onPlanConfirm, onPlanSkip, onPlanCancel,
+  plan, planStatus, planSelectedIds, quickSources, error,
+  onRetry, onPlanConfirm, onPlanSkip, onPlanCancel,
 }: Props) {
   if (role === "user") {
     return (
@@ -324,6 +353,7 @@ export function ChatMessage({
         {reportTasks && reportTasks.map((rt) => (
           <ReportTaskCard key={rt.task_id} {...rt} />
         ))}
+        {error && <ErrorBox message={error} onRetry={onRetry} />}
         {streaming && !hasTools && !plan && <span className="chat-cursor">|</span>}
       </div>
     </div>
