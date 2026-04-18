@@ -263,17 +263,24 @@ class BuyerProfileService(ReportService):
     def run(self, params: dict, ctx: ReportContext) -> ReportResult:
         inp = BuyerProfileInput(**params)
 
-        # Phase 1: Fuzzy lookup the MNC画像 row
+        # Phase 1: Resolve company via shared fuzzy resolver
         ctx.log(f"Looking up {inp.company_name} in MNC画像...")
-        profile = self._fuzzy_lookup(inp.company_name, ctx)
+        from services.helpers.resolve import resolve_mnc
+        resolve = resolve_mnc(inp.company_name)
+        profile = resolve.row
         web_only = profile is None
 
         if web_only:
             ctx.log(f"'{inp.company_name}' not in CRM — switching to web-enriched mode")
+            if resolve.suggestions:
+                ctx.log(f"Closest matches in MNC画像: {', '.join(resolve.suggestions[:3])}")
             resolved_name = inp.company_name
         else:
-            resolved_name = profile.get("company_name", inp.company_name)
-            ctx.log(f"Resolved to: {resolved_name}")
+            resolved_name = resolve.canonical or profile.get("company_name", inp.company_name)
+            if resolve.fuzzy:
+                ctx.log(f"Fuzzy-matched '{inp.company_name}' → '{resolved_name}'")
+            else:
+                ctx.log(f"Resolved to: {resolved_name}")
 
         # Phase 2: Parse JSON fields defensively
         parsed = self._parse_profile_json(profile or {})
@@ -471,62 +478,6 @@ class BuyerProfileService(ReportService):
                 "total_chars": total_chars,
             },
         )
-
-    # ── CRM lookup ──────────────────────────────────────────
-    def _fuzzy_lookup(self, name: str, ctx: ReportContext) -> dict | None:
-        """Try exact → LIKE 'name%' → LIKE '%name%'."""
-        name = name.strip()
-        if not name:
-            return None
-
-        row = ctx.crm_query_one(
-            'SELECT * FROM "MNC\u753b\u50cf" WHERE "company_name" = ?',
-            (name,),
-        )
-        if row:
-            return row
-
-        rows = ctx.crm_query(
-            'SELECT * FROM "MNC\u753b\u50cf" WHERE "company_name" LIKE ? LIMIT 1',
-            (f"{name}%",),
-        )
-        if rows:
-            return rows[0]
-
-        rows = ctx.crm_query(
-            'SELECT * FROM "MNC\u753b\u50cf" WHERE "company_name" LIKE ? OR "company_cn" LIKE ? LIMIT 1',
-            (f"%{name}%", f"%{name}%"),
-        )
-        return rows[0] if rows else None
-
-    def _suggest_companies(self, name: str, ctx: ReportContext) -> list[str]:
-        """Return up to 10 closest company names for error messages."""
-        name = name.strip().lower()
-        # Simple: return top 10 by LIKE match length ordering, fallback to first letter
-        rows = ctx.crm_query(
-            'SELECT "company_name" FROM "MNC\u753b\u50cf" WHERE lower("company_name") LIKE ? LIMIT 10',
-            (f"%{name[:4]}%",),
-        )
-        suggestions = [r["company_name"] for r in rows if r.get("company_name")]
-        if len(suggestions) < 5:
-            # Pad with alphabetical neighbours
-            extra = ctx.crm_query(
-                'SELECT "company_name" FROM "MNC\u753b\u50cf" '
-                'WHERE lower("company_name") >= ? ORDER BY "company_name" LIMIT 5',
-                (name[:1],),
-            )
-            for r in extra:
-                cn = r.get("company_name")
-                if cn and cn not in suggestions:
-                    suggestions.append(cn)
-        if not suggestions:
-            # Last resort: return first 5 companies alphabetically
-            fallback = ctx.crm_query(
-                'SELECT "company_name" FROM "MNC\u753b\u50cf" ORDER BY "company_name" LIMIT 5',
-                (),
-            )
-            suggestions = [r["company_name"] for r in fallback if r.get("company_name")]
-        return suggestions[:10]
 
     def _parse_profile_json(self, profile: dict) -> dict[str, Any]:
         """Parse JSON fields defensively, returning structured dict."""

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Query
 from db import query
+from services.helpers.resolve import fuzzy_company_names
 
 router = APIRouter()
 
@@ -103,5 +104,13 @@ def global_search(
                 })
             if items:
                 results[category] = items[:limit]
+        elif category == "companies":
+            # Fuzzy fallback: suggest close company name matches
+            suggestions = fuzzy_company_names(q, n=limit)
+            if suggestions:
+                results["companies_fuzzy"] = [
+                    {"display": {"客户名称": name}, "link": f"/companies/{name}", "fuzzy": True}
+                    for name in suggestions
+                ]
 
     return {"query": q, "results": results}

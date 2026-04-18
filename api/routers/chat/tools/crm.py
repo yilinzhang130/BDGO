@@ -8,6 +8,7 @@ import logging
 
 from database import transaction
 from db import query, query_one
+from services.helpers.resolve import resolve_company, resolve_mnc, fuzzy_company_names
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,8 @@ logger = logging.getLogger(__name__)
 def search_companies(q="", country="", type="", disease="", limit=10):
     conds, params = [], []
     if q:
-        conds.append('"客户名称" LIKE ?')
-        params.append(f"%{q}%")
+        conds.append('("客户名称" LIKE ? OR "英文名" LIKE ? OR "中文名" LIKE ?)')
+        params.extend([f"%{q}%"] * 3)
     if country:
         conds.append('"所处国家" = ?')
         params.append(country)
@@ -37,11 +38,33 @@ def search_companies(q="", country="", type="", disease="", limit=10):
         f'FROM "公司" WHERE {where} LIMIT ?'
     )
     params.append(min(limit, 30))
-    return query(sql, tuple(params))
+    rows = query(sql, tuple(params))
+
+    # Fuzzy fallback: if name query returned nothing, try crm_match
+    if not rows and q and not (country or type or disease):
+        fuzzy_names = fuzzy_company_names(q, n=limit)
+        if fuzzy_names:
+            placeholders = ",".join("?" * len(fuzzy_names))
+            rows = query(
+                f'SELECT "客户名称","客户类型","所处国家","疾病领域","核心产品的阶段",'
+                f'"BD跟进优先级","公司质量评分" '
+                f'FROM "公司" WHERE "客户名称" IN ({placeholders})',
+                tuple(fuzzy_names),
+            )
+            for r in rows:
+                r["_fuzzy_match"] = True
+
+    return rows
 
 
 def get_company(name):
-    return query_one('SELECT * FROM "公司" WHERE "客户名称" = ?', (name,))
+    result = resolve_company(name)
+    if result.row:
+        if result.fuzzy:
+            result.row["_matched_as"] = result.canonical
+        return result.row
+    hint = f"你是否是指：{', '.join(result.suggestions[:3])}？" if result.suggestions else "请检查公司名称拼写。"
+    return {"_not_found": True, "message": f"未找到公司 '{name}'。{hint}"}
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -168,7 +191,66 @@ def search_patents(q="", company="", status="", limit=10):
 # ═════════════════════════════════════════════════════════════════
 
 def get_buyer_profile(company):
-    return query_one('SELECT * FROM "MNC画像" WHERE "company_name" = ?', (company,))
+    result = resolve_mnc(company)
+    if result.row:
+        if result.fuzzy:
+            result.row["_matched_as"] = result.canonical
+        return result.row
+    hint = f"已收录的 MNC 包括：{', '.join(result.suggestions[:5])}" if result.suggestions else "该公司暂无买方画像数据。"
+    return {"_not_found": True, "message": f"未找到 '{company}' 的买方画像。{hint}"}
+
+
+# ═════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════
+# Conference Insight
+# ═════════════════════════════════════════════════════════════════
+
+def _conference_companies(session_id: str) -> list[dict]:
+    """Load company list for a session (cached)."""
+    from routers.conference import _load_report_data
+    try:
+        raw = _load_report_data(session_id)
+        return raw.get("companies", [])
+    except Exception:
+        return []
+
+
+def search_conference(session: str = "AACR-2026", q: str = "", company_type: str = "", country: str = "", limit: int = 10) -> list[dict]:
+    """Search companies participating in a conference session."""
+    companies = _conference_companies(session)
+    results = []
+    q_lower = q.lower()
+    for c in companies:
+        if q_lower and q_lower not in (c.get("company") or "").lower():
+            continue
+        if company_type and c.get("客户类型") != company_type:
+            continue
+        if country and c.get("所处国家") != country:
+            continue
+        abstracts = c.get("abstracts", [])
+        results.append({
+            "company": c.get("company"),
+            "客户类型": c.get("客户类型"),
+            "所处国家": c.get("所处国家"),
+            "CT_count": c.get("CT_count", 0),
+            "LB_count": c.get("LB_count", 0),
+            "abstract_count": len(abstracts),
+            "top_titles": [a.get("title", "") for a in abstracts[:3]],
+            "targets": list({t for a in abstracts for t in (a.get("targets") or [])}),
+        })
+        if len(results) >= min(limit, 20):
+            break
+    return results
+
+
+def get_conference_company(company: str, session: str = "AACR-2026") -> dict | None:
+    """Get full detail (all abstracts + data points) for one conference company."""
+    companies = _conference_companies(session)
+    match = next(
+        (c for c in companies if (c.get("company") or "").lower() == company.lower()),
+        None,
+    )
+    return match or {"error": f"Company '{company}' not found in {session}"}
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -376,6 +458,32 @@ SCHEMAS = [
         },
     },
     {
+        "name": "search_conference",
+        "description": "Search companies participating in a specific conference (AACR, BIO, ESMO etc.). Returns CT/LB abstract counts, targets, and key data points. Use when user asks about conference presence, which companies presented at AACR, who had CT abstracts, etc.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "session": {"type": "string", "description": "Conference session ID, e.g. 'AACR-2026'", "default": "AACR-2026"},
+                "q": {"type": "string", "description": "Search by company name"},
+                "company_type": {"type": "string", "description": "e.g. Biotech, Pharma, MNC, Biotech(CN)"},
+                "country": {"type": "string", "description": "e.g. 中国, 美国, 日本"},
+                "limit": {"type": "integer", "default": 10},
+            },
+        },
+    },
+    {
+        "name": "get_conference_company",
+        "description": "Get full conference details for one company — all abstracts, clinical data points (ORR, DOR, N), targets, and conclusions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "company": {"type": "string", "description": "Company name (English)"},
+                "session": {"type": "string", "default": "AACR-2026"},
+            },
+            "required": ["company"],
+        },
+    },
+    {
         "name": "add_to_watchlist",
         "description": "Add a company or asset to the current user's watchlist. Use this when the user says '加关注', '加入关注', '收藏', or any similar intent. entity_type must be 'company' or 'asset'.",
         "input_schema": {
@@ -404,4 +512,6 @@ IMPLS = {
     "count_by": count_by,
     "search_global": search_global,
     "add_to_watchlist": add_to_watchlist,
+    "search_conference": search_conference,
+    "get_conference_company": get_conference_company,
 }
