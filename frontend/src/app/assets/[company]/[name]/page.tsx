@@ -141,6 +141,15 @@ export default function AssetDetailPage() {
 
   return (
     <div>
+      <button
+        onClick={() => router.back()}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          margin: "12px 0 0 16px", padding: "4px 10px",
+          background: "none", border: "1px solid #d1d5db", borderRadius: 6,
+          fontSize: 13, color: "#6b7280", cursor: "pointer",
+        }}
+      >← 返回</button>
       <div className="detail-header">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
