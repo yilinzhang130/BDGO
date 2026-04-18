@@ -17,6 +17,7 @@ import credits as credits_mod
 from auth import get_current_user
 
 from .planning import should_plan
+from .quick_search import stream_quick_search
 from .streaming import stream_chat, stream_plan_only
 
 _STEP_ID_RE = re.compile(r"^s\d+$")
@@ -74,6 +75,8 @@ class ChatRequest(BaseModel):
     # Plan mode: "auto" (heuristic), "on" (always plan), "off" (skip planning)
     plan_mode: str = "auto"
     plan_confirm: PlanConfirm | None = None
+    # Search mode: "agent" (full tool loop) or "quick" (Tavily + summary only)
+    search_mode: str = "agent"
     # user_id / is_admin / is_internal are injected by the endpoint,
     # not sent by the client
     user_id: str | None = None
@@ -98,6 +101,18 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
         # Fail fast with a clean 402 if the user is out of credits —
         # never mid-stream.
         credits_mod.ensure_balance(user["id"])
+
+    # Quick-search mode bypasses planning and tool-use entirely.
+    if req.search_mode == "quick" and req.plan_confirm is None:
+        return StreamingResponse(
+            stream_quick_search(req),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     # Decide: planning phase, execution phase, or normal (no-plan) flow.
     is_confirming = req.plan_confirm is not None

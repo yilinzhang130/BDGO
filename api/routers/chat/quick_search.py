@@ -1,0 +1,150 @@
+"""Quick-search mode: single-turn web search + LLM summary with citations.
+
+Contrast with the main agent loop (streaming.py): no tool-use loop, no CRM
+lookups, no planning. Just Tavily → summarize. Lower latency, good for
+news/fact lookups.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+
+import httpx
+
+import credits as credits_mod
+from models import resolve_model
+from services.helpers.search import search_web
+
+from .session_store import ensure_session, load_history, save_message
+from .streaming import _stream_with_fallback
+
+logger = logging.getLogger(__name__)
+
+
+QUICK_SEARCH_SYSTEM_PROMPT = """你是BDGO的快速搜索助手，帮助生命科学BD人员快速查询公开信息。
+
+工作方式：
+1. 下方提供了 Tavily 搜索结果（编号来源）。仅基于这些来源作答。
+2. 回答中必须用 [1][2] 这种方式标注引用来源，标注在对应陈述的句末。
+3. 如果来源信息不足以回答，诚实说明"公开资料有限"，不要编造。
+4. 中文回答，简洁直接，必要时用列表/表格。不要用"根据搜索结果"这类废话开头。
+5. 如果用户的问题涉及到深度分析、CRM数据查询、或报告生成，建议他们切换到 Agent 模式。"""
+
+
+def _format_sources(sources: list[dict]) -> str:
+    """Render Tavily results as numbered context block for the LLM."""
+    if not sources:
+        return "（无搜索结果）"
+    lines = []
+    for i, s in enumerate(sources, 1):
+        title = (s.get("title") or "").strip()
+        url = (s.get("url") or "").strip()
+        snippet = (s.get("snippet") or "").strip()
+        lines.append(f"[{i}] {title}\n    URL: {url}\n    {snippet}")
+    return "\n\n".join(lines)
+
+
+async def stream_quick_search(req):
+    """Quick-search streaming handler — yields SSE-formatted strings."""
+    session_id = req.session_id
+    user_id = req.user_id
+    model = resolve_model(req.model_id)
+    usage_accum = {"input_tokens": 0, "output_tokens": 0}
+
+    if user_id:
+        ensure_session(session_id, user_id)
+
+    # Persist the user message immediately (same as stream_chat).
+    if user_id:
+        save_message(session_id, "user", req.message)
+
+    # Search off the event loop — search_web is synchronous httpx.
+    try:
+        sources = await asyncio.to_thread(search_web, req.message, 8)
+    except Exception:
+        logger.exception("Quick-search Tavily call failed")
+        sources = []
+
+    # Emit sources as a single SSE event so the UI can render citations.
+    yield (
+        "data: "
+        + json.dumps({"type": "quick_sources", "sources": sources}, ensure_ascii=False)
+        + "\n\n"
+    )
+
+    # Build single-turn history: prior turns for short-term memory + this query.
+    history = load_history(session_id)
+    history = [m for m in history if isinstance(m.get("content"), str)][-6:]
+    context_block = _format_sources(sources)
+    user_prompt = f"用户问题：{req.message}\n\n搜索结果：\n{context_block}"
+    history.append({"role": "user", "content": user_prompt})
+
+    final_text_parts: list[str] = []
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            async for event_type, payload in _stream_with_fallback(
+                client, history, model, usage_accum,
+                system_prompt=QUICK_SEARCH_SYSTEM_PROMPT,
+                tools=[],
+            ):
+                if event_type == "chunk":
+                    final_text_parts.append(payload)
+                    yield f"data: {json.dumps({'type': 'chunk', 'content': payload})}\n\n"
+                elif event_type == "error":
+                    yield f"data: {json.dumps({'type': 'error', 'message': payload})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    return
+                # tool_call_start / _end are not meaningful without tools
+
+        final_text = "".join(final_text_parts)
+        if final_text.strip():
+            # Save as structured content so it round-trips through load_history
+            # the same way regular assistant turns do.
+            save_message(
+                session_id, "assistant",
+                [{"type": "text", "text": final_text}],
+                tools_json=json.dumps(
+                    {"kind": "quick_search", "sources": sources}, ensure_ascii=False,
+                ),
+            )
+
+        credits_charged = 0.0
+        balance_remaining = None
+        if user_id and not req.is_admin:
+            credits_charged = credits_mod.record_usage(
+                user_id=user_id,
+                session_id=session_id,
+                model_id=model.id,
+                input_tokens=usage_accum.get("input_tokens", 0),
+                output_tokens=usage_accum.get("output_tokens", 0),
+                input_weight=model.input_weight,
+                output_weight=model.output_weight,
+            )
+            try:
+                balance_remaining = credits_mod.get_balance(user_id)["balance"]
+            except Exception:
+                balance_remaining = None
+
+        yield (
+            "data: "
+            + json.dumps({
+                "type": "usage",
+                "model": model.id,
+                "input_tokens": usage_accum.get("input_tokens", 0),
+                "output_tokens": usage_accum.get("output_tokens", 0),
+                "credits_charged": credits_charged,
+                "balance": balance_remaining,
+            })
+            + "\n\n"
+        )
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    except httpx.TimeoutException:
+        yield f"data: {json.dumps({'type': 'error', 'message': 'Request timed out'})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+    except Exception as e:
+        logger.exception("Quick-search error")
+        yield f"data: {json.dumps({'type': 'error', 'message': str(e)[:500]})}\n\n"
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"

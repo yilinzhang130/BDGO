@@ -34,6 +34,12 @@ export interface PlanProposal {
 
 export type PlanStatus = "pending" | "confirmed" | "cancelled";
 
+export interface QuickSearchSource {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: Role;
@@ -45,6 +51,7 @@ export interface ChatMessage {
   planStatus?: PlanStatus;
   planSelectedIds?: string[]; // remembers which steps were ticked on confirm
   originalMessage?: string;   // original user prompt when plan was generated
+  quickSources?: QuickSearchSource[]; // quick-search citations
   streaming?: boolean;
   createdAt: number;
 }

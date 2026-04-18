@@ -38,6 +38,7 @@ async def call_minimax_stream(
     model: ModelSpec,
     usage_accum: dict,
     system_prompt: str | None = None,
+    tools: list | None = None,
 ):
     """Single call to the selected LLM; yields (event_type, payload) pairs.
 
@@ -46,6 +47,9 @@ async def call_minimax_stream(
 
     ``system_prompt`` overrides :data:`SYSTEM_PROMPT` — used to inject
     plan constraints when executing an approved plan.
+
+    ``tools`` overrides :data:`TOOLS`. Pass ``[]`` to disable tool use
+    entirely (quick-search mode).
     """
     body = {
         "model": model.api_model,
@@ -53,8 +57,10 @@ async def call_minimax_stream(
         "messages": messages,
         "max_tokens": 4096,
         "stream": True,
-        "tools": TOOLS,
     }
+    effective_tools = TOOLS if tools is None else tools
+    if effective_tools:
+        body["tools"] = effective_tools
     headers = {
         "x-api-key": model.api_key,
         "Content-Type": "application/json",
@@ -176,6 +182,7 @@ async def _stream_with_fallback(
     model: ModelSpec,
     usage_accum: dict,
     system_prompt: str | None = None,
+    tools: list | None = None,
 ):
     """Wrap call_minimax_stream with cross-provider fallback on overload.
 
@@ -185,7 +192,7 @@ async def _stream_with_fallback(
     models_to_try = [model] + fallback_chain(model.id)
     for try_model in models_to_try:
         async for event_type, payload in call_minimax_stream(
-            client, messages, try_model, usage_accum, system_prompt
+            client, messages, try_model, usage_accum, system_prompt, tools
         ):
             if event_type == "overloaded":
                 logger.warning("Model %s overloaded, trying fallback", try_model.id)

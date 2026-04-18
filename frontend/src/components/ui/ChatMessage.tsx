@@ -13,6 +13,12 @@ interface ToolEvent {
   name: string;
 }
 
+interface QuickSource {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
 interface Props {
   role: "user" | "assistant";
   content: string;
@@ -23,6 +29,7 @@ interface Props {
   plan?: PlanProposal;
   planStatus?: PlanStatus;
   planSelectedIds?: string[];
+  quickSources?: QuickSource[];
   onPlanConfirm?: (selectedIds: string[]) => void;
   onPlanSkip?: () => void;
   onPlanCancel?: () => void;
@@ -237,10 +244,36 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
 }
 
 
+// ── Quick-search source list (numbered [1][2]… citations) ────────────
+function QuickSourcesList({ sources }: { sources: QuickSource[] }) {
+  if (!sources.length) return null;
+  return (
+    <div style={{
+      marginBottom: 10, padding: "8px 10px",
+      background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8,
+      fontSize: 12,
+    }}>
+      <div style={{ color: "#059669", fontWeight: 600, marginBottom: 4 }}>
+        ⚡ Quick · {sources.length} 条来源
+      </div>
+      <ol style={{ margin: 0, paddingLeft: 20, color: "#334155", lineHeight: 1.6 }}>
+        {sources.map((s, i) => (
+          <li key={i}>
+            <a href={s.url} target="_blank" rel="noopener noreferrer"
+               style={{ color: "#1E3A8A", textDecoration: "none" }}>
+              {s.title || s.url}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 // ── ChatMessage ──────────────────────────────────────────────────────
 export function ChatMessage({
   role, content, streaming, tools, attachments, reportTasks,
-  plan, planStatus, planSelectedIds,
+  plan, planStatus, planSelectedIds, quickSources,
   onPlanConfirm, onPlanSkip, onPlanCancel,
 }: Props) {
   if (role === "user") {
@@ -286,6 +319,7 @@ export function ChatMessage({
           />
         )}
         {hasTools && <ToolStepsPanel tools={tools!} isStreaming={!!streaming} />}
+        {quickSources && quickSources.length > 0 && <QuickSourcesList sources={quickSources} />}
         {content && <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>}
         {reportTasks && reportTasks.map((rt) => (
           <ReportTaskCard key={rt.task_id} {...rt} />

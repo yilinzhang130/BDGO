@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { chatStream, uploadBP, fetchReportServices, parseReportArgs, generateReport, type PlanMode, type PlanConfirmPayload } from "@/lib/api";
+import { chatStream, uploadBP, fetchReportServices, parseReportArgs, generateReport, type PlanMode, type PlanConfirmPayload, type SearchMode } from "@/lib/api";
 import {
   useSessionStore,
   getContextCollapsed,
@@ -40,6 +40,7 @@ export default function ChatPage() {
     addReportTask,
     markMessageDone,
     setMessagePlan,
+    setMessageQuickSources,
     updatePlanStatus,
     addContextEntity,
     removeContextEntity,
@@ -57,6 +58,7 @@ export default function ChatPage() {
   const [titleDraft, setTitleDraft] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
+  const [searchMode, setSearchMode] = useState<SearchMode>("agent");
 
   // Slash command state
   const [reportServices, setReportServices] = useState<any[]>([]);
@@ -76,6 +78,10 @@ export default function ChatPage() {
       const stored = localStorage.getItem("bdgo.planMode");
       if (stored === "auto" || stored === "on" || stored === "off") {
         setPlanMode(stored);
+      }
+      const storedSearch = localStorage.getItem("bdgo.searchMode");
+      if (storedSearch === "agent" || storedSearch === "quick") {
+        setSearchMode(storedSearch);
       }
     } catch {}
     // Ensure at least one session exists
@@ -179,8 +185,9 @@ export default function ChatPage() {
       files: string[];
       planModeOverride: PlanMode;
       planConfirm?: PlanConfirmPayload;
+      searchModeOverride?: SearchMode;
     }) => {
-      const { targetSessionId, assistantMsgId, message, files, planModeOverride, planConfirm } = opts;
+      const { targetSessionId, assistantMsgId, message, files, planModeOverride, planConfirm, searchModeOverride } = opts;
       setIsStreaming(true);
       try {
         const res = await chatStream(
@@ -190,6 +197,7 @@ export default function ChatPage() {
           getSelectedModel() || undefined,
           planModeOverride,
           planConfirm,
+          searchModeOverride ?? "agent",
         );
         const reader = res.body?.getReader();
         if (!reader) throw new Error("No response stream");
@@ -232,6 +240,12 @@ export default function ChatPage() {
                     data.plan,
                     data.original_message || message,
                   );
+                } else if (data.type === "quick_sources") {
+                  setMessageQuickSources(
+                    targetSessionId,
+                    assistantMsgId,
+                    data.sources || [],
+                  );
                 } else if (data.type === "context_entity") {
                   const entity: ContextEntity = {
                     id: data.id,
@@ -272,6 +286,7 @@ export default function ChatPage() {
       addToolEvent,
       addReportTask,
       setMessagePlan,
+      setMessageQuickSources,
       addContextEntity,
       markMessageDone,
     ],
@@ -313,9 +328,10 @@ export default function ChatPage() {
         message: msg,
         files: currentFiles,
         planModeOverride: planMode,
+        searchModeOverride: searchMode,
       });
     },
-    [input, isStreaming, activeId, attachments, addMessage, streamInto, planMode],
+    [input, isStreaming, activeId, attachments, addMessage, streamInto, planMode, searchMode],
   );
 
   // User confirmed / skipped / cancelled a plan card.
@@ -558,6 +574,42 @@ export default function ChatPage() {
           )}
           <div className="chat-header-actions">
             <ModelPicker compact />
+            <div
+              role="group"
+              aria-label="搜索模式"
+              style={{
+                display: "inline-flex", borderRadius: 8,
+                border: "1px solid #E2E8F0", overflow: "hidden",
+              }}
+            >
+              {(["agent", "quick"] as const).map((m) => {
+                const on = searchMode === m;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setSearchMode(m);
+                      try { localStorage.setItem("bdgo.searchMode", m); } catch {}
+                    }}
+                    title={
+                      m === "agent"
+                        ? "Agent · 调用工具、CRM、报告生成（复杂任务）"
+                        : "Quick · Tavily搜索+总结，低延迟（查事实/新闻）"
+                    }
+                    style={{
+                      padding: "4px 10px", fontSize: 12, fontWeight: 500,
+                      background: on ? (m === "quick" ? "#ECFDF5" : "#F8FAFF") : "#fff",
+                      color: on ? (m === "quick" ? "#059669" : "#1E3A8A") : "#64748B",
+                      border: "none",
+                      borderRight: m === "agent" ? "1px solid #E2E8F0" : "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {m === "agent" ? "🤖 Agent" : "⚡ Quick"}
+                  </button>
+                );
+              })}
+            </div>
             <button
               onClick={cyclePlanMode}
               title={
@@ -634,6 +686,7 @@ export default function ChatPage() {
                   plan={m.plan}
                   planStatus={m.planStatus}
                   planSelectedIds={m.planSelectedIds}
+                  quickSources={m.quickSources}
                   onPlanConfirm={(ids) => handlePlanConfirm(m.id, ids)}
                   onPlanSkip={() => handlePlanSkip(m.id)}
                   onPlanCancel={() => handlePlanCancel(m.id)}

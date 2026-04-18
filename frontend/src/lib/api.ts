@@ -84,6 +84,7 @@ export const searchSessions = (q: string, limit = 6) =>
 
 // Chat (returns raw Response for streaming)
 export type PlanMode = "auto" | "on" | "off";
+export type SearchMode = "agent" | "quick";
 
 export interface PlanConfirmPayload {
   plan_id: string;
@@ -104,6 +105,7 @@ export async function chatStream(
   modelId?: string,
   planMode: PlanMode = "auto",
   planConfirm?: PlanConfirmPayload,
+  searchMode: SearchMode = "agent",
 ): Promise<Response> {
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
@@ -114,6 +116,7 @@ export async function chatStream(
       file_ids: fileIds,
       ...(modelId ? { model_id: modelId } : {}),
       plan_mode: planMode,
+      search_mode: searchMode,
       ...(planConfirm ? { plan_confirm: planConfirm } : {}),
     }),
   });

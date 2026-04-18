@@ -27,6 +27,7 @@ import type {
   EntityType,
   ContextEntity,
   ChatSession,
+  QuickSearchSource,
 } from "./session-types";
 export type {
   Role,
@@ -39,6 +40,7 @@ export type {
   EntityType,
   ContextEntity,
   ChatSession,
+  QuickSearchSource,
 } from "./session-types";
 
 // Parse the tools_json column — it may hold either the legacy array of
@@ -50,6 +52,7 @@ function parseStoredTools(raw: string | null | undefined): {
   planStatus?: any;
   planSelectedIds?: string[];
   originalMessage?: string;
+  quickSources?: QuickSearchSource[];
 } {
   if (!raw) return {};
   try {
@@ -64,6 +67,7 @@ function parseStoredTools(raw: string | null | undefined): {
         planStatus: parsed.planStatus || (parsed.plan ? "pending" : undefined),
         planSelectedIds: parsed.planSelectedIds,
         originalMessage: parsed.originalMessage || parsed.original_message,
+        quickSources: parsed.kind === "quick_search" ? parsed.sources : undefined,
       };
     }
   } catch {}
@@ -143,6 +147,7 @@ function mapServerSession(raw: any): ChatSession {
         planStatus: parsed.planStatus,
         planSelectedIds: parsed.planSelectedIds,
         originalMessage: parsed.originalMessage,
+        quickSources: parsed.quickSources,
         attachments: m.attachments_json ? JSON.parse(m.attachments_json) : undefined,
         streaming: false,
         createdAt: new Date(m.created_at || raw.created_at).getTime(),
@@ -378,6 +383,19 @@ export function addReportTask(
   }));
 }
 
+export function setMessageQuickSources(
+  sessionId: string,
+  msgId: string,
+  sources: QuickSearchSource[],
+) {
+  touchSession(sessionId, (s) => ({
+    ...s,
+    messages: s.messages.map((m) =>
+      m.id === msgId ? { ...m, quickSources: sources } : m,
+    ),
+  }));
+}
+
 export function markMessageDone(sessionId: string, msgId: string) {
   touchSession(sessionId, (s) => ({
     ...s,
@@ -398,6 +416,8 @@ export function markMessageDone(sessionId: string, msgId: string) {
           originalMessage: msg.originalMessage,
           tools: msg.tools,
         })
+      : msg.quickSources
+      ? JSON.stringify({ kind: "quick_search", sources: msg.quickSources })
       : msg.tools
       ? JSON.stringify(msg.tools)
       : undefined;
@@ -541,6 +561,7 @@ export function useSessionStore() {
     addReportTask,
     markMessageDone,
     setMessagePlan,
+    setMessageQuickSources,
     updatePlanStatus,
     addContextEntity,
     removeContextEntity,
