@@ -53,6 +53,7 @@ function parseStoredTools(raw: string | null | undefined): {
   planSelectedIds?: string[];
   originalMessage?: string;
   quickSources?: QuickSearchSource[];
+  reportTasks?: ReportTask[];
 } {
   if (!raw) return {};
   try {
@@ -68,6 +69,7 @@ function parseStoredTools(raw: string | null | undefined): {
         planSelectedIds: parsed.planSelectedIds,
         originalMessage: parsed.originalMessage || parsed.original_message,
         quickSources: parsed.kind === "quick_search" ? parsed.sources : undefined,
+        reportTasks: parsed.reportTasks,
       };
     }
   } catch {}
@@ -148,6 +150,7 @@ function mapServerSession(raw: any): ChatSession {
         planSelectedIds: parsed.planSelectedIds,
         originalMessage: parsed.originalMessage,
         quickSources: parsed.quickSources,
+        reportTasks: parsed.reportTasks,
         attachments: m.attachments_json ? JSON.parse(m.attachments_json) : undefined,
         streaming: false,
         createdAt: new Date(m.created_at || raw.created_at).getTime(),
@@ -430,16 +433,22 @@ export function markMessageDone(sessionId: string, msgId: string) {
   const session = getSession(sessionId);
   const msg = session?.messages.find((m) => m.id === msgId);
   if (msg && msg.role === "assistant" && !msg.error) {
-    const toolsJson = msg.plan
+    // Build a structured payload whenever a message carries anything
+    // beyond a plain tool timeline — plan cards, quick-search sources,
+    // or report tasks all need to survive a reload.
+    const hasStructured = msg.plan || msg.quickSources || (msg.reportTasks && msg.reportTasks.length);
+    const toolsJson = hasStructured
       ? JSON.stringify({
-          plan: msg.plan,
-          planStatus: msg.planStatus,
-          planSelectedIds: msg.planSelectedIds,
-          originalMessage: msg.originalMessage,
+          ...(msg.plan && {
+            plan: msg.plan,
+            planStatus: msg.planStatus,
+            planSelectedIds: msg.planSelectedIds,
+            originalMessage: msg.originalMessage,
+          }),
+          ...(msg.quickSources && { kind: "quick_search", sources: msg.quickSources }),
+          ...(msg.reportTasks?.length && { reportTasks: msg.reportTasks }),
           tools: msg.tools,
         })
-      : msg.quickSources
-      ? JSON.stringify({ kind: "quick_search", sources: msg.quickSources })
       : msg.tools
       ? JSON.stringify(msg.tools)
       : undefined;

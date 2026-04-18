@@ -164,7 +164,9 @@ const TOOLS: NavItem[] = [
   { href: "/dashboard",  label: "仪表盘",  icon: Icon.grid },
   { href: "/watchlist",  label: "关注",    icon: Icon.star },
   { href: "/catalysts",  label: "催化剂",  icon: Icon.zap },
-  { href: "/reports",    label: "报告",    icon: Icon.fileText },
+  // Reports are generated and downloaded inline inside the chat — no
+  // separate nav entry. The /reports route still exists for deep-linking
+  // from shared report URLs.
   { href: "/conference", label: "会议洞察", icon: Icon.presentation },
 ];
 

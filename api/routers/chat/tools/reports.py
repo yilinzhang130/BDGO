@@ -90,9 +90,8 @@ def _make_report_tool(_svc):
             "status": "queued",
             "estimated_seconds": _svc.estimated_seconds,
             "display_message": (
-                f"已开始 {_svc.display_name}（任务ID: {task_id}）。"
-                f"预计 {_svc.estimated_seconds} 秒完成。"
-                f"可在 Reports 页面查看进度与下载结果。"
+                f"已开始 {_svc.display_name}。预计 {_svc.estimated_seconds} 秒完成，"
+                f"完成后可直接在本对话中下载。"
             ),
         }
 
