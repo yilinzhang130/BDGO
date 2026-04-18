@@ -61,13 +61,22 @@ function TypeBadge({ type }: { type?: string }) {
   );
 }
 
-function TargetTag({ label }: { label: string }) {
-  return (
-    <span style={{
-      fontSize: 11, padding: "2px 7px", borderRadius: 20,
-      background: "#dbeafe", color: "#1e40af", fontWeight: 600,
-    }}>{label}</span>
-  );
+function TargetTag({ label, company }: { label: string; company?: string }) {
+  const style: React.CSSProperties = {
+    fontSize: 11, padding: "2px 7px", borderRadius: 20,
+    background: "#dbeafe", color: "#1e40af", fontWeight: 600,
+    textDecoration: "none",
+  };
+  if (company) {
+    return (
+      <Link
+        href={`/assets/${encodeURIComponent(company)}/${encodeURIComponent(label)}`}
+        style={style}
+        onClick={e => e.stopPropagation()}
+      >{label}</Link>
+    );
+  }
+  return <span style={style}>{label}</span>;
 }
 
 function DataTag({ label, value }: { label: string; value: string }) {
@@ -113,7 +122,11 @@ function AbstractCard({ ab, onClick }: { ab: ConferenceAbstract; onClick: () => 
 
       {/* Company */}
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>{ab.company}</span>
+        <Link
+          href={`/companies/${encodeURIComponent(ab.company)}`}
+          style={{ fontSize: 12, color: "#374151", fontWeight: 600, textDecoration: "none" }}
+          onClick={e => e.stopPropagation()}
+        >{ab.company}</Link>
         <TypeBadge type={ab.客户类型} />
         {ab.所处国家 && (
           <span style={{ fontSize: 12, color: "#9ca3af" }}>· {ab.所处国家}</span>
@@ -123,7 +136,7 @@ function AbstractCard({ ab, onClick }: { ab: ConferenceAbstract; onClick: () => 
       {/* Targets */}
       {ab.targets?.length > 0 && (
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {ab.targets.slice(0, 6).map(t => <TargetTag key={t} label={t} />)}
+          {ab.targets.slice(0, 6).map(t => <TargetTag key={t} label={t} company={ab.company} />)}
         </div>
       )}
 
@@ -360,12 +373,22 @@ function ChatSidebar({
         const copy = [...prev];
         copy[copy.length - 1] = {
           ...copy[copy.length - 1],
-          content: `❌ ${e?.message || "连接失败"}`,
+          content: `❌ ${e?.message || "连接失败，请重试"}`,
         };
         return copy;
       });
     } finally {
       setStreaming(false);
+      // If assistant message ended up empty (no chunks received), show a fallback
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && !last.content) {
+          const copy = [...prev];
+          copy[copy.length - 1] = { ...last, content: "❌ 未收到回复，请重试" };
+          return copy;
+        }
+        return prev;
+      });
     }
   };
 
@@ -547,7 +570,10 @@ function AbstractDetailPanel({
 
         {/* Company */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{ab.company}</span>
+          <Link
+            href={`/companies/${encodeURIComponent(ab.company)}`}
+            style={{ fontSize: 14, fontWeight: 600, color: "#1d4ed8", textDecoration: "none" }}
+          >{ab.company} ↗</Link>
           <TypeBadge type={ab.客户类型} />
           <span style={{ fontSize: 13, color: "#9ca3af" }}>{ab.所处国家}</span>
         </div>
@@ -555,9 +581,9 @@ function AbstractDetailPanel({
         {/* Targets */}
         {ab.targets?.length > 0 && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>靶点</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>靶点 / 资产</div>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {ab.targets.map(t => <TargetTag key={t} label={t} />)}
+              {ab.targets.map(t => <TargetTag key={t} label={t} company={ab.company} />)}
             </div>
           </div>
         )}
