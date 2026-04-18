@@ -9,7 +9,7 @@ import logging
 
 import bcrypt
 import jwt
-from fastapi import Header, HTTPException
+from fastapi import Depends, Header, HTTPException
 
 import config
 import database
