@@ -53,6 +53,17 @@ async function put<T = any>(path: string, body?: unknown): Promise<T> {
   return res.json();
 }
 
+async function patch<T = any>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  handle401(res);
+  if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`);
+  return res.json();
+}
+
 async function del(path: string): Promise<void> {
   const res = await fetch(path, { method: "DELETE", headers: authHeaders() });
   handle401(res);
@@ -419,3 +430,33 @@ export const setUserAdmin = (userId: string, value: boolean) =>
 
 export const setUserInternal = (userId: string, value: boolean) =>
   post(`${BASE}/admin/users/set-internal-ui`, { user_id: userId, value });
+
+// ── Inbox ─────────────────────────────────────────────────────────────────────
+
+export interface InboxMessage {
+  id: number;
+  type: "data_report" | "feedback";
+  user_email: string;
+  user_name: string;
+  entity_type: string | null;
+  entity_key: string | null;
+  entity_url: string | null;
+  message: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+export const fetchInboxMessages = (unreadOnly = false, limit = 50, offset = 0) =>
+  get<{ total: number; items: InboxMessage[] }>(
+    `${BASE}/inbox/admin/messages`,
+    { unread_only: unreadOnly ? 1 : 0, limit, offset },
+  );
+
+export const fetchInboxUnreadCount = () =>
+  get<{ count: number }>(`${BASE}/inbox/admin/unread-count`);
+
+export const markMessageRead = (id: number) =>
+  patch(`${BASE}/inbox/admin/messages/${id}/read`);
+
+export const markAllRead = () =>
+  patch(`${BASE}/inbox/admin/messages/read-all`);

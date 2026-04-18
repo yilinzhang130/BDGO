@@ -176,6 +176,22 @@ CREATE INDEX IF NOT EXISTS idx_usage_logs_user_created
     ON usage_logs(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_usage_logs_session
     ON usage_logs(session_id);
+
+CREATE TABLE IF NOT EXISTS inbox_messages (
+    id BIGSERIAL PRIMARY KEY,
+    type VARCHAR(20) NOT NULL,          -- 'data_report' | 'feedback'
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    user_email TEXT,
+    user_name TEXT,
+    entity_type VARCHAR(50),            -- '公司' | '资产' | '临床' | '交易' etc.
+    entity_key TEXT,                    -- entity name / id
+    entity_url TEXT,                    -- deep-link back to the entity
+    message TEXT NOT NULL,
+    read_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_inbox_messages_created
+    ON inbox_messages(created_at DESC);
 """
 
 # ---------------------------------------------------------------------------

@@ -133,3 +133,10 @@ def get_optional_user(authorization: str = Header(None)) -> dict | None:
         return _lookup_user(claims["user_id"])
     except Exception:
         return None
+
+
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """FastAPI dependency — 403 if the caller is not an admin."""
+    if not user or not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user

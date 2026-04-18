@@ -6,6 +6,7 @@ import { fetchClinicalRecord, updateRecord, deleteRecord } from "@/lib/api";
 import { phaseBadgeClass, resultBadgeClass } from "@/lib/utils";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ReportButton } from "@/components/ui/ReportButton";
 import { useAuth } from "@/components/AuthProvider";
 
 interface Section {
@@ -158,7 +159,10 @@ export default function ClinicalDetailPage() {
       <div className="detail-header">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <h1>{record["试验ID"] || id}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <h1 style={{ margin: 0 }}>{record["试验ID"] || id}</h1>
+              <ReportButton entityType="临床" entityKey={record["试验ID"] || id} />
+            </div>
             <div className="meta">
               {record["公司名称"] && (
                 <span

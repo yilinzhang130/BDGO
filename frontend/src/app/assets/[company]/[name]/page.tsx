@@ -7,6 +7,7 @@ import { phaseBadgeClass, resultBadgeClass, parseNum } from "@/lib/utils";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ReportButton } from "@/components/ui/ReportButton";
 import { useAuth } from "@/components/AuthProvider";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -146,6 +147,7 @@ export default function AssetDetailPage() {
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <WatchlistButton entityType="asset" entityKey={name} size={22} />
               <h1 style={{ margin: 0 }}>{name}</h1>
+              <ReportButton entityType="资产" entityKey={name} />
             </div>
             <div className="meta">
               <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => router.push(`/companies/${encodeURIComponent(company)}`)}>

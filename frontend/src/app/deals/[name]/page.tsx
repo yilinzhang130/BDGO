@@ -6,6 +6,7 @@ import { fetchDeal, updateRecord, deleteRecord } from "@/lib/api";
 import { phaseBadgeClass } from "@/lib/utils";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ReportButton } from "@/components/ui/ReportButton";
 import { useAuth } from "@/components/AuthProvider";
 
 interface Section {
@@ -93,7 +94,10 @@ export default function DealDetailPage() {
       <div className="detail-header">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <h1 style={{ fontSize: "1.3rem" }}>{name}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <h1 style={{ fontSize: "1.3rem", margin: 0 }}>{name}</h1>
+              <ReportButton entityType="交易" entityKey={name} />
+            </div>
             <div className="meta">
               {deal["交易类型"] && <span className="badge badge-blue">{deal["交易类型"]}</span>}
               {deal["买方公司"] && (

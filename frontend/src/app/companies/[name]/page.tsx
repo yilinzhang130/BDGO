@@ -7,6 +7,7 @@ import { phaseBadgeClass, priorityBadgeClass, resultBadgeClass } from "@/lib/uti
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ReportButton } from "@/components/ui/ReportButton";
 import { useAuth } from "@/components/AuthProvider";
 
 interface Section { title: string; fields: [string, string][]; defaultOpen?: boolean; }
@@ -126,6 +127,7 @@ export default function CompanyDetailPage() {
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <WatchlistButton entityType="company" entityKey={name} size={22} />
               <h1 style={{ margin: 0 }}>{name}</h1>
+              <ReportButton entityType="公司" entityKey={name} />
             </div>
             <div className="meta">
               {company["客户类型"] && <span>{company["客户类型"]}</span>}

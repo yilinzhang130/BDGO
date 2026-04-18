@@ -12,16 +12,24 @@ import {
   setUserActive,
   setUserAdmin,
   setUserInternal,
+  fetchInboxMessages,
+  fetchInboxUnreadCount,
+  markMessageRead,
+  markAllRead,
   type AdminUser,
   type InviteCode,
+  type InboxMessage,
 } from "@/lib/api";
 
 export default function AdminPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<"users" | "codes">("users");
+  const [tab, setTab] = useState<"users" | "codes" | "inbox">("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [codes, setCodes] = useState<InviteCode[]>([]);
+  const [inbox, setInbox] = useState<InboxMessage[]>([]);
+  const [inboxTotal, setInboxTotal] = useState(0);
+  const [inboxUnread, setInboxUnread] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // Grant credits modal state
@@ -47,12 +55,27 @@ export default function AdminPage() {
     setCodes(r.codes);
   };
 
+  const reloadInbox = async () => {
+    const [r, unread] = await Promise.all([
+      fetchInboxMessages(false, 100, 0),
+      fetchInboxUnreadCount(),
+    ]);
+    setInbox(r.items);
+    setInboxTotal(r.total);
+    setInboxUnread(unread.count);
+  };
+
   useEffect(() => {
     if (!isAdmin) return;
     setLoading(true);
-    const p = tab === "users" ? reloadUsers() : reloadCodes();
+    const p = tab === "users" ? reloadUsers() : tab === "codes" ? reloadCodes() : reloadInbox();
     p.finally(() => setLoading(false));
   }, [tab, isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchInboxUnreadCount().then(r => setInboxUnread(r.count)).catch(() => {});
+  }, [isAdmin]);
 
   if (!isAdmin) return <div className="loading">Loading...</div>;
 
@@ -151,6 +174,17 @@ export default function AdminPage() {
         </button>
         <button className={`tab ${tab === "codes" ? "active" : ""}`} onClick={() => setTab("codes")}>
           邀请码 ({codes.length || "..."})
+        </button>
+        <button className={`tab ${tab === "inbox" ? "active" : ""}`} onClick={() => setTab("inbox")}
+          style={{ position: "relative" }}>
+          站内信
+          {inboxUnread > 0 && (
+            <span style={{
+              marginLeft: 6, fontSize: 10, fontWeight: 700,
+              background: "#ef4444", color: "#fff",
+              borderRadius: 10, padding: "1px 6px",
+            }}>{inboxUnread}</span>
+          )}
         </button>
       </div>
 
@@ -325,7 +359,7 @@ export default function AdminPage() {
             </div>
           )}
         </div>
-      ) : (
+      ) : tab === "codes" ? (
         <div className="card">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.75rem" }}>
             <button
@@ -384,6 +418,75 @@ export default function AdminPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : (
+        /* Inbox */
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+              共 {inboxTotal} 条，{inboxUnread} 条未读
+            </span>
+            {inboxUnread > 0 && (
+              <button
+                onClick={async () => { await markAllRead(); await reloadInbox(); }}
+                style={{
+                  padding: "0.3rem 0.8rem", fontSize: "0.75rem", fontWeight: 600,
+                  background: "#f1f5f9", border: "1px solid #e2e8f0",
+                  borderRadius: 5, cursor: "pointer",
+                }}
+              >
+                全部标为已读
+              </button>
+            )}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {inbox.length === 0 && (
+              <div style={{ textAlign: "center", color: "var(--text-secondary)", padding: "2rem 0" }}>暂无消息</div>
+            )}
+            {inbox.map(m => (
+              <div key={m.id} style={{
+                borderRadius: 8, padding: "12px 14px",
+                background: m.read_at ? "#f8fafc" : "#fffbeb",
+                border: `1px solid ${m.read_at ? "#e2e8f0" : "#fde68a"}`,
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "2px 7px",
+                    background: m.type === "data_report" ? "#fee2e2" : "#dbeafe",
+                    color: m.type === "data_report" ? "#dc2626" : "#1e3a8a",
+                    flexShrink: 0, marginTop: 1,
+                  }}>
+                    {m.type === "data_report" ? "数据举报" : "反馈"}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {m.entity_type && (
+                      <div style={{ fontSize: 11, color: "#64748b", marginBottom: 3 }}>
+                        {m.entity_type} · {m.entity_key}
+                        {m.entity_url && (
+                          <a href={m.entity_url} target="_blank" rel="noopener"
+                            style={{ marginLeft: 6, color: "#3b82f6", textDecoration: "none" }}>↗</a>
+                        )}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{m.message}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 5 }}>
+                      {m.user_name} · {m.user_email} · {fmtDate(m.created_at)}
+                    </div>
+                  </div>
+                  {!m.read_at && (
+                    <button
+                      onClick={async () => { await markMessageRead(m.id); await reloadInbox(); }}
+                      style={{
+                        flexShrink: 0, padding: "2px 8px", fontSize: 11,
+                        background: "#fff", border: "1px solid #e2e8f0",
+                        borderRadius: 4, cursor: "pointer", color: "#64748b",
+                      }}
+                    >已读</button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

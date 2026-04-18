@@ -9,7 +9,9 @@ import { parsePreferences } from "@/lib/auth";
 import { SessionList } from "./SessionList";
 import { SearchModal } from "./SearchModal";
 import { CreditBadge } from "./CreditBadge";
+import { FeedbackButton } from "./ReportButton";
 import { getToken } from "@/lib/auth";
+import { fetchInboxUnreadCount } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
 // SVG Icons
@@ -158,9 +160,36 @@ const TOOLS: NavItem[] = [
   { href: "/reports",   label: "报告",    icon: Icon.fileText },
 ];
 
-const ADMIN_NAV: NavItem[] = [
-  { href: "/admin", label: "管理",  icon: Icon.shield },
-];
+function AdminNavItem() {
+  const pathname = usePathname();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    const refresh = () =>
+      fetchInboxUnreadCount().then(r => setUnread(prev => prev === r.count ? prev : r.count)).catch(() => {});
+    refresh();
+    const id = setInterval(refresh, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const active = pathname === "/admin" || pathname.startsWith("/admin/");
+  return (
+    <div className="nav-section">
+      <div className="nav-section-label">管理员</div>
+      <Link href="/admin" className={`nav-link ${active ? "active" : ""}`}>
+        <span className="nav-icon">{Icon.shield}</span>
+        <span>管理</span>
+        {unread > 0 && (
+          <span style={{
+            marginLeft: "auto", fontSize: 10, fontWeight: 700,
+            background: "#ef4444", color: "#fff",
+            borderRadius: 10, padding: "1px 6px", lineHeight: 1.4,
+          }}>{unread > 99 ? "99+" : unread}</span>
+        )}
+      </Link>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // AIDD 立项中心 SSO button
@@ -281,7 +310,9 @@ function SidebarFooter() {
   const role = user?.title || "BD 专业人士";
 
   return (
-    <div className="sidebar-footer">
+    <div className="sidebar-footer" style={{ flexDirection: "column", gap: 6, alignItems: "stretch" }}>
+      <FeedbackButton />
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <Link href="/profile" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flex: 1, minWidth: 0 }}>
         {user?.avatar_url ? (
           <img src={user.avatar_url} alt={displayName} className="avatar"
@@ -308,6 +339,7 @@ function SidebarFooter() {
         style={{ color: "var(--text-muted)", padding: "0.3rem", borderRadius: 6 }}>
         {Icon.logout}
       </button>
+      </div>
     </div>
   );
 }
@@ -401,7 +433,7 @@ export function Sidebar() {
         </div>
 
         {/* Admin (admin only) */}
-        {user?.is_admin && <NavGroup label="管理员" items={ADMIN_NAV} />}
+        {user?.is_admin && <AdminNavItem />}
       </div>
 
       <SidebarFooter />
