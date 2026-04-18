@@ -75,7 +75,9 @@ BP_DIR = Path(os.environ.get(
 ))
 CONFERENCES_DIR = Path(os.environ.get(
     "CONFERENCES_DIR",
-    os.path.expanduser("~/.openclaw/workspace/conferences"),
+    # Default: conferences/ folder next to this config file (gets rsynced with api/)
+    # Override via env var to point at a richer local workspace directory
+    str(Path(__file__).parent / "conferences"),
 ))
 REPORTS_DIR = Path(os.environ.get(
     "REPORTS_DIR",
