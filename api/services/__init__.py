@@ -12,9 +12,12 @@ from services.reports.buyer_profile import BuyerProfileService
 from services.reports.clinical_guidelines import ClinicalGuidelinesService
 from services.reports.commercial_assessment import CommercialAssessmentService
 from services.reports.dd_checklist import DDChecklistService
+from services.reports.deal_evaluator import DealEvaluatorService
+from services.reports.deal_teaser import DealTeaserService
 from services.reports.disease_landscape import DiseaseLandscapeService
 from services.reports.ip_landscape import IPLandscapeService
 from services.reports.paper_analysis import PaperAnalysisService
+from services.reports.rnpv_valuation import RNPVValuationService
 from services.reports.target_radar import TargetRadarService
 
 REPORT_SERVICES: dict[str, ReportService] = {
@@ -23,8 +26,11 @@ REPORT_SERVICES: dict[str, ReportService] = {
     ClinicalGuidelinesService.slug: ClinicalGuidelinesService(),
     CommercialAssessmentService.slug: CommercialAssessmentService(),
     DDChecklistService.slug: DDChecklistService(),
+    DealEvaluatorService.slug: DealEvaluatorService(),
+    DealTeaserService.slug: DealTeaserService(),
     DiseaseLandscapeService.slug: DiseaseLandscapeService(),
     IPLandscapeService.slug: IPLandscapeService(),
+    RNPVValuationService.slug: RNPVValuationService(),
     TargetRadarService.slug: TargetRadarService(),
 }
 

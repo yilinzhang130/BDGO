@@ -4,10 +4,10 @@ them into ``TOOLS`` + ``TOOL_IMPL``."""
 
 from __future__ import annotations
 
-from . import crm, guidelines, reports
+from . import buyer_match, crm, edgar, guidelines, reports
 from .registry import execute_tool, TOOL_TABLE
 
-_MODULES = (crm, guidelines, reports)
+_MODULES = (crm, guidelines, buyer_match, edgar, reports)
 
 TOOLS: list[dict] = []
 TOOL_IMPL: dict = {}

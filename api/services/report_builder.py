@@ -138,6 +138,21 @@ class ReportContext:
         self._files.append(gf)
         return gf
 
+    def register_file(self, filename: str, format: str) -> GeneratedFile:
+        """Register a file already written into ``output_dir`` (by an external
+        generator that writes to disk directly, e.g. the rNPV Excel builder).
+        Use ``save_file`` when you have bytes/text in-hand instead."""
+        safe_name = Path(filename).name
+        filepath = self._output_dir / safe_name
+        gf = GeneratedFile(
+            filename=safe_name,
+            format=format,
+            size=filepath.stat().st_size,
+            download_url=f"/api/reports/download/{self.task_id}/{format}",
+        )
+        self._files.append(gf)
+        return gf
+
     @property
     def files(self) -> list[GeneratedFile]:
         return list(self._files)

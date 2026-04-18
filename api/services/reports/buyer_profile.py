@@ -20,7 +20,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from services.helpers import docx_builder
-from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
+from services.helpers.text import format_web_results, safe_json_loads, safe_slug, search_and_deduplicate
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -481,25 +481,14 @@ class BuyerProfileService(ReportService):
 
     def _parse_profile_json(self, profile: dict) -> dict[str, Any]:
         """Parse JSON fields defensively, returning structured dict."""
-        def _safe_json(raw: Any, default):
-            if raw is None or raw == "":
-                return default
-            if isinstance(raw, (dict, list)):
-                return raw
-            try:
-                return json.loads(raw)
-            except (json.JSONDecodeError, TypeError):
-                logger.warning("JSON parse failed for value: %r", str(raw)[:100])
-                return default
-
         return {
             "heritage_ta": profile.get("heritage_ta") or "",
-            "signature_deals": _safe_json(profile.get("signature_deals"), []),
-            "commercial_capabilities": _safe_json(profile.get("commercial_capabilities"), {}),
-            "regulatory_expertise": _safe_json(profile.get("regulatory_expertise"), {}),
-            "bd_pattern_theses": _safe_json(profile.get("bd_pattern_theses"), []),
-            "sunk_cost_by_ta": _safe_json(profile.get("sunk_cost_by_ta"), {}),
-            "deal_type_preference": _safe_json(profile.get("deal_type_preference"), {}),
+            "signature_deals": safe_json_loads(profile.get("signature_deals"), []),
+            "commercial_capabilities": safe_json_loads(profile.get("commercial_capabilities"), {}),
+            "regulatory_expertise": safe_json_loads(profile.get("regulatory_expertise"), {}),
+            "bd_pattern_theses": safe_json_loads(profile.get("bd_pattern_theses"), []),
+            "sunk_cost_by_ta": safe_json_loads(profile.get("sunk_cost_by_ta"), {}),
+            "deal_type_preference": safe_json_loads(profile.get("deal_type_preference"), {}),
         }
 
     # ── web search ──────────────────────────────────────────

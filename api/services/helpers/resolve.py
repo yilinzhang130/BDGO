@@ -30,6 +30,8 @@ _company_cache: list[dict] = []
 _company_ts: float = 0.0
 _mnc_cache: list[dict] = []
 _mnc_ts: float = 0.0
+_mnc_full_cache: list[dict] = []
+_mnc_full_ts: float = 0.0
 _lock = threading.Lock()
 
 
@@ -65,6 +67,27 @@ def _get_mnc_names() -> list[dict]:
         ]
         _mnc_ts = now
     return _mnc_cache
+
+
+def get_mnc_profiles() -> list[dict]:
+    """Return all MNC画像 rows with BD-relevant columns, cached for 5 minutes.
+    Callers mutate at their own risk — prefer copying if they edit."""
+    global _mnc_full_cache, _mnc_full_ts
+    now = time.monotonic()
+    if now - _mnc_full_ts < _CACHE_TTL and _mnc_full_cache:
+        return _mnc_full_cache
+    with _lock:
+        if now - _mnc_full_ts < _CACHE_TTL and _mnc_full_cache:
+            return _mnc_full_cache
+        from db import query
+        _mnc_full_cache = query(
+            'SELECT "company_name","company_cn","heritage_ta","innovation_philosophy",'
+            '"risk_appetite","deal_size_preference","sunk_cost_by_ta","bd_pattern_theses",'
+            '"deal_type_preference","annual_revenue" FROM "MNC画像"',
+            (),
+        )
+        _mnc_full_ts = now
+    return _mnc_full_cache
 
 
 def _suggest(name: str, rows: list[dict], n: int = 5) -> list[str]:
@@ -164,7 +187,8 @@ def fuzzy_company_names(name: str, n: int = 5) -> list[str]:
 
 def invalidate_cache() -> None:
     """Force cache refresh on next access (call after CRM writes)."""
-    global _company_ts, _mnc_ts
+    global _company_ts, _mnc_ts, _mnc_full_ts
     with _lock:
         _company_ts = 0.0
         _mnc_ts = 0.0
+        _mnc_full_ts = 0.0

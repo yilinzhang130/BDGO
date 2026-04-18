@@ -1,0 +1,233 @@
+{
+  "probability_of_success": {
+    "_description": "Phase transition PoS by therapeutic area. Source: BIO/Informa/QLS 2024 Clinical Development Success Rates",
+    "by_therapeutic_area": {
+      "Oncology": {
+        "preclinical_to_phase1": 0.08,
+        "phase1_to_phase2": 0.52,
+        "phase2_to_phase3": 0.29,
+        "phase3_to_nda": 0.58,
+        "nda_to_approval": 0.90,
+        "overall_from_phase1": 0.079
+      },
+      "Rare_Disease_Orphan": {
+        "preclinical_to_phase1": 0.12,
+        "phase1_to_phase2": 0.65,
+        "phase2_to_phase3": 0.45,
+        "phase3_to_nda": 0.68,
+        "nda_to_approval": 0.93,
+        "overall_from_phase1": 0.184
+      },
+      "CNS_Neurology": {
+        "preclinical_to_phase1": 0.07,
+        "phase1_to_phase2": 0.50,
+        "phase2_to_phase3": 0.22,
+        "phase3_to_nda": 0.52,
+        "nda_to_approval": 0.88,
+        "overall_from_phase1": 0.050
+      },
+      "Metabolic_Endocrine": {
+        "preclinical_to_phase1": 0.10,
+        "phase1_to_phase2": 0.58,
+        "phase2_to_phase3": 0.38,
+        "phase3_to_nda": 0.65,
+        "nda_to_approval": 0.91,
+        "overall_from_phase1": 0.130
+      },
+      "Cardiovascular": {
+        "preclinical_to_phase1": 0.09,
+        "phase1_to_phase2": 0.55,
+        "phase2_to_phase3": 0.32,
+        "phase3_to_nda": 0.60,
+        "nda_to_approval": 0.90,
+        "overall_from_phase1": 0.095
+      },
+      "Immunology_Inflammation": {
+        "preclinical_to_phase1": 0.10,
+        "phase1_to_phase2": 0.60,
+        "phase2_to_phase3": 0.35,
+        "phase3_to_nda": 0.63,
+        "nda_to_approval": 0.91,
+        "overall_from_phase1": 0.121
+      },
+      "Infectious_Disease": {
+        "preclinical_to_phase1": 0.11,
+        "phase1_to_phase2": 0.62,
+        "phase2_to_phase3": 0.40,
+        "phase3_to_nda": 0.65,
+        "nda_to_approval": 0.92,
+        "overall_from_phase1": 0.149
+      },
+      "Hematology": {
+        "preclinical_to_phase1": 0.10,
+        "phase1_to_phase2": 0.60,
+        "phase2_to_phase3": 0.42,
+        "phase3_to_nda": 0.66,
+        "nda_to_approval": 0.92,
+        "overall_from_phase1": 0.153
+      },
+      "Ophthalmology": {
+        "preclinical_to_phase1": 0.10,
+        "phase1_to_phase2": 0.58,
+        "phase2_to_phase3": 0.36,
+        "phase3_to_nda": 0.62,
+        "nda_to_approval": 0.90,
+        "overall_from_phase1": 0.116
+      },
+      "All_Indications_Average": {
+        "preclinical_to_phase1": 0.10,
+        "phase1_to_phase2": 0.57,
+        "phase2_to_phase3": 0.33,
+        "phase3_to_nda": 0.62,
+        "nda_to_approval": 0.90,
+        "overall_from_phase1": 0.105
+      }
+    }
+  },
+  "rd_cost_benchmarks": {
+    "_description": "R&D cost estimates by phase in $M. Source: DiMasi et al., Tufts CSDD, industry surveys",
+    "small_molecule": {
+      "preclinical": {"cost_mm": 15, "duration_years": 3},
+      "phase1": {"cost_mm": 8, "duration_years": 1.5, "patients": 50, "cost_per_patient_k": 80},
+      "phase2": {"cost_mm": 25, "duration_years": 2.5, "patients": 250, "cost_per_patient_k": 60},
+      "phase3": {"cost_mm": 80, "duration_years": 3, "patients": 1500, "cost_per_patient_k": 40},
+      "nda_filing": {"cost_mm": 5, "duration_years": 1.5},
+      "phase4_pms": {"cost_mm": 15, "duration_years": 3}
+    },
+    "biologic_antibody": {
+      "preclinical": {"cost_mm": 25, "duration_years": 3.5},
+      "phase1": {"cost_mm": 12, "duration_years": 1.5, "patients": 40, "cost_per_patient_k": 150},
+      "phase2": {"cost_mm": 40, "duration_years": 2.5, "patients": 200, "cost_per_patient_k": 120},
+      "phase3": {"cost_mm": 120, "duration_years": 3.5, "patients": 1200, "cost_per_patient_k": 70},
+      "nda_filing": {"cost_mm": 8, "duration_years": 1.5},
+      "phase4_pms": {"cost_mm": 20, "duration_years": 3}
+    },
+    "adc": {
+      "preclinical": {"cost_mm": 30, "duration_years": 3.5},
+      "phase1": {"cost_mm": 15, "duration_years": 1.5, "patients": 60, "cost_per_patient_k": 180},
+      "phase2": {"cost_mm": 50, "duration_years": 2.5, "patients": 250, "cost_per_patient_k": 140},
+      "phase3": {"cost_mm": 150, "duration_years": 3.5, "patients": 1000, "cost_per_patient_k": 100},
+      "nda_filing": {"cost_mm": 8, "duration_years": 1.5},
+      "phase4_pms": {"cost_mm": 25, "duration_years": 3}
+    },
+    "cell_gene_therapy": {
+      "preclinical": {"cost_mm": 40, "duration_years": 4},
+      "phase1": {"cost_mm": 20, "duration_years": 2, "patients": 30, "cost_per_patient_k": 400},
+      "phase2": {"cost_mm": 60, "duration_years": 3, "patients": 80, "cost_per_patient_k": 350},
+      "phase3": {"cost_mm": 200, "duration_years": 4, "patients": 300, "cost_per_patient_k": 300},
+      "nda_filing": {"cost_mm": 10, "duration_years": 2},
+      "phase4_pms": {"cost_mm": 30, "duration_years": 3}
+    },
+    "nucleic_acid_rna": {
+      "preclinical": {"cost_mm": 20, "duration_years": 3},
+      "phase1": {"cost_mm": 10, "duration_years": 1.5, "patients": 40, "cost_per_patient_k": 120},
+      "phase2": {"cost_mm": 35, "duration_years": 2.5, "patients": 150, "cost_per_patient_k": 100},
+      "phase3": {"cost_mm": 100, "duration_years": 3, "patients": 800, "cost_per_patient_k": 80},
+      "nda_filing": {"cost_mm": 6, "duration_years": 1.5},
+      "phase4_pms": {"cost_mm": 18, "duration_years": 3}
+    }
+  },
+  "cogs_benchmarks": {
+    "_description": "COGS as % of net revenue by modality",
+    "small_molecule": 0.15,
+    "biologic_antibody": 0.20,
+    "adc": 0.25,
+    "cell_gene_therapy": 0.35,
+    "nucleic_acid_rna": 0.20
+  },
+  "sga_benchmarks": {
+    "_description": "SG&A cost estimates in $M",
+    "us_launch": {
+      "prelaunch_2yr_total_mm": 30,
+      "launch_year_mm": 60,
+      "maintenance_pct_of_revenue": 0.25,
+      "sales_reps": 200,
+      "cost_per_rep_k": 250
+    },
+    "specialty_launch": {
+      "prelaunch_2yr_total_mm": 15,
+      "launch_year_mm": 30,
+      "maintenance_pct_of_revenue": 0.20,
+      "sales_reps": 80,
+      "cost_per_rep_k": 280
+    },
+    "orphan_rare": {
+      "prelaunch_2yr_total_mm": 8,
+      "launch_year_mm": 15,
+      "maintenance_pct_of_revenue": 0.15,
+      "sales_reps": 30,
+      "cost_per_rep_k": 300
+    }
+  },
+  "discount_rates": {
+    "_description": "WACC by company stage. Source: BiopharmaVantage 2024",
+    "preclinical_stage": 0.18,
+    "clinical_stage_early": 0.15,
+    "clinical_stage_late": 0.13,
+    "commercial_stage": 0.10,
+    "big_pharma": 0.08,
+    "default_biotech": 0.125
+  },
+  "tax_rates": {
+    "US": 0.21,
+    "EU_average": 0.25,
+    "China": 0.15,
+    "Japan": 0.23,
+    "global_blended": 0.20
+  },
+  "geography_mix": {
+    "_description": "Typical revenue split by geography for global launch",
+    "US": 0.55,
+    "EU5": 0.22,
+    "China": 0.10,
+    "Japan": 0.08,
+    "RoW": 0.05
+  },
+  "gross_to_net_defaults": {
+    "_description": "Gross-to-net adjustment by geography (net/gross ratio)",
+    "US": 0.55,
+    "EU5": 0.75,
+    "China": 0.65,
+    "Japan": 0.80,
+    "RoW": 0.70
+  },
+  "penetration_curve_defaults": {
+    "_description": "S-curve market adoption parameters",
+    "standard": {
+      "year1_pct_of_peak": 0.10,
+      "year2_pct_of_peak": 0.25,
+      "year3_pct_of_peak": 0.45,
+      "year4_pct_of_peak": 0.65,
+      "year5_pct_of_peak": 0.80,
+      "year6_pct_of_peak": 0.90,
+      "year7_pct_of_peak": 0.95,
+      "year8_to_loe_pct_of_peak": 1.00,
+      "post_loe_erosion_per_year": 0.30
+    },
+    "orphan_rare": {
+      "year1_pct_of_peak": 0.20,
+      "year2_pct_of_peak": 0.45,
+      "year3_pct_of_peak": 0.65,
+      "year4_pct_of_peak": 0.80,
+      "year5_pct_of_peak": 0.90,
+      "year6_to_loe_pct_of_peak": 1.00,
+      "post_loe_erosion_per_year": 0.15
+    },
+    "competitive_crowded": {
+      "year1_pct_of_peak": 0.08,
+      "year2_pct_of_peak": 0.18,
+      "year3_pct_of_peak": 0.32,
+      "year4_pct_of_peak": 0.48,
+      "year5_pct_of_peak": 0.62,
+      "year6_pct_of_peak": 0.72,
+      "year7_pct_of_peak": 0.80,
+      "year8_to_loe_pct_of_peak": 0.85,
+      "post_loe_erosion_per_year": 0.35
+    }
+  },
+  "patent_life_defaults": {
+    "standard_from_filing_years": 20,
+    "typical_remaining_at_approval_years": 10,
+    "patent_extension_max_years": 5
+  }
+}

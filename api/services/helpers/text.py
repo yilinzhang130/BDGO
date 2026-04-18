@@ -2,7 +2,28 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+from typing import Any, TypeVar
+
+logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+
+def safe_json_loads(raw: Any, default: _T) -> Any | _T:
+    """Tolerant JSON parse for CRM columns that may store dict/list, a JSON
+    string, or be NULL/empty. Returns ``default`` on any parse failure."""
+    if raw is None or raw == "":
+        return default
+    if isinstance(raw, (dict, list)):
+        return raw
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("JSON parse failed for value: %r", str(raw)[:100])
+        return default
 
 
 def safe_slug(text: str, max_len: int = 40) -> str:

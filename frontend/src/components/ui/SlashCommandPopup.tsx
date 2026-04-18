@@ -24,6 +24,9 @@ export const SLASH_COMMANDS: Omit<SlashCommand, "displayName" | "description" | 
   { alias: "target", slug: "target-radar" },
   { alias: "ip", slug: "ip-landscape" },
   { alias: "guidelines", slug: "clinical-guidelines" },
+  { alias: "evaluate", slug: "deal-evaluator" },
+  { alias: "rnpv", slug: "rnpv-valuation" },
+  { alias: "teaser", slug: "deal-teaser" },
 ];
 
 export function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
