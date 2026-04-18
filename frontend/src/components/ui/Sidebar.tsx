@@ -164,9 +164,7 @@ const TOOLS: NavItem[] = [
   { href: "/dashboard",  label: "仪表盘",  icon: Icon.grid },
   { href: "/watchlist",  label: "关注",    icon: Icon.star },
   { href: "/catalysts",  label: "催化剂",  icon: Icon.zap },
-  // Reports are generated and downloaded inline inside the chat — no
-  // separate nav entry. The /reports route still exists for deep-linking
-  // from shared report URLs.
+  { href: "/reports",    label: "报告",    icon: Icon.fileText },
   { href: "/conference", label: "会议洞察", icon: Icon.presentation },
 ];
 
@@ -363,7 +361,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { createSession } = useSessionStore();
-  const showDatabase = parsePreferences(user).show_database_nav === true;
+  const prefs = parsePreferences(user);
+  const showDatabase = prefs.show_database_nav === true;
+  const showReports  = prefs.show_report_cards === true;
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
@@ -429,12 +429,14 @@ export function Sidebar() {
         {showDatabase && <NavGroup label="数据库" items={DATABASE} />}
         {showDatabase && <NavGroup label="资讯" items={NEWS} />}
 
-        {/* Tools — 仪表盘仅内部/管理员可见 */}
+        {/* Tools — 仪表盘仅内部/管理员可见；报告受偏好设置控制 */}
         <NavGroup
           label="工具"
-          items={TOOLS.filter(item =>
-            item.href !== "/dashboard" || user?.is_admin || user?.is_internal
-          )}
+          items={TOOLS.filter(item => {
+            if (item.href === "/dashboard") return user?.is_admin || user?.is_internal;
+            if (item.href === "/reports")   return showReports;
+            return true;
+          })}
         />
 
         {/* AIDD 立项中心 */}
