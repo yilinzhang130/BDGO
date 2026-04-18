@@ -1,19 +1,45 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   fetchConferenceSessions,
   fetchConferenceStats,
   fetchConferenceCompanies,
+  fetchConferenceAbstracts,
   ConferenceSession,
   ConferenceCompanyCard,
-  ConferenceListResponse,
+  ConferenceAbstract,
 } from "@/lib/api";
 
-// ─── Type badge ────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
+function cleanTitle(title: string): string {
+  return title.replace(/^Abstract [A-Z0-9]+:\s*/i, "").replace(/^Abstract:\s*/i, "");
+}
+
+// ─── Badges ───────────────────────────────────────────────────────────────────
+
+const KIND_CFG: Record<string, { bg: string; color: string; border: string }> = {
+  CT:      { bg: "#fef2f2", color: "#dc2626", border: "#fca5a5" },
+  LB:      { bg: "#fff7ed", color: "#c2410c", border: "#fdba74" },
+  regular: { bg: "#f3f4f6", color: "#4b5563", border: "#d1d5db" },
+};
+
+function KindBadge({ kind }: { kind: string }) {
+  const cfg = KIND_CFG[kind] || KIND_CFG.regular;
+  const label = kind === "regular" ? "Poster" : kind;
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 5,
+      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+      letterSpacing: "0.03em", flexShrink: 0,
+    }}>{label}</span>
+  );
+}
+
+const TYPE_CFG: Record<string, { bg: string; color: string }> = {
   "Biotech":     { bg: "#eff6ff", color: "#1d4ed8" },
   "Biotech(CN)": { bg: "#f0fdf4", color: "#166534" },
   "Biotech(US)": { bg: "#eff6ff", color: "#1d4ed8" },
@@ -21,271 +47,372 @@ const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
   "Pharma":      { bg: "#fff7ed", color: "#9a3412" },
   "Pharma(CN)":  { bg: "#f0fdf4", color: "#166534" },
   "MNC":         { bg: "#fefce8", color: "#854d0e" },
-  "学术/医院":   { bg: "#f9fafb", color: "#4b5563" },
-  "Other":       { bg: "#f9fafb", color: "#4b5563" },
 };
 
 function TypeBadge({ type }: { type?: string }) {
-  const t = type || "Other";
-  const cfg = TYPE_COLORS[t] || { bg: "#f3f4f6", color: "#6b7280" };
+  if (!type) return null;
+  const cfg = TYPE_CFG[type] || { bg: "#f3f4f6", color: "#6b7280" };
   return (
     <span style={{
-      display: "inline-block", padding: "1px 7px", borderRadius: 6, fontSize: 11,
-      fontWeight: 600, background: cfg.bg, color: cfg.color,
-    }}>{t}</span>
+      fontSize: 11, fontWeight: 600, padding: "1px 6px", borderRadius: 5,
+      background: cfg.bg, color: cfg.color,
+    }}>{type}</span>
   );
 }
 
-// ─── Kind badge ────────────────────────────────────────────────────────────────
-
-function KindBadge({ kind }: { kind: string }) {
-  const isHot = kind === "CT" || kind === "LB";
+function TargetTag({ label }: { label: string }) {
   return (
     <span style={{
-      display: "inline-block", padding: "0px 5px", borderRadius: 4, fontSize: 10,
-      fontWeight: 700, letterSpacing: "0.02em",
-      background: isHot ? "#fef2f2" : "#f3f4f6",
-      color: isHot ? "#dc2626" : "#6b7280",
-      border: isHot ? "1px solid #fca5a5" : "1px solid #e5e7eb",
-    }}>{kind}</span>
+      fontSize: 11, padding: "2px 7px", borderRadius: 20,
+      background: "#dbeafe", color: "#1e40af", fontWeight: 600,
+    }}>{label}</span>
   );
 }
 
-// ─── Company flash card ────────────────────────────────────────────────────────
+function DataTag({ label, value }: { label: string; value: string }) {
+  return (
+    <span style={{
+      fontSize: 11, padding: "2px 7px", borderRadius: 20,
+      background: "#f0fdf4", color: "#166534", fontWeight: 500,
+    }}>{label}: <strong>{value}</strong></span>
+  );
+}
 
-function CompanyCard({
-  card,
-  sessionId,
-  onClick,
-}: {
-  card: ConferenceCompanyCard;
-  sessionId: string;
-  onClick: () => void;
-}) {
-  const hotCount = card.CT_count + card.LB_count;
+// ─── Abstract card ─────────────────────────────────────────────────────────────
+
+function AbstractCard({ ab, onClick }: { ab: ConferenceAbstract; onClick: () => void }) {
+  const importantDp = Object.entries(ab.data_points || {}).filter(
+    ([k]) => ["ORR", "DOR", "mDOR", "mPFS", "mOS", "DCR", "N", "Gr3+AE"].includes(k)
+  );
+
   return (
     <div
       onClick={onClick}
       style={{
-        background: "#fff",
-        border: "1px solid #e5e7eb",
-        borderRadius: 12,
-        padding: "16px",
-        cursor: "pointer",
-        transition: "box-shadow 0.15s, border-color 0.15s",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
+        background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12,
+        padding: "18px 20px", cursor: "pointer", transition: "box-shadow 0.15s, border-color 0.15s",
+        display: "flex", flexDirection: "column", gap: 10,
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.08)";
-        (e.currentTarget as HTMLDivElement).style.borderColor = "#93c5fd";
+        (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0,0,0,0.08)";
+        (e.currentTarget as HTMLElement).style.borderColor = "#93c5fd";
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
-        (e.currentTarget as HTMLDivElement).style.borderColor = "#e5e7eb";
+        (e.currentTarget as HTMLElement).style.boxShadow = "none";
+        (e.currentTarget as HTMLElement).style.borderColor = "#e5e7eb";
       }}
     >
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#111827", lineHeight: 1.3, marginBottom: 4 }}>
-            {card.company}
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <TypeBadge type={card.客户类型} />
-            {card.所处国家 && (
-              <span style={{ fontSize: 11, color: "#6b7280" }}>{card.所处国家}</span>
-            )}
-          </div>
-        </div>
-        {/* CT/LB hot count */}
-        {hotCount > 0 && (
-          <div style={{
-            flexShrink: 0, textAlign: "center",
-            background: "#fef2f2", borderRadius: 8,
-            padding: "4px 10px", border: "1px solid #fca5a5",
-          }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#dc2626", lineHeight: 1 }}>{hotCount}</div>
-            <div style={{ fontSize: 9, color: "#dc2626", fontWeight: 600, marginTop: 1 }}>CT/LB</div>
-          </div>
+      {/* Kind + title */}
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <KindBadge kind={ab.kind} />
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#111827", lineHeight: 1.45, flex: 1 }}>
+          {cleanTitle(ab.title)}
+        </h3>
+      </div>
+
+      {/* Company */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>{ab.company}</span>
+        <TypeBadge type={ab.客户类型} />
+        {ab.所处国家 && (
+          <span style={{ fontSize: 12, color: "#9ca3af" }}>· {ab.所处国家}</span>
         )}
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: "flex", gap: 12, fontSize: 12, color: "#6b7280" }}>
-        <span>
-          <span style={{ fontWeight: 600, color: "#374151" }}>{card.CT_count}</span> CT
-        </span>
-        <span>
-          <span style={{ fontWeight: 600, color: "#374151" }}>{card.LB_count}</span> LB
-        </span>
-        <span>
-          <span style={{ fontWeight: 600, color: "#374151" }}>{card.abstract_count}</span> 总计
-        </span>
-        {card.Ticker && (
-          <span style={{ marginLeft: "auto", color: "#9ca3af", fontSize: 11 }}>{card.Ticker}</span>
-        )}
-      </div>
-
-      {/* Top abstracts */}
-      {card.top_abstracts.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          {card.top_abstracts.map((ab, i) => (
-            <div key={i} style={{
-              fontSize: 11, color: "#4b5563", lineHeight: 1.4,
-              display: "flex", gap: 5, alignItems: "flex-start",
-            }}>
-              <KindBadge kind={ab.kind} />
-              <span style={{
-                flex: 1,
-                overflow: "hidden",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-              }}>
-                {ab.title.replace(/^Abstract [A-Z0-9]+:\s*/i, "")}
-              </span>
-            </div>
-          ))}
+      {/* Targets */}
+      {ab.targets?.length > 0 && (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {ab.targets.slice(0, 6).map(t => <TargetTag key={t} label={t} />)}
         </div>
       )}
 
+      {/* Data points */}
+      {importantDp.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {importantDp.map(([k, v]) => <DataTag key={k} label={k} value={v} />)}
+        </div>
+      )}
+
+      {/* Conclusion = Key Points */}
+      {ab.conclusion && (
+        <div style={{
+          background: "#f9fafb", borderRadius: 8, padding: "10px 12px",
+          fontSize: 12, color: "#374151", lineHeight: 1.6,
+        }}>
+          <div style={{ fontWeight: 600, fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Key Finding
+          </div>
+          {ab.conclusion}
+        </div>
+      )}
+
+      {/* NCT + DOI */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        {ab.ncts?.map(nct => (
+          <a key={nct} href={`https://clinicaltrials.gov/study/${nct}`} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 11, color: "#2563eb" }} onClick={e => e.stopPropagation()}>
+            {nct} ↗
+          </a>
+        ))}
+        {ab.doi && (
+          <a href={`https://doi.org/${ab.doi}`} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 11, color: "#9ca3af", marginLeft: "auto" }} onClick={e => e.stopPropagation()}>
+            Abstract ↗
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Company card (compact) ────────────────────────────────────────────────────
+
+function CompanyCard({ card, onClick }: { card: ConferenceCompanyCard; onClick: () => void }) {
+  const hotCount = card.CT_count + card.LB_count;
+  const uniqueTargets = Array.from(new Set(card.top_abstracts.flatMap(a => a.targets || []))).slice(0, 5);
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12,
+        padding: "16px 18px", cursor: "pointer", transition: "box-shadow 0.15s, border-color 0.15s",
+        display: "flex", flexDirection: "column", gap: 10,
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(0,0,0,0.08)";
+        (e.currentTarget as HTMLElement).style.borderColor = "#93c5fd";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.boxShadow = "none";
+        (e.currentTarget as HTMLElement).style.borderColor = "#e5e7eb";
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#111827", marginBottom: 5 }}>{card.company}</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <TypeBadge type={card.客户类型} />
+            {card.所处国家 && <span style={{ fontSize: 11, color: "#9ca3af" }}>{card.所处国家}</span>}
+            {card.Ticker && <span style={{ fontSize: 11, color: "#d1d5db" }}>· {card.Ticker}</span>}
+          </div>
+        </div>
+        {hotCount > 0 && (
+          <div style={{
+            flexShrink: 0, textAlign: "center", background: "#fef2f2",
+            borderRadius: 8, padding: "5px 10px", border: "1px solid #fca5a5",
+          }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626", lineHeight: 1 }}>{hotCount}</div>
+            <div style={{ fontSize: 9, color: "#dc2626", fontWeight: 700 }}>CT/LB</div>
+          </div>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
+        {card.CT_count > 0 && <span style={{ color: "#dc2626" }}><strong>{card.CT_count}</strong> CT</span>}
+        {card.LB_count > 0 && <span style={{ color: "#d97706" }}><strong>{card.LB_count}</strong> LB</span>}
+        <span style={{ color: "#6b7280" }}><strong>{card.abstract_count}</strong> 摘要</span>
+      </div>
+
+      {/* Top abstract titles */}
+      {card.top_abstracts.slice(0, 2).map((ab, i) => (
+        <div key={i} style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.4, display: "flex", gap: 5 }}>
+          <KindBadge kind={ab.kind} />
+          <span style={{ flex: 1,
+            overflow: "hidden", display: "-webkit-box",
+            WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+          }}>{cleanTitle(ab.title)}</span>
+        </div>
+      ))}
+
       {/* Targets */}
-      {card.top_abstracts.some(a => a.targets?.length > 0) && (
+      {uniqueTargets.length > 0 && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {Array.from(new Set(card.top_abstracts.flatMap(a => a.targets || []))).slice(0, 5).map(t => (
-            <span key={t} style={{
-              fontSize: 10, padding: "1px 5px", borderRadius: 4,
-              background: "#f3f4f6", color: "#374151", fontWeight: 500,
-            }}>{t}</span>
-          ))}
+          {uniqueTargets.map(t => <TargetTag key={t} label={t} />)}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Company detail modal ──────────────────────────────────────────────────────
+// ─── Chat sidebar ──────────────────────────────────────────────────────────────
 
-function CompanyDetailModal({
-  company,
-  data,
-  onClose,
-}: {
-  company: string;
-  data: any;
-  onClose: () => void;
-}) {
-  if (!data) return null;
+const SUGGESTED_QUESTIONS = [
+  "哪些中国公司在 AACR 2026 有 CT 摘要？数据亮点是什么？",
+  "AACR 2026 上 ADC 相关的最新数据有哪些？",
+  "HER2/EGFR 靶点今年 AACR 的竞争格局如何？",
+  "有哪些 first-in-class 靶点值得关注？",
+  "ORR > 50% 的 CT 摘要都有哪些公司？",
+  "和 CRM 数据对比，哪些公司在 AACR 有新进展但我们还没追踪？",
+];
+
+function ChatSidebar({ session }: { session: string }) {
+  return (
+    <div style={{
+      width: 260, flexShrink: 0, borderLeft: "1px solid #e5e7eb",
+      background: "#fafafa", display: "flex", flexDirection: "column",
+      height: "100%", overflow: "hidden",
+    }}>
+      <div style={{ padding: "16px 16px 8px", borderBottom: "1px solid #e5e7eb" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>💬 对话分析</div>
+        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>基于 {session} 数据提问</div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          相关问题
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {SUGGESTED_QUESTIONS.map((q, i) => (
+            <Link
+              key={i}
+              href={`/chat?q=${encodeURIComponent(q)}`}
+              style={{
+                display: "block", padding: "10px 12px", borderRadius: 8,
+                background: "#fff", border: "1px solid #e5e7eb", fontSize: 12,
+                color: "#374151", lineHeight: 1.5, textDecoration: "none",
+                transition: "border-color 0.1s, box-shadow 0.1s",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = "#93c5fd";
+                (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = "#e5e7eb";
+                (e.currentTarget as HTMLElement).style.boxShadow = "none";
+              }}
+            >
+              {q}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: "12px", borderTop: "1px solid #e5e7eb" }}>
+        <Link
+          href={`/chat?q=${encodeURIComponent(`分析 ${session} 会议数据，给出中国公司BD机会总结`)}`}
+          style={{
+            display: "block", textAlign: "center", padding: "9px 0",
+            background: "#1e3a8a", color: "#fff", borderRadius: 8,
+            fontSize: 13, fontWeight: 600, textDecoration: "none",
+          }}
+        >
+          打开 Chat
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Abstract detail panel ────────────────────────────────────────────────────
+
+function AbstractDetailPanel({ ab, onClose }: { ab: ConferenceAbstract | null; onClose: () => void }) {
+  if (!ab) return null;
+
+  const importantDp = Object.entries(ab.data_points || {});
 
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
-        zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center",
-        padding: "40px 16px", overflowY: "auto",
-      }}
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)",
+      zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center",
+      padding: "48px 16px", overflowY: "auto",
+    }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div style={{
-        background: "#fff", borderRadius: 16, width: "100%", maxWidth: 720,
+        background: "#fff", borderRadius: 16, width: "100%", maxWidth: 680,
         padding: "28px 32px", position: "relative",
       }}>
-        {/* Close */}
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute", top: 16, right: 16,
-            border: "none", background: "#f3f4f6", borderRadius: 6,
-            width: 28, height: 28, cursor: "pointer", fontSize: 16, lineHeight: "28px",
-            color: "#6b7280",
-          }}
-        >×</button>
+        <button onClick={onClose} style={{
+          position: "absolute", top: 14, right: 14, border: "none",
+          background: "#f3f4f6", borderRadius: 6, width: 28, height: 28,
+          cursor: "pointer", fontSize: 16, lineHeight: "28px", color: "#6b7280",
+        }}>×</button>
 
-        {/* Header */}
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111827" }}>{data.company}</h2>
-          <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <TypeBadge type={data.客户类型} />
-            {data.所处国家 && <span style={{ fontSize: 13, color: "#6b7280" }}>{data.所处国家}</span>}
-            {data.Ticker && <span style={{ fontSize: 12, color: "#9ca3af" }}>{data.Ticker}</span>}
-            {data["市值/估值"] && <span style={{ fontSize: 12, color: "#6b7280" }}>{data["市值/估值"]}</span>}
-          </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 13 }}>
-            <span><strong style={{ color: "#dc2626" }}>{data.CT_count}</strong> CT abstracts</span>
-            <span><strong style={{ color: "#d97706" }}>{data.LB_count}</strong> Late-Breaking</span>
-            <span><strong>{(data.abstracts || []).length}</strong> 总计</span>
-          </div>
+        {/* Kind + title */}
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 12 }}>
+          <KindBadge kind={ab.kind} />
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111827", lineHeight: 1.4, flex: 1 }}>
+            {cleanTitle(ab.title)}
+          </h2>
         </div>
 
-        {/* Abstracts */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {(data.abstracts || []).map((ab: any, i: number) => (
-            <div key={i} style={{
-              border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px",
-              background: ab.kind === "CT" || ab.kind === "LB" ? "#fffbeb" : "#fafafa",
-            }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 6 }}>
-                <KindBadge kind={ab.kind} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", lineHeight: 1.4, flex: 1 }}>
-                  {ab.title.replace(/^Abstract [A-Z0-9]+:\s*/i, "")}
-                </span>
-              </div>
+        {/* Company */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{ab.company}</span>
+          <TypeBadge type={ab.客户类型} />
+          <span style={{ fontSize: 13, color: "#9ca3af" }}>{ab.所处国家}</span>
+        </div>
 
-              {/* Targets */}
-              {ab.targets?.length > 0 && (
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
-                  {ab.targets.map((t: string) => (
-                    <span key={t} style={{
-                      fontSize: 10, padding: "1px 6px", borderRadius: 4,
-                      background: "#dbeafe", color: "#1e40af", fontWeight: 600,
-                    }}>{t}</span>
-                  ))}
-                </div>
-              )}
-
-              {/* Data points */}
-              {ab.data_points && Object.keys(ab.data_points).length > 0 && (
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: ab.conclusion ? 6 : 0 }}>
-                  {Object.entries(ab.data_points).map(([k, v]) => (
-                    <span key={k} style={{ fontSize: 12, color: "#374151" }}>
-                      <span style={{ fontWeight: 600 }}>{k}:</span> {String(v)}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Conclusion */}
-              {ab.conclusion && (
-                <p style={{ margin: 0, fontSize: 12, color: "#4b5563", lineHeight: 1.5, fontStyle: "italic" }}>
-                  {ab.conclusion}
-                </p>
-              )}
-
-              {/* DOI link */}
-              {ab.doi && (
-                <a
-                  href={`https://doi.org/${ab.doi}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: 11, color: "#2563eb", marginTop: 4, display: "inline-block" }}
-                >
-                  Abstract ↗
-                </a>
-              )}
+        {/* Targets */}
+        {ab.targets?.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>靶点</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {ab.targets.map(t => <TargetTag key={t} label={t} />)}
             </div>
+          </div>
+        )}
+
+        {/* Data points */}
+        {importantDp.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>临床数据</div>
+            <div style={{
+              display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+              gap: 8,
+            }}>
+              {importantDp.map(([k, v]) => (
+                <div key={k} style={{
+                  background: "#f9fafb", borderRadius: 8, padding: "10px 12px",
+                  border: "1px solid #e5e7eb",
+                }}>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>{k}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Key Finding */}
+        {ab.conclusion && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Key Finding</div>
+            <div style={{
+              background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10,
+              padding: "14px 16px", fontSize: 13, color: "#14532d", lineHeight: 1.7,
+            }}>
+              {ab.conclusion}
+            </div>
+          </div>
+        )}
+
+        {/* Links */}
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 4 }}>
+          {ab.ncts?.map(nct => (
+            <a key={nct} href={`https://clinicaltrials.gov/study/${nct}`} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: 13, color: "#2563eb", fontWeight: 500 }}>
+              {nct} ↗
+            </a>
           ))}
+          {ab.doi && (
+            <a href={`https://doi.org/${ab.doi}`} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: 13, color: "#6b7280" }}>
+              原文摘要 ↗
+            </a>
+          )}
         </div>
 
-        {/* Chat link */}
-        <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #f3f4f6", textAlign: "center" }}>
+        {/* Chat with this abstract */}
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #f3f4f6" }}>
           <Link
-            href={`/chat?q=${encodeURIComponent(`分析 ${data.company} 在 AACR 2026 的数据，结合CRM信息给出BD评估`)}`}
+            href={`/chat?q=${encodeURIComponent(`深度分析 ${ab.company} 的摘要《${cleanTitle(ab.title).slice(0, 60)}》，结合CRM数据给出BD评估`)}`}
             style={{
-              display: "inline-block", padding: "8px 20px", borderRadius: 8,
-              background: "#1e3a8a", color: "#fff", fontSize: 13, fontWeight: 600,
-              textDecoration: "none",
+              display: "inline-block", padding: "9px 20px", background: "#1e3a8a",
+              color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none",
             }}
           >
             💬 在 Chat 中深度分析
@@ -298,258 +425,251 @@ function CompanyDetailModal({
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
+type ViewMode = "abstracts" | "companies";
+
 export default function ConferencePage() {
   const [sessions, setSessions] = useState<ConferenceSession[]>([]);
   const [activeSession, setActiveSession] = useState("AACR-2026");
   const [stats, setStats] = useState<any>(null);
+  const [view, setView] = useState<ViewMode>("abstracts");
 
+  // Shared filters
   const [q, setQ] = useState("");
   const [companyType, setCompanyType] = useState("");
   const [country, setCountry] = useState("");
-  const [ctOnly, setCtOnly] = useState(false);
+  const [kind, setKind] = useState("");
   const [page, setPage] = useState(1);
 
-  const [listData, setListData] = useState<ConferenceListResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Abstract view
+  const [abstracts, setAbstracts] = useState<any>(null);
+  const [loadingAbs, setLoadingAbs] = useState(false);
 
-  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
-  const [companyDetail, setCompanyDetail] = useState<any>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  // Company view
+  const [companies, setCompanies] = useState<any>(null);
+  const [loadingCo, setLoadingCo] = useState(false);
 
-  // Load sessions on mount
+  // Detail
+  const [selectedAb, setSelectedAb] = useState<ConferenceAbstract | null>(null);
+
+  // Load sessions
   useEffect(() => {
     fetchConferenceSessions()
       .then(r => setSessions(r.sessions))
       .catch(() => {});
   }, []);
 
-  // Load stats when session changes
+  // Load stats
   useEffect(() => {
-    fetchConferenceStats(activeSession)
-      .then(setStats)
-      .catch(() => setStats(null));
+    fetchConferenceStats(activeSession).then(setStats).catch(() => setStats(null));
   }, [activeSession]);
 
-  // Load company list
-  const loadCompanies = useCallback(() => {
-    setLoading(true);
-    fetchConferenceCompanies(activeSession, { q, company_type: companyType, country, ct_only: ctOnly, page })
-      .then(data => { setListData(data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [activeSession, q, companyType, country, ctOnly, page]);
+  // Load abstracts
+  const loadAbstracts = useCallback(() => {
+    setLoadingAbs(true);
+    fetchConferenceAbstracts(activeSession, { q, company_type: companyType, country, kind, page })
+      .then(d => { setAbstracts(d); setLoadingAbs(false); })
+      .catch(() => setLoadingAbs(false));
+  }, [activeSession, q, companyType, country, kind, page]);
 
-  useEffect(() => { loadCompanies(); }, [loadCompanies]);
+  // Load companies
+  const loadCompanies = useCallback(() => {
+    setLoadingCo(true);
+    fetchConferenceCompanies(activeSession, {
+      q, company_type: companyType, country, ct_only: kind === "CT",
+      page, page_size: 24,
+    })
+      .then(d => { setCompanies(d); setLoadingCo(false); })
+      .catch(() => setLoadingCo(false));
+  }, [activeSession, q, companyType, country, kind, page]);
+
+  useEffect(() => {
+    if (view === "abstracts") loadAbstracts();
+    else loadCompanies();
+  }, [view, loadAbstracts, loadCompanies]);
 
   // Reset page on filter change
-  useEffect(() => { setPage(1); }, [activeSession, q, companyType, country, ctOnly]);
-
-  // Load company detail
-  const openCompany = async (name: string) => {
-    setSelectedCompany(name);
-    setLoadingDetail(true);
-    try {
-      const { fetchConferenceCompany } = await import("@/lib/api");
-      const detail = await fetchConferenceCompany(activeSession, name);
-      setCompanyDetail(detail);
-    } catch {
-      setCompanyDetail(null);
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
+  useEffect(() => { setPage(1); }, [activeSession, q, companyType, country, kind, view]);
 
   const activeSessionMeta = sessions.find(s => s.id === activeSession);
-  const facets = listData?.facets;
+  const facets = view === "abstracts" ? abstracts?.facets : companies?.facets;
+  const currentData = view === "abstracts" ? abstracts : companies;
+  const isLoading = view === "abstracts" ? loadingAbs : loadingCo;
+  const totalItems = currentData?.total ?? 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#f8fafc" }}>
-      {/* Top bar */}
-      <div style={{
-        background: "#fff", borderBottom: "1px solid #e5e7eb",
-        padding: "16px 24px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0,
-      }}>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111827" }}>会议洞察</h1>
-          {activeSessionMeta && (
-            <p style={{ margin: "2px 0 0", fontSize: 13, color: "#6b7280" }}>
-              {activeSessionMeta.full_name}
-              {activeSessionMeta.location && ` · ${activeSessionMeta.location}`}
-            </p>
-          )}
-        </div>
+    <div style={{ display: "flex", height: "100vh", background: "#f8fafc", overflow: "hidden" }}>
 
-        {/* Session selector */}
-        {sessions.length > 1 && (
-          <select
-            value={activeSession}
-            onChange={e => setActiveSession(e.target.value)}
-            style={{
-              fontSize: 13, padding: "6px 10px", border: "1px solid #d1d5db",
-              borderRadius: 7, background: "#fff", color: "#374151", cursor: "pointer",
-            }}
-          >
-            {sessions.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        )}
+      {/* Main content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-        {/* Chat shortcut */}
-        <Link
-          href={`/chat?q=${encodeURIComponent(`分析 ${activeSession} 会议数据，哪些中国公司有CT或LB摘要？`)}`}
-          style={{
-            display: "flex", alignItems: "center", gap: 6, padding: "7px 14px",
-            background: "#1e3a8a", color: "#fff", borderRadius: 8, fontSize: 13,
-            fontWeight: 600, textDecoration: "none",
-          }}
-        >
-          💬 Chat 分析
-        </Link>
-      </div>
-
-      {/* Stats bar */}
-      {stats && (
+        {/* Header */}
         <div style={{
-          background: "#fff", borderBottom: "1px solid #f3f4f6",
-          padding: "12px 24px", display: "flex", gap: 24, flexShrink: 0,
-          overflowX: "auto",
+          background: "#fff", borderBottom: "1px solid #e5e7eb",
+          padding: "14px 24px", flexShrink: 0,
         }}>
-          <StatChip label="BD相关公司" value={stats.total_companies ?? stats.total_bd_heat_companies} color="#1d4ed8" />
-          <StatChip label="CT abstracts" value={stats.total_ct} color="#dc2626" />
-          <StatChip label="Late-Breaking" value={stats.total_lb} color="#d97706" />
-          <StatChip label="摘要总数" value={stats.total_abstracts_covered} color="#6b7280" />
-          {stats.by_country?.["中国"] != null && (
-            <StatChip label="中国公司" value={stats.by_country["中国"]} color="#166534" />
+          {/* Row 1: title + session selector + chat */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+            <div style={{ flex: 1 }}>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#111827" }}>
+                {activeSessionMeta?.full_name || activeSession}
+              </h1>
+              {activeSessionMeta?.location && (
+                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>{activeSessionMeta.location}</div>
+              )}
+            </div>
+
+            {sessions.length > 1 && (
+              <select
+                value={activeSession}
+                onChange={e => setActiveSession(e.target.value)}
+                style={{ fontSize: 13, padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 7, color: "#374151" }}
+              >
+                {sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
+          </div>
+
+          {/* Stats bar */}
+          {stats && (
+            <div style={{ display: "flex", gap: 20, marginBottom: 12, flexWrap: "wrap" }}>
+              <StatChip icon="🏢" label="BD公司" value={stats.total_companies ?? stats.total_bd_heat_companies} color="#1d4ed8" />
+              <StatChip icon="🔴" label="CT摘要" value={stats.total_ct} color="#dc2626" />
+              <StatChip icon="🟠" label="Late-Breaking" value={stats.total_lb} color="#d97706" />
+              <StatChip icon="🇨🇳" label="中国公司" value={stats.by_country?.["中国"]} color="#166534" />
+            </div>
           )}
-        </div>
-      )}
 
-      {/* Filters */}
-      <div style={{
-        background: "#fff", borderBottom: "1px solid #e5e7eb",
-        padding: "10px 24px", display: "flex", gap: 8, alignItems: "center",
-        flexShrink: 0, flexWrap: "wrap",
-      }}>
-        <input
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder="搜索公司名称…"
-          style={{
-            padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 7,
-            fontSize: 13, color: "#374151", width: 200,
-          }}
-        />
-
-        <select
-          value={companyType}
-          onChange={e => setCompanyType(e.target.value)}
-          style={{ fontSize: 13, padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 7, color: "#374151" }}
-        >
-          <option value="">所有类型</option>
-          {(facets?.types || []).map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-
-        <select
-          value={country}
-          onChange={e => setCountry(e.target.value)}
-          style={{ fontSize: 13, padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 7, color: "#374151" }}
-        >
-          <option value="">所有国家</option>
-          {(facets?.countries || []).map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151", cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={ctOnly}
-            onChange={e => setCtOnly(e.target.checked)}
-            style={{ width: 14, height: 14, cursor: "pointer" }}
-          />
-          仅 CT/LB
-        </label>
-
-        {(q || companyType || country || ctOnly) && (
-          <button
-            onClick={() => { setQ(""); setCompanyType(""); setCountry(""); setCtOnly(false); }}
-            style={{
-              fontSize: 12, padding: "5px 10px", border: "1px solid #d1d5db",
-              borderRadius: 6, background: "#f9fafb", cursor: "pointer", color: "#6b7280",
-            }}
-          >
-            重置
-          </button>
-        )}
-
-        <span style={{ marginLeft: "auto", fontSize: 12, color: "#9ca3af" }}>
-          {listData ? `${listData.total} 家公司` : ""}
-        </span>
-      </div>
-
-      {/* Card grid */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-        {loading ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#9ca3af", fontSize: 14 }}>
-            加载中…
-          </div>
-        ) : listData?.data.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#9ca3af", fontSize: 14 }}>
-            没有找到匹配公司
-          </div>
-        ) : (
-          <>
+          {/* View toggle + Filters */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {/* View toggle */}
             <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: 14,
+              display: "flex", border: "1px solid #d1d5db", borderRadius: 8, overflow: "hidden",
+              flexShrink: 0,
             }}>
-              {listData?.data.map(card => (
-                <CompanyCard
-                  key={card.company}
-                  card={card}
-                  sessionId={activeSession}
-                  onClick={() => openCompany(card.company)}
-                />
+              {([["abstracts", "摘要卡片"], ["companies", "公司视图"]] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  style={{
+                    padding: "6px 14px", fontSize: 12, fontWeight: 600, border: "none",
+                    background: view === v ? "#1e3a8a" : "#fff",
+                    color: view === v ? "#fff" : "#6b7280",
+                    cursor: "pointer", transition: "all 0.1s",
+                  }}
+                >{label}</button>
               ))}
             </div>
 
-            {/* Pagination */}
-            {listData && listData.total_pages > 1 && (
-              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 24, alignItems: "center" }}>
-                <button
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => p - 1)}
-                  style={{
-                    padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 7,
-                    background: page <= 1 ? "#f9fafb" : "#fff", cursor: page <= 1 ? "not-allowed" : "pointer",
-                    fontSize: 13, color: page <= 1 ? "#d1d5db" : "#374151",
-                  }}
-                >← 上一页</button>
-                <span style={{ fontSize: 13, color: "#6b7280" }}>
-                  {page} / {listData.total_pages}
-                </span>
-                <button
-                  disabled={page >= listData.total_pages}
-                  onClick={() => setPage(p => p + 1)}
-                  style={{
-                    padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 7,
-                    background: page >= listData.total_pages ? "#f9fafb" : "#fff",
-                    cursor: page >= listData.total_pages ? "not-allowed" : "pointer",
-                    fontSize: 13, color: page >= listData.total_pages ? "#d1d5db" : "#374151",
-                  }}
-                >下一页 →</button>
-              </div>
+            {/* Search */}
+            <input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder={view === "abstracts" ? "搜索标题/靶点/公司…" : "搜索公司名称…"}
+              style={{
+                padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 7,
+                fontSize: 13, color: "#374151", width: 200,
+              }}
+            />
+
+            {/* Type filter */}
+            <select value={companyType} onChange={e => setCompanyType(e.target.value)}
+              style={{ fontSize: 13, padding: "6px 9px", border: "1px solid #d1d5db", borderRadius: 7, color: "#374151" }}>
+              <option value="">所有类型</option>
+              {(facets?.types || []).map((t: string) => <option key={t} value={t}>{t}</option>)}
+            </select>
+
+            {/* Country filter */}
+            <select value={country} onChange={e => setCountry(e.target.value)}
+              style={{ fontSize: 13, padding: "6px 9px", border: "1px solid #d1d5db", borderRadius: 7, color: "#374151" }}>
+              <option value="">所有国家</option>
+              {(facets?.countries || []).map((c: string) => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            {/* Kind filter (abstracts only) */}
+            {view === "abstracts" && (
+              <select value={kind} onChange={e => setKind(e.target.value)}
+                style={{ fontSize: 13, padding: "6px 9px", border: "1px solid #d1d5db", borderRadius: 7, color: "#374151" }}>
+                <option value="">全部类型</option>
+                <option value="CT">Clinical Trial (CT)</option>
+                <option value="LB">Late-Breaking (LB)</option>
+                <option value="regular">Poster</option>
+              </select>
             )}
-          </>
-        )}
+
+            {/* Reset */}
+            {(q || companyType || country || kind) && (
+              <button
+                onClick={() => { setQ(""); setCompanyType(""); setCountry(""); setKind(""); }}
+                style={{ fontSize: 12, padding: "5px 10px", border: "1px solid #d1d5db", borderRadius: 6, background: "#f9fafb", cursor: "pointer", color: "#6b7280" }}
+              >重置</button>
+            )}
+
+            {/* Count */}
+            <span style={{ marginLeft: "auto", fontSize: 12, color: "#9ca3af" }}>
+              {totalItems > 0 ? `${totalItems} 条` : ""}
+            </span>
+          </div>
+        </div>
+
+        {/* Content area */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+          {isLoading ? (
+            <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af", fontSize: 14 }}>加载中…</div>
+          ) : totalItems === 0 ? (
+            <div style={{ textAlign: "center", padding: "80px 0", color: "#9ca3af" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+              <div style={{ fontSize: 14 }}>没有找到匹配数据</div>
+            </div>
+          ) : (
+            <>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                gap: 14,
+              }}>
+                {view === "abstracts"
+                  ? (abstracts?.data || []).map((ab: ConferenceAbstract, i: number) => (
+                    <AbstractCard key={i} ab={ab} onClick={() => setSelectedAb(ab)} />
+                  ))
+                  : (companies?.data || []).map((card: ConferenceCompanyCard, i: number) => (
+                    <CompanyCard key={i} card={card} onClick={() => {
+                      // Switch to abstracts view filtered by this company
+                      setQ(card.company); setView("abstracts");
+                    }} />
+                  ))
+                }
+              </div>
+
+              {/* Pagination */}
+              {currentData && currentData.total_pages > 1 && (
+                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 28, alignItems: "center" }}>
+                  <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                    style={{
+                      padding: "7px 16px", border: "1px solid #d1d5db", borderRadius: 7,
+                      background: page <= 1 ? "#f9fafb" : "#fff", cursor: page <= 1 ? "not-allowed" : "pointer",
+                      fontSize: 13, color: page <= 1 ? "#d1d5db" : "#374151",
+                    }}>← 上一页</button>
+                  <span style={{ fontSize: 13, color: "#6b7280" }}>{page} / {currentData.total_pages}</span>
+                  <button disabled={page >= currentData.total_pages} onClick={() => setPage(p => p + 1)}
+                    style={{
+                      padding: "7px 16px", border: "1px solid #d1d5db", borderRadius: 7,
+                      background: page >= currentData.total_pages ? "#f9fafb" : "#fff",
+                      cursor: page >= currentData.total_pages ? "not-allowed" : "pointer",
+                      fontSize: 13, color: page >= currentData.total_pages ? "#d1d5db" : "#374151",
+                    }}>下一页 →</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Company detail modal */}
-      {selectedCompany && (
-        <CompanyDetailModal
-          company={selectedCompany}
-          data={loadingDetail ? null : companyDetail}
-          onClose={() => { setSelectedCompany(null); setCompanyDetail(null); }}
-        />
+      {/* Chat sidebar */}
+      <ChatSidebar session={activeSession} />
+
+      {/* Abstract detail modal */}
+      {selectedAb && (
+        <AbstractDetailPanel ab={selectedAb} onClose={() => setSelectedAb(null)} />
       )}
     </div>
   );
@@ -557,11 +677,12 @@ export default function ConferencePage() {
 
 // ─── Stat chip ─────────────────────────────────────────────────────────────────
 
-function StatChip({ label, value, color }: { label: string; value?: number; color: string }) {
-  if (value == null) return null;
+function StatChip({ icon, label, value, color }: { icon: string; label: string; value?: number; color: string }) {
+  if (value == null || value === 0) return null;
   return (
-    <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexShrink: 0 }}>
-      <span style={{ fontSize: 22, fontWeight: 800, color }}>{value.toLocaleString()}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+      <span style={{ fontSize: 14 }}>{icon}</span>
+      <span style={{ fontSize: 20, fontWeight: 800, color }}>{value.toLocaleString()}</span>
       <span style={{ fontSize: 12, color: "#6b7280" }}>{label}</span>
     </div>
   );

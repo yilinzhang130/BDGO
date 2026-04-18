@@ -535,3 +535,51 @@ export const fetchConferenceCompanies = (
 export const fetchConferenceCompany = (sessionId: string, companyName: string) =>
   get(`${BASE}/conference/${encodeURIComponent(sessionId)}/companies/${encodeURIComponent(companyName)}`);
 
+export interface ConferenceAbstract {
+  doi: string;
+  title: string;
+  kind: "CT" | "LB" | "regular";
+  targets: string[];
+  data_points: Record<string, string>;
+  conclusion?: string;
+  ncts?: string[];
+  company: string;
+  客户类型: string;
+  所处国家: string;
+  Ticker?: string | null;
+}
+
+export interface ConferenceAbstractsResponse {
+  data: ConferenceAbstract[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  facets: { companies: string[]; countries: string[]; types: string[] };
+}
+
+export const fetchConferenceAbstracts = (
+  sessionId: string,
+  params: {
+    q?: string;
+    kind?: string;
+    company?: string;
+    country?: string;
+    company_type?: string;
+    page?: number;
+    page_size?: number;
+  } = {},
+) =>
+  get<ConferenceAbstractsResponse>(
+    `${BASE}/conference/${encodeURIComponent(sessionId)}/abstracts`,
+    {
+      ...(params.q ? { q: params.q } : {}),
+      ...(params.kind ? { kind: params.kind } : {}),
+      ...(params.company ? { company: params.company } : {}),
+      ...(params.country ? { country: params.country } : {}),
+      ...(params.company_type ? { company_type: params.company_type } : {}),
+      page: params.page ?? 1,
+      page_size: params.page_size ?? 24,
+    },
+  );
+

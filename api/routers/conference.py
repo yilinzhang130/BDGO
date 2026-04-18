@@ -226,7 +226,6 @@ def get_company(session_id: str, company_name: str):
     raw = _get_session_data(session_id)
     companies = raw.get("companies", [])
 
-    # Case-insensitive match
     match = next(
         (c for c in companies if (c.get("company") or "").lower() == company_name.lower()),
         None,
@@ -234,3 +233,80 @@ def get_company(session_id: str, company_name: str):
     if match is None:
         raise HTTPException(status_code=404, detail=f"Company '{company_name}' not found in {session_id}")
     return match
+
+
+@router.get("/{session_id}/abstracts")
+def list_abstracts(
+    session_id: str,
+    q: str = Query("", description="Search title/target/company"),
+    kind: str = Query("", description="CT | LB | regular"),
+    company: str = Query("", description="Filter by company name"),
+    country: str = Query("", description="Filter by country"),
+    company_type: str = Query("", description="Filter by 客户类型"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(24, ge=1, le=100),
+):
+    """Flat list of individual abstracts (flattened from all companies), newest hottest first."""
+    raw = _get_session_data(session_id)
+    companies = raw.get("companies", [])
+
+    # Flatten all abstracts, attaching company metadata
+    all_abstracts = []
+    q_lower = q.lower()
+    for c in companies:
+        comp_name = c.get("company") or ""
+        comp_type = c.get("客户类型") or ""
+        comp_country = c.get("所处国家") or ""
+
+        if company and company.lower() not in comp_name.lower():
+            continue
+        if country and comp_country != country:
+            continue
+        if company_type and comp_type != company_type:
+            continue
+
+        for ab in c.get("abstracts", []):
+            if kind and ab.get("kind") != kind:
+                continue
+            if q_lower:
+                searchable = " ".join([
+                    ab.get("title") or "",
+                    " ".join(ab.get("targets") or []),
+                    comp_name,
+                    ab.get("conclusion") or "",
+                ]).lower()
+                if q_lower not in searchable:
+                    continue
+            all_abstracts.append({
+                **ab,
+                "company": comp_name,
+                "客户类型": comp_type,
+                "所处国家": comp_country,
+                "Ticker": c.get("Ticker"),
+            })
+
+    # Sort: CT first, then LB, then regular; within each group by company name
+    _KIND_ORDER = {"CT": 0, "LB": 1, "regular": 2}
+    all_abstracts.sort(key=lambda a: (_KIND_ORDER.get(a.get("kind", "regular"), 2), a.get("company", "")))
+
+    total = len(all_abstracts)
+    start = (page - 1) * page_size
+    page_items = all_abstracts[start: start + page_size]
+
+    # Facets from the unfiltered (company/country/type) flattened set
+    all_companies = sorted({c.get("company") or "" for c in companies if c.get("company")})
+    all_countries = sorted({c.get("所处国家") or "" for c in companies if c.get("所处国家")})
+    all_types = sorted({c.get("客户类型") or "" for c in companies if c.get("客户类型")})
+
+    return {
+        "data": page_items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total + page_size - 1) // page_size),
+        "facets": {
+            "companies": all_companies[:50],  # cap for dropdown
+            "countries": all_countries,
+            "types": all_types,
+        },
+    }
