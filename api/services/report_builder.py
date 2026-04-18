@@ -291,6 +291,12 @@ def execute_task(task_id: str, service: ReportService, params: dict) -> None:
     except Exception as e:
         logger.exception("Report task %s failed", task_id)
         task["status"] = "failed"
-        task["error"] = str(e)[:500]
+        # Include exception class and last few progress-log lines so the
+        # UI's "查看详情" actually tells us where it broke.
+        tail = "\n".join(progress_log[-6:]) if progress_log else ""
+        task["error"] = (
+            f"{type(e).__name__}: {str(e)[:400]}"
+            + (f"\n\n最近进度：\n{tail}" if tail else "")
+        )
     finally:
         task["finished_at"] = time.time()

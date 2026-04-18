@@ -149,19 +149,28 @@ const REPORT_LABELS: Record<string, string> = {
 
 function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
   const { token } = useAuth();
+  // `currentTaskId` is what we're actually polling; it swaps to a new id on retry.
+  const [currentTaskId, setCurrentTaskId] = useState(task_id);
   const [status, setStatus] = useState<"polling" | "completed" | "failed">("polling");
   const [markdown, setMarkdown] = useState<string>("");
   const [files, setFiles] = useState<ReportFile[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [errorDetail, setErrorDetail] = useState<string>("");
+  const [errorExpanded, setErrorExpanded] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const doneRef = useRef(false);
   const label = REPORT_LABELS[slug] || slug.replace(/_/g, " ");
 
   useEffect(() => {
+    doneRef.current = false;
+    setStatus("polling");
+    setErrorDetail("");
+
     const poll = async () => {
       if (doneRef.current) return;
       try {
-        const res = await fetch(`/api/reports/status/${task_id}`, {
+        const res = await fetch(`/api/reports/status/${currentTaskId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) return;
@@ -174,6 +183,7 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (data.status === "failed") {
           doneRef.current = true;
+          setErrorDetail(data.error || "");
           setStatus("failed");
           if (pollRef.current) clearInterval(pollRef.current);
         }
@@ -189,7 +199,23 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
       if (pollRef.current) clearInterval(pollRef.current);
       clearTimeout(timeout);
     };
-  }, [task_id, token]);
+  }, [currentTaskId, token]);
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      const { retryReport } = await import("@/lib/api");
+      const res = await retryReport(currentTaskId);
+      if (res?.task_id) {
+        setCurrentTaskId(res.task_id); // triggers the effect → starts new poll
+      }
+    } catch (e: any) {
+      setErrorDetail((prev) => `${prev}\n重试失败：${e?.message || e}`);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   if (status === "polling") {
     return (
@@ -204,8 +230,46 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
 
   if (status === "failed") {
     return (
-      <div style={{ margin: "10px 0", padding: "12px 16px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10 }}>
-        <span style={{ fontSize: 13, color: "#DC2626" }}>⚠️ 报告生成失败，请重试</span>
+      <div style={{ margin: "10px 0", padding: "12px 14px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span style={{ fontSize: 13, color: "#DC2626", fontWeight: 500 }}>
+            ⚠️ {label}报告生成失败
+          </span>
+          <div style={{ display: "flex", gap: 6 }}>
+            {errorDetail && (
+              <button
+                onClick={() => setErrorExpanded(v => !v)}
+                style={{
+                  fontSize: 11, padding: "4px 10px",
+                  background: "#fff", color: "#991B1B",
+                  border: "1px solid #FECACA", borderRadius: 6, cursor: "pointer",
+                }}
+              >
+                {errorExpanded ? "收起详情" : "查看详情"}
+              </button>
+            )}
+            <button
+              onClick={handleRetry}
+              disabled={retrying}
+              style={{
+                fontSize: 11, padding: "4px 10px", fontWeight: 600,
+                background: retrying ? "#FCA5A5" : "#DC2626", color: "#fff",
+                border: "none", borderRadius: 6,
+                cursor: retrying ? "default" : "pointer",
+              }}
+            >
+              {retrying ? "重试中…" : "🔄 重试"}
+            </button>
+          </div>
+        </div>
+        {errorExpanded && errorDetail && (
+          <pre style={{
+            marginTop: 8, padding: "8px 10px",
+            background: "#fff", border: "1px solid #FECACA", borderRadius: 6,
+            fontSize: 11, color: "#7F1D1D", whiteSpace: "pre-wrap",
+            wordBreak: "break-word", maxHeight: 200, overflow: "auto",
+          }}>{errorDetail}</pre>
+        )}
       </div>
     );
   }

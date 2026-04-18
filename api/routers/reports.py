@@ -158,6 +158,41 @@ def get_report_status(task_id: str):
     }
 
 
+@router.post("/retry/{task_id}")
+def retry_report(task_id: str, user: dict = Depends(get_current_user)):
+    """Re-run a failed (or completed) task with its original params.
+
+    Returns a new task_id; the original task row is preserved for audit.
+    """
+    task = get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found (may have expired)")
+    slug = task.get("slug")
+    params = task.get("params") or {}
+    service = get_service(slug)
+    if not service:
+        raise HTTPException(status_code=404, detail=f"Unknown service: {slug}")
+
+    new_task_id = create_task(slug, params)
+    user_id = user["id"]
+
+    if service.mode == "sync":
+        _execute_and_persist(new_task_id, service, params, user_id)
+        return get_task(new_task_id)
+    thread = threading.Thread(
+        target=_execute_and_persist,
+        args=(new_task_id, service, params, user_id),
+        daemon=True,
+    )
+    thread.start()
+    return {
+        "task_id": new_task_id,
+        "status": "queued",
+        "slug": slug,
+        "estimated_seconds": service.estimated_seconds,
+    }
+
+
 @router.get("/list")
 def list_report_services():
     return {

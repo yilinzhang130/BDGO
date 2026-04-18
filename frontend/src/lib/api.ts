@@ -287,6 +287,11 @@ export const fetchReportServices = () => get(`${BASE}/reports/list`);
 export const generateReport = (slug: string, params: Record<string, any>) =>
   post(`${BASE}/reports/generate`, { slug, params });
 
+export const retryReport = (taskId: string) =>
+  post<{ task_id: string; status: string; slug: string; estimated_seconds?: number }>(
+    `${BASE}/reports/retry/${taskId}`,
+  );
+
 export const parseReportArgs = (slug: string, text: string) =>
   post<{ params: Record<string, any>; missing: string[]; complete: boolean }>(
     `${BASE}/reports/parse-args`,
