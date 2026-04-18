@@ -15,12 +15,11 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-import re
 from typing import Any
 
 from pydantic import BaseModel
 
-from services.helpers import docx_builder, search
+from services.helpers import docx_builder
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
     ReportContext,
@@ -267,29 +266,36 @@ class BuyerProfileService(ReportService):
         # Phase 1: Fuzzy lookup the MNC画像 row
         ctx.log(f"Looking up {inp.company_name} in MNC画像...")
         profile = self._fuzzy_lookup(inp.company_name, ctx)
-        if not profile:
-            suggestions = self._suggest_companies(inp.company_name, ctx)
-            msg = f"Company not found in MNC画像 table. Try one of: {', '.join(suggestions[:5])}"
-            raise ValueError(msg)
+        web_only = profile is None
 
-        resolved_name = profile.get("company_name", inp.company_name)
-        ctx.log(f"Resolved to: {resolved_name}")
+        if web_only:
+            ctx.log(f"'{inp.company_name}' not in CRM — switching to web-enriched mode")
+            resolved_name = inp.company_name
+        else:
+            resolved_name = profile.get("company_name", inp.company_name)
+            ctx.log(f"Resolved to: {resolved_name}")
 
         # Phase 2: Parse JSON fields defensively
-        parsed = self._parse_profile_json(profile)
+        parsed = self._parse_profile_json(profile or {})
 
-        # Phase 2b: Optional web search augmentation
+        # Phase 2b: Web search (mandatory in web-only mode)
         web_results: list[dict] = []
-        if inp.include_web_search:
-            ctx.log("Searching web for recent deals and news...")
-            web_results = self._run_web_searches(resolved_name, parsed.get("heritage_ta", ""))
+        if inp.include_web_search or web_only:
+            ctx.log("Searching web for deals, strategy, and company profile...")
+            if web_only:
+                web_results = self._run_expanded_web_searches(resolved_name)
+            else:
+                web_results = self._run_web_searches(resolved_name, parsed.get("heritage_ta", ""))
             ctx.log(f"Web search returned {len(web_results)} results")
         else:
             ctx.log("Web search disabled — CRM-only mode")
 
         # Pre-format shared blocks
-        crm_block = self._format_crm_block(profile, parsed)
-        web_block = format_web_results(web_results, inp.include_web_search)
+        if web_only:
+            crm_block = self._build_web_crm_block(resolved_name, web_results)
+        else:
+            crm_block = self._format_crm_block(profile, parsed)
+        web_block = format_web_results(web_results, inp.include_web_search or web_only)
         today = datetime.date.today().isoformat()
         focus_note = f"> 重点关注治疗领域：**{inp.focus_ta}**" if inp.focus_ta else ""
 
@@ -446,14 +452,20 @@ class BuyerProfileService(ReportService):
         ctx.save_file(docx_filename, docx_bytes, format="docx")
         ctx.log("Word document saved")
 
+        # Phase 5: CRM write-back for web-enriched companies
+        if web_only:
+            ctx.log("Extracting structured data for CRM enrichment...")
+            self._enrich_and_save_to_crm(resolved_name, markdown, ctx)
+
         return ReportResult(
             markdown=markdown,
             meta={
                 "company_name": resolved_name,
-                "company_cn": profile.get("company_cn") or "",
+                "company_cn": (profile or {}).get("company_cn") or "",
                 "heritage_ta": parsed.get("heritage_ta", ""),
                 "focus_ta": inp.focus_ta,
                 "include_web_search": inp.include_web_search,
+                "web_only": web_only,
                 "web_results_count": len(web_results),
                 "chapters": 8,
                 "total_chars": total_chars,
@@ -541,22 +553,81 @@ class BuyerProfileService(ReportService):
 
     # ── web search ──────────────────────────────────────────
     def _run_web_searches(self, company: str, heritage_ta: str) -> list[dict]:
-        """Run 3 Tavily queries, return deduplicated list of hits."""
+        """Run 3 Tavily queries to augment an existing CRM profile."""
         queries = [
             f"{company} BD deal licensing acquisition 2025 2026",
             f"{company} pipeline gap strategy" + (f" {heritage_ta}" if heritage_ta else ""),
             f"{company} CEO BD strategy 2026",
         ]
-        seen_urls: set[str] = set()
-        combined: list[dict] = []
-        for q in queries:
-            results = search.search_web(q, max_results=3)
-            for r in results:
-                url = r.get("url", "")
-                if url and url not in seen_urls:
-                    seen_urls.add(url)
-                    combined.append({**r, "query": q})
-        return combined
+        return search_and_deduplicate(queries, max_results_per_query=3)
+
+    def _run_expanded_web_searches(self, company: str) -> list[dict]:
+        """Run 6 Tavily queries when no CRM data is available at all."""
+        queries = [
+            f"{company} pharmaceutical company overview revenue history",
+            f"{company} therapeutic areas pipeline approved drugs 2025",
+            f"{company} BD deal licensing acquisition M&A 2024 2025",
+            f"{company} CEO CSO head of business development background",
+            f"{company} strategic priorities pipeline gaps needs",
+            f"{company} China partnerships collaboration licensing",
+        ]
+        return search_and_deduplicate(queries, max_results_per_query=4)
+
+    def _build_web_crm_block(self, company: str, web_results: list[dict]) -> str:
+        """Build a pseudo-CRM block from web search results when company isn't in CRM."""
+        if not web_results:
+            return f"**[数据来源：网络搜索]** (无结果)\n\n注意：{company} 在 CRM 中无数据，请通过网络数据分析。"
+        lines = [f"**company_name**: {company}", "**[数据来源：网络搜索 — 非 CRM 数据]**\n"]
+        for r in web_results[:8]:
+            title = r.get("title", "")
+            snippet = r.get("snippet", "")
+            url = r.get("url", "")
+            if snippet:
+                lines.append(f"**{title}** ({url})\n{snippet}\n")
+        return "\n".join(lines)
+
+    def _enrich_and_save_to_crm(self, company_name: str, markdown: str, ctx: ReportContext) -> None:
+        """Extract structured fields from the report and upsert to MNC画像."""
+        extract_prompt = (
+            f"从以下MNC买方报告中提取结构化数据，仅包含报告中有明确依据的字段，不要编造。\n"
+            f"以JSON格式输出以下字段（缺失则省略）：\n"
+            f"company_name, company_cn, heritage_ta, innovation_philosophy, dna_summary, "
+            f"annual_revenue, annual_revenue_year, ceo_name, head_bd_name, risk_appetite, "
+            f"deal_size_preference, deal_type_preference（JSON对象）, sunk_cost_by_ta（JSON对象）\n\n"
+            f"报告内容（前3000字）：\n{markdown[:3000]}"
+        )
+        try:
+            raw = ctx.llm(
+                system="数据提取助手：从报告中提取结构化字段，以JSON输出，不要用markdown代码块。",
+                messages=[{"role": "user", "content": extract_prompt}],
+                max_tokens=800,
+            )
+            from services.helpers.llm import _extract_json_object
+            data = _extract_json_object(raw) or {}
+            if not data.get("company_name"):
+                data["company_name"] = company_name
+            data["last_updated"] = datetime.date.today().isoformat()
+
+            # JSON-encode any dict/list values to match column storage format
+            for key in ("deal_type_preference", "sunk_cost_by_ta", "signature_deals",
+                        "bd_pattern_theses", "commercial_capabilities", "regulatory_expertise"):
+                if key in data and isinstance(data[key], (dict, list)):
+                    data[key] = json.dumps(data[key], ensure_ascii=False)
+
+            # Write to CRM via crm_db (works on VM/PG; no-op on local SQLite read-only)
+            import sys as _sys
+            import os as _os
+            _scripts_dir = _os.path.expanduser("~/.openclaw/workspace/scripts")
+            if _scripts_dir not in _sys.path:
+                _sys.path.insert(0, _scripts_dir)
+            import crm_db as _crm
+            if not _crm._is_pg():
+                ctx.log("CRM enrichment skipped — SQLite snapshot is read-only (run on VM to persist)")
+                return
+            action, key = _crm.upsert_row("MNC画像", data)
+            ctx.log(f"CRM enrichment: {action} MNC画像 entry for '{key}' — 下次可直接从 CRM 加载")
+        except Exception as e:
+            ctx.log(f"CRM enrichment failed (non-fatal): {e}")
 
     # ── prompt formatting ──────────────────────────────────
     def _format_crm_block(self, profile: dict, parsed: dict) -> str:
