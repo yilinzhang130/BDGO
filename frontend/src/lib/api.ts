@@ -460,3 +460,78 @@ export const markMessageRead = (id: number) =>
 
 export const markAllRead = () =>
   patch(`${BASE}/inbox/admin/messages/read-all`);
+
+// ── Conference Insight ─────────────────────────────────────────────────────────
+
+export interface ConferenceSession {
+  id: string;
+  name: string;
+  full_name: string;
+  date: string;
+  location: string;
+  type: string;
+  total_bd_heat_companies?: number;
+  total_abstracts_covered?: number;
+}
+
+export interface ConferenceAbstractPreview {
+  doi: string;
+  title: string;
+  kind: string;
+  targets: string[];
+  data_points: Record<string, string>;
+}
+
+export interface ConferenceCompanyCard {
+  company: string;
+  客户类型: string;
+  所处国家: string;
+  Ticker: string | null;
+  市值估值: string | null;
+  CT_count: number;
+  LB_count: number;
+  abstract_count: number;
+  top_abstracts: ConferenceAbstractPreview[];
+}
+
+export interface ConferenceListResponse {
+  data: ConferenceCompanyCard[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  facets: { types: string[]; countries: string[] };
+}
+
+export const fetchConferenceSessions = () =>
+  get<{ sessions: ConferenceSession[] }>(`${BASE}/conference/sessions`);
+
+export const fetchConferenceStats = (sessionId: string) =>
+  get(`${BASE}/conference/${encodeURIComponent(sessionId)}/stats`);
+
+export const fetchConferenceCompanies = (
+  sessionId: string,
+  params: {
+    q?: string;
+    company_type?: string;
+    country?: string;
+    ct_only?: boolean;
+    page?: number;
+    page_size?: number;
+  } = {},
+) =>
+  get<ConferenceListResponse>(
+    `${BASE}/conference/${encodeURIComponent(sessionId)}/companies`,
+    {
+      ...(params.q ? { q: params.q } : {}),
+      ...(params.company_type ? { company_type: params.company_type } : {}),
+      ...(params.country ? { country: params.country } : {}),
+      ...(params.ct_only ? { ct_only: 1 } : {}),
+      page: params.page ?? 1,
+      page_size: params.page_size ?? 24,
+    },
+  );
+
+export const fetchConferenceCompany = (sessionId: string, companyName: string) =>
+  get(`${BASE}/conference/${encodeURIComponent(sessionId)}/companies/${encodeURIComponent(companyName)}`);
+

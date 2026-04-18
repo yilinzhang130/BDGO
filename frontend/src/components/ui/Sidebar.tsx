@@ -101,6 +101,13 @@ const Icon = {
       <path d="M8 3v10M3 8h10" />
     </svg>
   ),
+  presentation: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1.5" y="2" width="13" height="9" rx="1.5" />
+      <path d="M8 11v3M5.5 14h5" />
+      <path d="M4.5 5.5h7M4.5 8h5" />
+    </svg>
+  ),
   chevronRight: (
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
       <path d="M6 4l4 4-4 4" />
@@ -154,10 +161,11 @@ const NEWS: NavItem[] = [
 ];
 
 const TOOLS: NavItem[] = [
-  { href: "/dashboard", label: "仪表盘",  icon: Icon.grid },
-  { href: "/watchlist", label: "关注",    icon: Icon.star },
-  { href: "/catalysts", label: "催化剂",  icon: Icon.zap },
-  { href: "/reports",   label: "报告",    icon: Icon.fileText },
+  { href: "/dashboard",  label: "仪表盘",  icon: Icon.grid },
+  { href: "/watchlist",  label: "关注",    icon: Icon.star },
+  { href: "/catalysts",  label: "催化剂",  icon: Icon.zap },
+  { href: "/reports",    label: "报告",    icon: Icon.fileText },
+  { href: "/conference", label: "会议洞察", icon: Icon.presentation },
 ];
 
 function AdminNavItem() {

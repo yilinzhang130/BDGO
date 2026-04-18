@@ -73,6 +73,10 @@ BP_DIR = Path(os.environ.get(
     "BP_DIR",
     os.path.expanduser("~/.openclaw/workspace/BP"),
 ))
+CONFERENCES_DIR = Path(os.environ.get(
+    "CONFERENCES_DIR",
+    os.path.expanduser("~/.openclaw/workspace/conferences"),
+))
 REPORTS_DIR = Path(os.environ.get(
     "REPORTS_DIR",
     os.path.expanduser("~/.openclaw/workspace/Reports"),

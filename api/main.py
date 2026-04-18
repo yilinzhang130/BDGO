@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from auth import get_current_user
-from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports, catalysts, watchlist, admin, aidd_sso, inbox
+from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports, catalysts, watchlist, admin, aidd_sso, inbox, conference
 from routers import auth as auth_router
 from routers import sessions as sessions_router
 from routers import credits as credits_router
@@ -54,6 +54,7 @@ app.include_router(catalysts.router, prefix="/api/catalysts", tags=["catalysts"]
 app.include_router(watchlist.router, prefix="/api/watchlist", tags=["watchlist"], dependencies=_auth)
 app.include_router(aidd_sso.router, prefix="/api", tags=["aidd-sso"], dependencies=_auth)
 app.include_router(inbox.router, prefix="/api/inbox", tags=["inbox"], dependencies=_auth)
+app.include_router(conference.router, prefix="/api/conference", tags=["conference"], dependencies=_auth)
 # Credits + models router — routes handle their own auth via Depends(get_current_user)
 app.include_router(credits_router.router)
 
