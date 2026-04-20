@@ -1,26 +1,32 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { chatStream, uploadBP, fetchReportServices, parseReportArgs, generateReport, type PlanMode, type PlanConfirmPayload, type SearchMode } from "@/lib/api";
+import {
+  uploadBP,
+  fetchReportServices,
+  parseReportArgs,
+  generateReport,
+  type PlanMode,
+  type SearchMode,
+} from "@/lib/api";
 import {
   useSessionStore,
   getContextCollapsed,
   setContextCollapsed as persistCollapsed,
-  autoTitleFromFirstMessage,
-  type ContextEntity,
 } from "@/lib/sessions";
 import { ChatMessage } from "@/components/ui/ChatMessage";
 import { ContextPanel } from "@/components/ui/ContextPanel";
 import { Sidebar } from "@/components/ui/Sidebar";
 import { ModelPicker } from "@/components/ui/ModelPicker";
-import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
+import { ReportGenerateDialog, type ReportService } from "@/components/ui/ReportGenerateDialog";
 import {
-  SlashCommandPopup,
   SLASH_COMMANDS,
-  filterCommands,
   type SlashCommand,
 } from "@/components/ui/SlashCommandPopup";
-import { getSelectedModel, applyCreditsUsage, refreshCredits } from "@/lib/credits";
+import { autoTitleFromFirstMessage } from "@/lib/sessions";
+import { useChatStream } from "@/hooks/useChatStream";
+import { ChatHeaderControls } from "@/components/chat/ChatHeaderControls";
+import { ChatInputBar } from "@/components/chat/ChatInputBar";
 
 const SUGGESTIONS = [
   "AbbVie\u6709\u51E0\u4E2A Phase 3 \u7684\u8D44\u4EA7\uFF1F",
@@ -35,23 +41,16 @@ export default function ChatPage() {
     activeId,
     createSession,
     addMessage,
-    appendAssistantChunk,
-    addToolEvent,
-    addReportTask,
     markMessageDone,
-    setMessagePlan,
-    setMessageQuickSources,
-    setMessageError,
     removeMessage,
     updatePlanStatus,
-    addContextEntity,
+    addReportTask,
     removeContextEntity,
     clearContextEntities,
     renameSession,
   } = useSessionStore();
 
   const [input, setInput] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [contextCollapsed, setCollapsed] = useState(false);
@@ -62,41 +61,35 @@ export default function ChatPage() {
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
   const [searchMode, setSearchMode] = useState<SearchMode>("agent");
 
-  // Slash command state
-  const [reportServices, setReportServices] = useState<any[]>([]);
+  const [reportServices, setReportServices] = useState<ReportService[]>([]);
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
-  const [selectedServiceForDialog, setSelectedServiceForDialog] = useState<any | null>(null);
+  const [selectedServiceForDialog, setSelectedServiceForDialog] = useState<ReportService | null>(null);
+  const [slashPrefillParams, setSlashPrefillParams] = useState<Record<string, unknown>>({});
+  const [slashParsing, setSlashParsing] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { streamInto, isStreaming } = useChatStream();
 
   // Hydrate client-only state
   useEffect(() => {
     setHydrated(true);
     setCollapsed(getContextCollapsed());
-    // Restore plan mode preference from localStorage
     try {
       const stored = localStorage.getItem("bdgo.planMode");
-      if (stored === "auto" || stored === "on" || stored === "off") {
-        setPlanMode(stored);
-      }
+      if (stored === "auto" || stored === "on" || stored === "off") setPlanMode(stored);
       const storedSearch = localStorage.getItem("bdgo.searchMode");
-      if (storedSearch === "agent" || storedSearch === "quick") {
-        setSearchMode(storedSearch);
-      }
+      if (storedSearch === "agent" || storedSearch === "quick") setSearchMode(storedSearch);
     } catch {}
-    // Ensure at least one session exists
-    if (!activeId) {
-      createSession();
-    }
-    // Probe for logo.png
+    if (!activeId) createSession();
     const probe = new Image();
     probe.onload = () => { if (probe.naturalWidth > 0) setLogoReady(true); };
     probe.src = "/logo.png";
-    // Load report service catalog once — powers the slash command popup
     fetchReportServices()
-      .then((data: any) => setReportServices(data?.services || []))
+      .then((data) => {
+        const d = data as { services?: ReportService[] };
+        setReportServices(d?.services || []);
+      })
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -114,21 +107,6 @@ export default function ChatPage() {
     });
   }, [reportServices]);
 
-  // Derive popup state from the current input text.
-  const slashQuery = input.startsWith("/") ? input.slice(1).split(/\s/)[0] : null;
-  const slashOpen = slashQuery !== null && !isStreaming;
-  const filteredSlashCommands = useMemo(
-    () => (slashQuery === null ? [] : filterCommands(slashCommandsAll, slashQuery)),
-    [slashCommandsAll, slashQuery],
-  );
-
-  // Clamp active index whenever the filtered list shrinks.
-  useEffect(() => {
-    if (slashActiveIndex >= filteredSlashCommands.length && filteredSlashCommands.length > 0) {
-      setSlashActiveIndex(0);
-    }
-  }, [filteredSlashCommands.length, slashActiveIndex]);
-
   const cyclePlanMode = () => {
     const next: PlanMode = planMode === "auto" ? "on" : planMode === "on" ? "off" : "auto";
     setPlanMode(next);
@@ -142,14 +120,6 @@ export default function ChatPage() {
     }
   }, [active?.messages]);
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + "px";
-    }
-  }, [input]);
-
   const handleFileUpload = async (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (!["pdf", "pptx", "ppt", "docx", "doc"].includes(ext || "")) {
@@ -160,8 +130,8 @@ export default function ChatPage() {
     try {
       const res = await uploadBP(file);
       setAttachments((prev) => [...prev, res.filename]);
-    } catch (e: any) {
-      alert(`Upload failed: ${e.message}`);
+    } catch (e: unknown) {
+      alert(`Upload failed: ${(e as Error).message}`);
     } finally {
       setUploading(false);
     }
@@ -176,133 +146,6 @@ export default function ChatPage() {
     setCollapsed(next);
     persistCollapsed(next);
   };
-
-  // Low-level streamer — shared by new sends and plan confirmation/skip.
-  // Caller provides the targetSessionId, assistantMsgId (pre-created), and options.
-  const streamInto = useCallback(
-    async (opts: {
-      targetSessionId: string;
-      assistantMsgId: string;
-      message: string;
-      files: string[];
-      planModeOverride: PlanMode;
-      planConfirm?: PlanConfirmPayload;
-      searchModeOverride?: SearchMode;
-    }) => {
-      const { targetSessionId, assistantMsgId, message, files, planModeOverride, planConfirm, searchModeOverride } = opts;
-      setIsStreaming(true);
-      let errored = false;
-      const failWith = (msg: string) => {
-        errored = true;
-        setMessageError(targetSessionId, assistantMsgId, msg);
-      };
-      try {
-        const res = await chatStream(
-          message,
-          targetSessionId,
-          files,
-          getSelectedModel() || undefined,
-          planModeOverride,
-          planConfirm,
-          searchModeOverride ?? "agent",
-        );
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("No response stream");
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-
-          while (buffer.includes("\n\n")) {
-            const eventEnd = buffer.indexOf("\n\n");
-            const eventText = buffer.slice(0, eventEnd);
-            buffer = buffer.slice(eventEnd + 2);
-
-            for (const line of eventText.split("\n")) {
-              if (!line.startsWith("data: ")) continue;
-              try {
-                const data = JSON.parse(line.slice(6));
-
-                if (data.type === "chunk") {
-                  appendAssistantChunk(targetSessionId, assistantMsgId, data.content);
-                } else if (data.type === "tool_call") {
-                  addToolEvent(targetSessionId, assistantMsgId, { type: "tool_call", name: data.name });
-                } else if (data.type === "tool_result") {
-                  addToolEvent(targetSessionId, assistantMsgId, { type: "tool_result", name: data.name });
-                } else if (data.type === "report_task") {
-                  addReportTask(targetSessionId, assistantMsgId, {
-                    task_id: data.task_id,
-                    slug: data.slug,
-                    estimated_seconds: data.estimated_seconds,
-                  });
-                } else if (data.type === "plan_proposal") {
-                  setMessagePlan(
-                    targetSessionId,
-                    assistantMsgId,
-                    data.plan,
-                    data.original_message || message,
-                  );
-                } else if (data.type === "quick_sources") {
-                  setMessageQuickSources(
-                    targetSessionId,
-                    assistantMsgId,
-                    data.sources || [],
-                  );
-                } else if (data.type === "context_entity") {
-                  const entity: ContextEntity = {
-                    id: data.id,
-                    entityType: data.entity_type,
-                    title: data.title,
-                    subtitle: data.subtitle,
-                    fields: data.fields || [],
-                    href: data.href,
-                    addedAt: Date.now(),
-                  };
-                  addContextEntity(targetSessionId, entity);
-                } else if (data.type === "error") {
-                  failWith(data.message || "未知错误");
-                } else if (data.type === "usage") {
-                  applyCreditsUsage(data.credits_charged ?? 0, data.balance ?? null);
-                } else if (data.type === "done") {
-                  markMessageDone(targetSessionId, assistantMsgId);
-                  void refreshCredits();
-                }
-              } catch {
-                /* ignore parse errors */
-              }
-            }
-          }
-        }
-      } catch (e: any) {
-        failWith(
-          e?.message?.includes("credit") || e?.message?.includes("402")
-            ? e.message
-            : "网络连接失败，请检查网络后点击重试。",
-        );
-      } finally {
-        setIsStreaming(false);
-        if (!errored) {
-          markMessageDone(targetSessionId, assistantMsgId);
-        }
-        autoTitleFromFirstMessage(targetSessionId);
-      }
-    },
-    [
-      appendAssistantChunk,
-      addToolEvent,
-      addReportTask,
-      setMessagePlan,
-      setMessageQuickSources,
-      setMessageError,
-      addContextEntity,
-      markMessageDone,
-    ],
-  );
 
   const handleSend = useCallback(
     async (text?: string) => {
@@ -355,7 +198,6 @@ export default function ChatPage() {
       if (!session) return;
       const idx = session.messages.findIndex((m) => m.id === erroredMsgId);
       if (idx <= 0) return;
-      // Walk back to the nearest preceding user turn.
       let userIdx = idx - 1;
       while (userIdx >= 0 && session.messages[userIdx].role !== "user") userIdx--;
       if (userIdx < 0) return;
@@ -384,7 +226,6 @@ export default function ChatPage() {
     [activeId, active, isStreaming, addMessage, removeMessage, streamInto, planMode, searchMode],
   );
 
-  // User confirmed / skipped / cancelled a plan card.
   const handlePlanConfirm = useCallback(
     async (planMsgId: string, selectedStepIds: string[]) => {
       const currentSession = activeId;
@@ -402,10 +243,8 @@ export default function ChatPage() {
           tools_expected: s.tools_expected,
         }));
 
-      // Mark the plan card as confirmed (freezes its UI)
       updatePlanStatus(currentSession, planMsgId, "confirmed", selectedSteps.map((s) => s.id));
 
-      // Create a new assistant message for the actual execution stream
       const executionMsgId = crypto.randomUUID().slice(0, 12);
       addMessage(currentSession, {
         id: executionMsgId,
@@ -464,11 +303,8 @@ export default function ChatPage() {
     [activeId, active, updatePlanStatus, addMessage, streamInto],
   );
 
-  const [slashPrefillParams, setSlashPrefillParams] = useState<Record<string, any>>({});
-  const [slashParsing, setSlashParsing] = useState(false);
-
   const handleReportStarted = useCallback(
-    (info: { task_id: string; slug: string; estimated_seconds: number; params: Record<string, any> }) => {
+    (info: { task_id: string; slug: string; estimated_seconds: number; params: Record<string, unknown> }) => {
       const currentSession = activeId;
       if (!currentSession) return;
       const svc = reportServices.find((s) => s.slug === info.slug);
@@ -515,7 +351,6 @@ export default function ChatPage() {
       const svc = reportServices.find((s) => s.slug === cmd.slug);
       if (!svc) {
         setInput(`/${cmd.alias} `);
-        inputRef.current?.focus();
         return;
       }
 
@@ -535,11 +370,11 @@ export default function ChatPage() {
       try {
         const parsed = await parseReportArgs(cmd.slug, rest);
         if (parsed.complete) {
-          const resp: any = await generateReport(cmd.slug, parsed.params);
+          const resp = (await generateReport(cmd.slug, parsed.params)) as { task_id: string };
           handleReportStarted({
             task_id: resp.task_id,
             slug: cmd.slug,
-            estimated_seconds: svc.estimated_seconds,
+            estimated_seconds: svc.estimated_seconds ?? 60,
             params: parsed.params,
           });
           return;
@@ -624,65 +459,15 @@ export default function ChatPage() {
           )}
           <div className="chat-header-actions">
             <ModelPicker compact />
-            <div
-              role="group"
-              aria-label="搜索模式"
-              style={{
-                display: "inline-flex", borderRadius: 8,
-                border: "1px solid #E2E8F0", overflow: "hidden",
+            <ChatHeaderControls
+              searchMode={searchMode}
+              onSearchModeChange={(m) => {
+                setSearchMode(m);
+                try { localStorage.setItem("bdgo.searchMode", m); } catch {}
               }}
-            >
-              {(["agent", "quick"] as const).map((m) => {
-                const on = searchMode === m;
-                return (
-                  <button
-                    key={m}
-                    onClick={() => {
-                      setSearchMode(m);
-                      try { localStorage.setItem("bdgo.searchMode", m); } catch {}
-                    }}
-                    title={
-                      m === "agent"
-                        ? "Agent · 调用工具、CRM、报告生成（复杂任务）"
-                        : "Quick · Tavily搜索+总结，低延迟（查事实/新闻）"
-                    }
-                    style={{
-                      padding: "4px 10px", fontSize: 12, fontWeight: 500,
-                      background: on ? (m === "quick" ? "#ECFDF5" : "#F8FAFF") : "#fff",
-                      color: on ? (m === "quick" ? "#059669" : "#1E3A8A") : "#64748B",
-                      border: "none",
-                      borderRight: m === "agent" ? "1px solid #E2E8F0" : "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {m === "agent" ? "🤖 Agent" : "⚡ Quick"}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              onClick={cyclePlanMode}
-              title={
-                planMode === "auto"
-                  ? "规划模式：智能判断（长任务自动先规划）"
-                  : planMode === "on"
-                  ? "规划模式：始终先出方案"
-                  : "规划模式：关闭（直接执行）"
-              }
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 4,
-                padding: "4px 10px", fontSize: 12, fontWeight: 500,
-                background: planMode === "on" ? "#DBEAFE" : planMode === "off" ? "#F1F5F9" : "#F8FAFF",
-                border: `1px solid ${planMode === "on" ? "#1E3A8A" : "#E2E8F0"}`,
-                color: planMode === "on" ? "#1E3A8A" : planMode === "off" ? "#64748B" : "#475569",
-                borderRadius: 8, cursor: "pointer",
-              }}
-            >
-              📋
-              <span>
-                {planMode === "auto" ? "规划 · 自动" : planMode === "on" ? "规划 · 开" : "规划 · 关"}
-              </span>
-            </button>
+              planMode={planMode}
+              onCyclePlanMode={cyclePlanMode}
+            />
             {contextCollapsed && (
               <button
                 className="icon-btn"
@@ -748,122 +533,21 @@ export default function ChatPage() {
           )}
         </div>
 
-        <div className="chat-input-wrapper">
-          <div className="chat-input-container">
-            {attachments.length > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "0.4rem",
-                  padding: "0.3rem 0.35rem 0.5rem",
-                }}
-              >
-                {attachments.map((f) => (
-                  <div key={f} className="attachment-chip">
-                    <span>{"\uD83D\uDCCE"} {f}</span>
-                    <button
-                      onClick={() => removeAttachment(f)}
-                      className="attachment-chip-remove"
-                    >
-                      {"\u00D7"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="chat-input-bar">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.pptx,.ppt,.docx,.doc"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFileUpload(f);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading || isStreaming}
-                title="Attach file"
-                className="chat-attach-btn"
-              >
-                {uploading ? "\u2026" : "\uD83D\uDCCE"}
-              </button>
-              <div style={{ flex: 1, position: "relative" }}>
-                {slashOpen && (
-                  <SlashCommandPopup
-                    commands={filteredSlashCommands}
-                    activeIndex={slashActiveIndex}
-                    onSelect={handleSlashSelect}
-                    onHover={setSlashActiveIndex}
-                  />
-                )}
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (slashOpen && filteredSlashCommands.length > 0) {
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setSlashActiveIndex((i) => (i + 1) % filteredSlashCommands.length);
-                        return;
-                      }
-                      if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        setSlashActiveIndex((i) =>
-                          (i - 1 + filteredSlashCommands.length) % filteredSlashCommands.length,
-                        );
-                        return;
-                      }
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSlashSelect(filteredSlashCommands[slashActiveIndex]);
-                        return;
-                      }
-                      if (e.key === "Tab") {
-                        e.preventDefault();
-                        handleSlashSelect(filteredSlashCommands[slashActiveIndex]);
-                        return;
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        setInput("");
-                        return;
-                      }
-                    }
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (input.startsWith("/")) return;
-                      if (input.trim() && !isStreaming) handleSend();
-                    }
-                  }}
-                  placeholder={
-                    slashParsing
-                      ? "解析参数中…"
-                      : attachments.length > 0
-                      ? "Ask about the attached files..."
-                      : "Ask anything, or type / for report commands..."
-                  }
-                  disabled={isStreaming || slashParsing}
-                  rows={1}
-                  style={{ width: "100%" }}
-                />
-              </div>
-              <button
-                onClick={() => handleSend()}
-                disabled={!input.trim() || isStreaming || input.startsWith("/")}
-                className="chat-send-btn"
-              >
-                {isStreaming ? "\u2026" : "\u2191"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChatInputBar
+          input={input}
+          onInputChange={setInput}
+          attachments={attachments}
+          onRemoveAttachment={removeAttachment}
+          onPickFile={handleFileUpload}
+          uploading={uploading}
+          isStreaming={isStreaming}
+          slashParsing={slashParsing}
+          onSend={() => handleSend()}
+          slashCommands={slashCommandsAll}
+          slashActiveIndex={slashActiveIndex}
+          onSlashActiveIndexChange={setSlashActiveIndex}
+          onSlashSelect={handleSlashSelect}
+        />
       </section>
 
       {selectedServiceForDialog && (

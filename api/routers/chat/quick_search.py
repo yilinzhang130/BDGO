@@ -13,12 +13,13 @@ import logging
 
 import httpx
 
-import credits as credits_mod
 from models import resolve_model
 from services.helpers.search import search_web
 
+from .billing import charge_turn
 from .chat_store import ensure_session, load_history, save_message
-from .streaming import _stream_with_fallback
+from .llm_stream import stream_with_fallback
+from .sse import sse, sse_done
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +68,7 @@ async def stream_quick_search(req):
         logger.exception("Quick-search Tavily call failed")
         sources = []
 
-    # Emit sources as a single SSE event so the UI can render citations.
-    yield (
-        "data: "
-        + json.dumps({"type": "quick_sources", "sources": sources}, ensure_ascii=False)
-        + "\n\n"
-    )
+    yield sse("quick_sources", sources=sources)
 
     # Build single-turn history: prior turns for short-term memory + this query.
     history = await asyncio.to_thread(load_history, session_id)
@@ -84,17 +80,17 @@ async def stream_quick_search(req):
     final_text_parts: list[str] = []
     try:
         async with httpx.AsyncClient(timeout=120) as client:
-            async for event_type, payload in _stream_with_fallback(
+            async for event_type, payload in stream_with_fallback(
                 client, history, model, usage_accum,
                 system_prompt=QUICK_SEARCH_SYSTEM_PROMPT,
                 tools=[],
             ):
                 if event_type == "chunk":
                     final_text_parts.append(payload)
-                    yield f"data: {json.dumps({'type': 'chunk', 'content': payload})}\n\n"
+                    yield sse("chunk", content=payload)
                 elif event_type == "error":
-                    yield f"data: {json.dumps({'type': 'error', 'message': payload})}\n\n"
-                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    yield sse("error", message=payload)
+                    yield sse_done()
                     return
                 # tool_call_start / _end are not meaningful without tools
 
@@ -109,44 +105,33 @@ async def stream_quick_search(req):
                 json.dumps({"kind": "quick_search", "sources": sources}, ensure_ascii=False),
             )
 
-        credits_charged = 0.0
-        balance_remaining = None
-        if user_id and not req.is_admin:
-            credits_charged = await asyncio.to_thread(
-                credits_mod.record_usage,
-                user_id=user_id,
-                session_id=session_id,
-                model_id=model.id,
-                input_tokens=usage_accum.get("input_tokens", 0),
-                output_tokens=usage_accum.get("output_tokens", 0),
-                input_weight=model.input_weight,
-                output_weight=model.output_weight,
-            )
-            try:
-                balance_remaining = (
-                    await asyncio.to_thread(credits_mod.get_balance, user_id)
-                )["balance"]
-            except Exception:
-                balance_remaining = None
-
-        yield (
-            "data: "
-            + json.dumps({
-                "type": "usage",
-                "model": model.id,
-                "input_tokens": usage_accum.get("input_tokens", 0),
-                "output_tokens": usage_accum.get("output_tokens", 0),
-                "credits_charged": credits_charged,
-                "balance": balance_remaining,
-            })
-            + "\n\n"
+        credits_charged, balance_remaining = await charge_turn(
+            user_id=user_id,
+            session_id=session_id,
+            model=model,
+            usage_accum=usage_accum,
+            is_admin=bool(req.is_admin),
         )
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        yield sse(
+            "usage",
+            model=model.id,
+            input_tokens=usage_accum.get("input_tokens", 0),
+            output_tokens=usage_accum.get("output_tokens", 0),
+            credits_charged=credits_charged,
+            balance=balance_remaining,
+        )
+        yield sse_done()
 
     except httpx.TimeoutException:
-        yield f"data: {json.dumps({'type': 'error', 'message': '请求超时，请点击重试。', 'retryable': True})}\n\n"
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        yield sse("error", message="请求超时，请点击重试。", retryable=True)
+        yield sse_done()
     except Exception as e:
         logger.exception("Quick-search error")
-        yield f"data: {json.dumps({'type': 'error', 'message': '系统遇到临时故障，请点击重试。', 'retryable': True, 'detail': str(e)[:200]}, ensure_ascii=False)}\n\n"
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        yield sse(
+            "error",
+            message="系统遇到临时故障，请点击重试。",
+            retryable=True,
+            detail=str(e)[:200],
+        )
+        yield sse_done()

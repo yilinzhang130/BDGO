@@ -8,7 +8,7 @@ interface FieldRule {
   visible_when?: Record<string, string | number | boolean | (string | number | boolean)[]>;
 }
 
-interface ReportService {
+export interface ReportService {
   slug: string;
   display_name: string;
   description: string;
