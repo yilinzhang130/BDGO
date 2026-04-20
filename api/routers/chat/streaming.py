@@ -15,7 +15,7 @@ from models import OVERLOAD_MSG, ModelSpec, fallback_chain, resolve_model
 from .attachments import extract_text
 from .compaction import compact_if_needed
 from .entities import extract_context_entities
-from .session_store import (
+from .chat_store import (
     ensure_session,
     load_history,
     save_entities,
@@ -26,6 +26,10 @@ from .tools import REPORT_TOOL_NAME_TO_SLUG, TOOL_IMPL, TOOLS, execute_tool
 from .tools.registry import TOOL_FAILED_KEY
 
 logger = logging.getLogger(__name__)
+
+# Strong refs for fire-and-forget background tasks. asyncio only holds weak
+# refs to tasks, so without this they can be GC'd mid-flight.
+_bg_tasks: set[asyncio.Task] = set()
 
 
 # ─────────────────────────────────────────────────────────────
@@ -237,9 +241,9 @@ async def stream_chat(req):
     usage_accum = {"input_tokens": 0, "output_tokens": 0}
 
     if user_id:
-        ensure_session(session_id, user_id)
+        await asyncio.to_thread(ensure_session, session_id, user_id)
 
-    history = load_history(session_id)
+    history = await asyncio.to_thread(load_history, session_id)
 
     # When executing a confirmed plan, the user message + empty plan
     # placeholder are already in history from the planner phase. Strip
@@ -303,7 +307,10 @@ async def stream_chat(req):
 
     if not is_executing_plan:
         history.append({"role": "user", "content": user_text})
-        save_message(session_id, "user", user_text, attachments_json=attachments_json)
+        await asyncio.to_thread(
+            save_message, session_id, "user", user_text,
+            attachments_json=attachments_json,
+        )
 
     # Auto-compact: strip old tool blocks; summarize if still over budget.
     history = await compact_if_needed(session_id, history, model)
@@ -348,8 +355,11 @@ async def stream_chat(req):
                     for tu in tool_uses:
                         name = tu["name"]
                         inp = tu.get("input") or {}
-                        result_str = execute_tool(
-                            TOOL_IMPL, name, inp,
+                        # execute_tool runs synchronous CRM/DB queries — offload
+                        # to a thread so the event loop stays free for other
+                        # concurrent SSE streams while this tool call runs.
+                        result_str = await asyncio.to_thread(
+                            execute_tool, TOOL_IMPL, name, inp,
                             user_id=user_id,
                             can_see_internal=can_see_internal,
                         )
@@ -412,18 +422,59 @@ async def stream_chat(req):
                         })
 
                     tools_json = json.dumps(tool_events, ensure_ascii=False, default=str)
-                    save_message(session_id, "assistant", final_content, tools_json=tools_json)
-                    save_message(session_id, "user", tool_results_msg)
+                    await asyncio.to_thread(
+                        save_message, session_id, "assistant", final_content, tools_json,
+                    )
+                    await asyncio.to_thread(
+                        save_message, session_id, "user", tool_results_msg,
+                    )
 
                     history.append({"role": "user", "content": tool_results_msg})
                     continue
 
                 # Final assistant text (no more tool calls) — persist it
-                save_message(session_id, "assistant", final_content)
+                await asyncio.to_thread(save_message, session_id, "assistant", final_content)
                 break
 
-        # Persist all extracted context entities
-        save_entities(session_id, all_entities)
+            else:
+                # for-loop exhausted all 8 rounds without a `break` — the LLM
+                # was still calling tools on the last iteration and never produced
+                # a text response. Inject a system hint and force one final synthesis
+                # call with tools disabled so the user always gets an answer.
+                logger.warning(
+                    "Tool round limit reached for session %s; forcing synthesis", session_id
+                )
+                synthesis_hint = [{
+                    "role": "user",
+                    "content": (
+                        "[系统：已达最大工具调用轮次（8轮）。"
+                        "请直接用中文总结以上所有工具调用结果，回答用户的问题，不要再调用任何工具。]"
+                    ),
+                }]
+                synthesis_content = None
+                async for event_type, payload in _stream_with_fallback(
+                    client, history + synthesis_hint, model, usage_accum,
+                    system_prompt=active_system_prompt,
+                    tools=[],  # disable tools — text-only response
+                ):
+                    if event_type == "chunk":
+                        yield f"data: {json.dumps({'type': 'chunk', 'content': payload})}\n\n"
+                    elif event_type == "error":
+                        yield f"data: {json.dumps({'type': 'error', 'message': payload})}\n\n"
+                        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                        return
+                    elif event_type == "_end":
+                        synthesis_content = payload.get("content")
+                if synthesis_content:
+                    await asyncio.to_thread(
+                        save_message, session_id, "assistant", synthesis_content
+                    )
+
+        # Persist extracted entities fire-and-forget — don't block the response.
+        if all_entities:
+            t = asyncio.create_task(asyncio.to_thread(save_entities, session_id, all_entities))
+            _bg_tasks.add(t)
+            t.add_done_callback(_bg_tasks.discard)
 
         # ── Bill credits (success path only) ──────────────────
         # All error paths `return` before reaching here, so a failed
@@ -431,7 +482,8 @@ async def stream_chat(req):
         credits_charged = 0.0
         balance_remaining = None
         if user_id and not req.is_admin:
-            credits_charged = credits_mod.record_usage(
+            credits_charged = await asyncio.to_thread(
+                credits_mod.record_usage,
                 user_id=user_id,
                 session_id=session_id,
                 model_id=model.id,
@@ -441,7 +493,7 @@ async def stream_chat(req):
                 output_weight=model.output_weight,
             )
             try:
-                balance_info = credits_mod.get_balance(user_id)
+                balance_info = await asyncio.to_thread(credits_mod.get_balance, user_id)
                 balance_remaining = balance_info["balance"]
             except Exception:
                 balance_remaining = None
@@ -479,14 +531,14 @@ async def stream_plan_only(req):
     Falls back to ``stream_chat`` if the planner LLM returns no plan.
     """
     model = resolve_model(req.model_id)
-    history = load_history(req.session_id)
+    history = await asyncio.to_thread(load_history, req.session_id)
 
     # Ensure the session exists, but DON'T save the user message yet —
     # only save it after we know whether planner succeeds. This prevents
     # double-save if planner fails and we fall back to stream_chat (which
     # saves the user message itself).
     if req.user_id:
-        ensure_session(req.session_id, req.user_id)
+        await asyncio.to_thread(ensure_session, req.session_id, req.user_id)
 
     plan = await planner_mod.generate_plan(req.message, history, model)
 
@@ -500,7 +552,7 @@ async def stream_plan_only(req):
 
     # Planner succeeded — commit to the plan flow, save user msg.
     if req.user_id:
-        save_message(req.session_id, "user", req.message)
+        await asyncio.to_thread(save_message, req.session_id, "user", req.message)
 
     # Bill planner tokens (admins skip)
     usage = plan.pop("_usage", {}) or {}
@@ -508,7 +560,8 @@ async def stream_plan_only(req):
     balance_remaining = None
     if req.user_id and not req.is_admin:
         try:
-            credits_charged = credits_mod.record_usage(
+            credits_charged = await asyncio.to_thread(
+                credits_mod.record_usage,
                 user_id=req.user_id,
                 session_id=req.session_id,
                 model_id=model.id,
@@ -517,7 +570,8 @@ async def stream_plan_only(req):
                 input_weight=model.input_weight,
                 output_weight=model.output_weight,
             )
-            balance_remaining = credits_mod.get_balance(req.user_id)["balance"]
+            balance_info = await asyncio.to_thread(credits_mod.get_balance, req.user_id)
+            balance_remaining = balance_info["balance"]
         except Exception:
             logger.exception("Failed to record planner usage")
 
@@ -525,11 +579,12 @@ async def stream_plan_only(req):
     # "kind": "plan_card" is an explicit marker used by load_history to skip
     # this row when building LLM context (plan cards are UI-only artifacts).
     if req.user_id:
-        save_message(
+        await asyncio.to_thread(
+            save_message,
             req.session_id,
             "assistant",
             "",
-            tools_json=json.dumps(
+            json.dumps(
                 {"kind": "plan_card", "plan": plan, "original_message": req.message},
                 ensure_ascii=False,
             ),

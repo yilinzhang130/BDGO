@@ -35,14 +35,15 @@ def _persist_report(task_id: str, slug: str, user_id: str) -> None:
     markdown_preview = (result.get("markdown") or "")[:2000]
     files_json = json.dumps(result.get("files", []), ensure_ascii=False, default=str)
     meta_json = json.dumps(result.get("meta", {}), ensure_ascii=False, default=str)
+    params_json = json.dumps(task.get("params") or {}, ensure_ascii=False, default=str)
     try:
         with transaction() as cur:
             cur.execute(
                 "INSERT INTO report_history "
-                "(user_id, task_id, slug, title, markdown_preview, files_json, meta_json) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                "(user_id, task_id, slug, title, markdown_preview, files_json, meta_json, params_json) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
                 "ON CONFLICT (task_id) DO NOTHING",
-                (user_id, task_id, slug, title, markdown_preview, files_json, meta_json),
+                (user_id, task_id, slug, title, markdown_preview, files_json, meta_json, params_json),
             )
     except Exception:
         logger.exception("Failed to persist report history for task %s", task_id)
@@ -53,7 +54,7 @@ def _make_report_tool(_svc):
     from services.report_builder import create_task, execute_task, get_task
 
     def _impl(_user_id=None, **kwargs):
-        task_id = create_task(_svc.slug, kwargs)
+        task_id = create_task(_svc.slug, kwargs, user_id=_user_id)
 
         if _svc.mode == "sync":
             execute_task(task_id, _svc, kwargs)
@@ -124,3 +125,8 @@ try:
     logger.info("Registered %d report services as Chat tools", len(REPORT_SERVICES))
 except Exception:
     logger.exception("Failed to register report services as Chat tools")
+
+# ── Tool-registry metadata ────────────────────────────────────────────────
+# Every report tool needs the caller's user_id so the completed report can
+# be persisted to report_history under the right user.
+NEEDS_USER_ID: set[str] = set(TOOL_NAME_TO_SLUG.keys())

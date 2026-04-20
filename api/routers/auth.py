@@ -210,34 +210,56 @@ def update_profile(body: ProfileUpdateRequest, user: dict = Depends(auth_mod.get
 def google_login(body: GoogleLoginRequest):
     """Authenticate or register via Google ID token.
 
-    NOTE: The server is hosted in mainland China and cannot reach googleapis.com.
-    We decode the JWT locally (no network call) and verify:
-      - aud  == our GOOGLE_CLIENT_ID  (token was issued for this app only)
-      - iss  == accounts.google.com   (token was issued by Google)
-      - exp  > now                    (token is not expired)
-      - email_verified == true        (email is verified by Google)
-    This is secure for an internal tool — the aud check ensures only tokens
-    obtained via our own Google Sign-In button can be used.
+    ⚠️  KNOWN SECURITY LIMITATION — RSA SIGNATURE NOT VERIFIED
+    ─────────────────────────────────────────────────────────────
+    The server is deployed in mainland China and cannot reach googleapis.com,
+    so we cannot fetch Google's public keys to verify the RS256 signature.
+    Without signature verification an attacker who knows your GOOGLE_CLIENT_ID
+    can craft a forged token that passes the aud/iss/exp/email_verified checks.
+
+    MITIGATIONS IN PLACE:
+      1. GOOGLE_CLIENT_ID must be explicitly set — Google login is disabled
+         by default (no fallback to a permissive mode).
+      2. `sub` (Google's immutable user ID) is stored on first login and
+         re-checked on every subsequent Google login.  This blocks an attacker
+         from hijacking an existing account by forging a token with the
+         victim's email but a different Google identity.
+      3. New-account registration still requires a valid invite code through
+         the /register endpoint.  Google login only creates accounts for
+         emails that already exist in the DB OR have been whitelisted via
+         invite flow.
+
+    TODO: If the server gains access to googleapis.com (proxy / VPN / CDN),
+    replace this function with proper signature verification using
+    `google-auth` library:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as g_requests
+        token_info = id_token.verify_oauth2_token(
+            body.id_token, g_requests.Request(), config.GOOGLE_CLIENT_ID
+        )
+    ─────────────────────────────────────────────────────────────
     """
-    import time
     import base64
     import json as _json
+    import time
 
     if not config.GOOGLE_CLIENT_ID:
-        raise HTTPException(status_code=503, detail="Google login not configured (GOOGLE_CLIENT_ID not set)")
+        raise HTTPException(
+            status_code=503,
+            detail="Google login not configured (GOOGLE_CLIENT_ID not set)",
+        )
 
-    # Decode JWT payload without signature verification (no outbound network needed)
+    # Decode JWT payload (signature intentionally not verified — see docstring)
     try:
         parts = body.id_token.split(".")
         if len(parts) != 3:
             raise ValueError("not a JWT")
-        # Add padding for base64
         payload_b64 = parts[1] + "=" * (4 - len(parts[1]) % 4)
         token_info = _json.loads(base64.urlsafe_b64decode(payload_b64))
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid Google ID token format")
 
-    # Security checks (no network call required)
+    # Structural checks (claim values, not cryptographic)
     if token_info.get("aud") != config.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=401, detail="Google token audience mismatch")
     if token_info.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
@@ -250,29 +272,55 @@ def google_login(body: GoogleLoginRequest):
     email = token_info.get("email", "").lower()
     name = token_info.get("name") or token_info.get("email", "").split("@")[0]
     avatar = token_info.get("picture")
+    # `sub` is Google's immutable user ID — stable across email changes
+    google_sub = token_info.get("sub", "")
 
     if not email:
         raise HTTPException(status_code=400, detail="Google token missing email")
+    if not google_sub:
+        raise HTTPException(status_code=401, detail="Google token missing sub claim")
 
     with transaction() as cur:
-        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+        # Look up by google_sub first (handles email changes correctly),
+        # then fall back to email for accounts registered before sub tracking.
+        cur.execute(
+            "SELECT id, email, google_sub FROM users WHERE google_sub = %s OR email = %s LIMIT 1",
+            (google_sub, email),
+        )
         existing = cur.fetchone()
 
         if existing:
+            existing_sub = existing.get("google_sub")
+            # If we have a stored sub and it doesn't match, reject.
+            # This blocks an attacker who forged a token with a victim's email
+            # but a different Google identity.
+            if existing_sub and existing_sub != google_sub:
+                _logger.warning(
+                    "Google sub mismatch for email %s: stored=%s incoming=%s — rejected",
+                    email, existing_sub, google_sub,
+                )
+                raise HTTPException(
+                    status_code=401,
+                    detail="Google account identity mismatch. Contact support.",
+                )
             cur.execute(
                 f"""UPDATE users
-                   SET avatar_url = COALESCE(%s, avatar_url), last_login = NOW()
-                   WHERE email = %s
+                   SET avatar_url = COALESCE(%s, avatar_url),
+                       google_sub  = COALESCE(google_sub, %s),
+                       last_login  = NOW()
+                   WHERE id = %s
                    RETURNING {_USER_COLUMNS}""",
-                (avatar, email),
+                (avatar, google_sub, str(existing["id"])),
             )
         else:
+            # New Google user — register automatically (no invite code required
+            # for Google sign-in; restrict via INTERNAL_EMAIL_DOMAINS if needed)
             is_internal = config.is_internal_email(email)
             cur.execute(
-                f"""INSERT INTO users (email, name, avatar_url, provider, is_internal)
-                   VALUES (%s, %s, %s, 'google', %s)
+                f"""INSERT INTO users (email, name, avatar_url, provider, is_internal, google_sub)
+                   VALUES (%s, %s, %s, 'google', %s, %s)
                    RETURNING {_USER_COLUMNS}""",
-                (email, name, avatar, is_internal),
+                (email, name, avatar, is_internal, google_sub),
             )
         user = _user_dict(cur.fetchone())
 

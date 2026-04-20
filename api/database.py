@@ -88,6 +88,14 @@ CREATE TABLE IF NOT EXISTS report_history (
     created_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_report_history_user ON report_history(user_id);
+-- Allow ON CONFLICT (task_id) in INSERT statements
+DO $$ BEGIN
+    ALTER TABLE report_history ADD CONSTRAINT uq_report_history_task_id UNIQUE (task_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- Store original params so retry works after a process restart
+DO $$ BEGIN
+    ALTER TABLE report_history ADD COLUMN params_json TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 -- Profile fields (added via ALTER TABLE for compatibility with existing DBs)
 DO $$ BEGIN
@@ -114,6 +122,13 @@ EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN
     ALTER TABLE users ADD COLUMN is_internal BOOLEAN NOT NULL DEFAULT FALSE;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+-- Stable Google user identifier (sub claim). Stored so we can detect if a
+-- Google account's email address changes and prevent email-swap hijacking.
+DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN google_sub VARCHAR(50);
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users (google_sub)
+    WHERE google_sub IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS report_shares (
     id SERIAL PRIMARY KEY,
@@ -221,7 +236,7 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
 
         _pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=2,
-            maxconn=10,
+            maxconn=20,   # bumped from 10; chat offloads DB calls to threads
             dsn=config.DATABASE_URL,
             cursor_factory=psycopg2.extras.RealDictCursor,
         )

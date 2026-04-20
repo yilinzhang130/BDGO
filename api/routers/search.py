@@ -1,7 +1,7 @@
 """Global cross-table search endpoint — with Chinese bigram fuzzy matching."""
 
 from fastapi import APIRouter, Query
-from db import query
+from crm_store import query
 from services.helpers.resolve import fuzzy_company_names
 
 router = APIRouter()

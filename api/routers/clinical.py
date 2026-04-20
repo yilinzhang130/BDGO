@@ -1,7 +1,7 @@
 """Clinical trial endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from db import paginate, query_one
+from crm_store import paginate, query_one
 from auth import get_current_user
 from field_policy import strip_hidden
 

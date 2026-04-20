@@ -2,7 +2,7 @@
 
 When a tool like ``search_companies`` returns rows, we extract the top 3
 as cards for the chat's right-hand Context Panel. Cards are scoped to
-the session and upserted in ``context_entities`` (see session_store).
+the session and upserted in ``context_entities`` (see chat_store).
 
 External users automatically see fewer fields because their tool results
 are already stripped by field_policy before reaching these extractors —

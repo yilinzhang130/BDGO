@@ -19,10 +19,37 @@ _logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-JWT_SECRET = os.environ.get("JWT_SECRET", "")
-if not JWT_SECRET:
-    _logger.warning("JWT_SECRET is not set — using insecure default (DO NOT use in production)")
-    JWT_SECRET = "dev-secret-DO-NOT-USE-IN-PRODUCTION"
+
+# ── JWT_SECRET ────────────────────────────────────────────────
+# Production (DATABASE_URL set): JWT_SECRET MUST be provided — hard fail
+# otherwise a deployment typo would silently expose all accounts.
+# Dev (no DATABASE_URL): generate a random per-session secret so the app
+# is still usable, but all sessions die on restart (expected in dev).
+_jwt_secret_env = os.environ.get("JWT_SECRET", "").strip()
+if not _jwt_secret_env:
+    if DATABASE_URL:
+        raise RuntimeError(
+            "\n\n*** FATAL: JWT_SECRET is not set but DATABASE_URL is configured. ***\n"
+            "Running in production without a JWT secret would allow anyone to forge\n"
+            "authentication tokens and take over any account.\n\n"
+            "Generate a secret and add it to your .env:\n"
+            "  python3 -c \"import secrets; print(secrets.token_hex(32))\"\n"
+        )
+    import secrets as _secrets
+    _jwt_secret_env = _secrets.token_hex(32)
+    _logger.warning(
+        "JWT_SECRET not set — generated a random secret for this dev session. "
+        "All tokens will be invalidated on restart. "
+        "Set JWT_SECRET in your .env to persist sessions."
+    )
+elif len(_jwt_secret_env) < 32:
+    _logger.warning(
+        "JWT_SECRET is shorter than 32 characters (%d). "
+        "Use at least 32 random bytes for production security.",
+        len(_jwt_secret_env),
+    )
+JWT_SECRET: str = _jwt_secret_env
+
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 
 # Email domains that are auto-flagged as "internal" at registration.

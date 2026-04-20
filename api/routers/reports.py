@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from database import transaction
 from auth import get_current_user
 from config import REPORTS_DIR, safe_path_within
+from field_policy import is_admin_user
 from services import REPORT_SERVICES, get_service, list_services
 from services.helpers.llm import extract_params_from_text
 from services.report_builder import (
@@ -54,19 +55,27 @@ def _parse_files_json(raw) -> list:
 
 
 def _save_report_history(user_id: str, task_id: str, slug: str, task: dict) -> None:
-    """Save a completed report to the report_history table."""
+    """Save a completed report to the report_history table.
+
+    Uses ON CONFLICT (task_id) DO NOTHING so duplicate calls
+    (e.g. from both the REST router and the chat tool path) are safe.
+    params_json is stored so /retry can re-run after a process restart.
+    """
     result = task.get("result") or {}
     title = result.get("meta", {}).get("title") or slug
     markdown_preview = (result.get("markdown") or "")[:2000]
     files_json = json.dumps(result.get("files", []), ensure_ascii=False, default=str)
     meta_json = json.dumps(result.get("meta", {}), ensure_ascii=False, default=str)
+    params_json = json.dumps(task.get("params") or {}, ensure_ascii=False, default=str)
 
     try:
         with transaction() as cur:
             cur.execute(
-                "INSERT INTO report_history (user_id, task_id, slug, title, markdown_preview, files_json, meta_json) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (user_id, task_id, slug, title, markdown_preview, files_json, meta_json),
+                "INSERT INTO report_history "
+                "(user_id, task_id, slug, title, markdown_preview, files_json, meta_json, params_json) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (task_id) DO NOTHING",
+                (user_id, task_id, slug, title, markdown_preview, files_json, meta_json, params_json),
             )
     except Exception:
         logger.exception("Failed to save report history for task %s", task_id)
@@ -83,6 +92,24 @@ def _execute_and_persist(task_id: str, service, params: dict, user_id: str | Non
     task = get_task(task_id)
     if task and task["status"] == "completed" and user_id:
         _save_report_history(user_id, task_id, task.get("slug", ""), task)
+
+
+def _dispatch_task(task_id: str, service, slug: str, params: dict, user_id: str) -> dict:
+    """Run or queue a task; return the appropriate API response dict."""
+    if service.mode == "sync":
+        _execute_and_persist(task_id, service, params, user_id)
+        return get_task(task_id)
+    threading.Thread(
+        target=_execute_and_persist,
+        args=(task_id, service, params, user_id),
+        daemon=True,
+    ).start()
+    return {
+        "task_id": task_id,
+        "status": "queued",
+        "slug": slug,
+        "estimated_seconds": service.estimated_seconds,
+    }
 
 
 @router.post("/generate")
@@ -102,41 +129,35 @@ def generate_report(req: GenerateRequest, user: dict = Depends(get_current_user)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid params: {e}")
 
-    task_id = create_task(req.slug, req.params)
     user_id = user["id"]
-
-    if service.mode == "sync":
-        _execute_and_persist(task_id, service, req.params, user_id)
-        return get_task(task_id)
-    else:
-        thread = threading.Thread(
-            target=_execute_and_persist,
-            args=(task_id, service, req.params, user_id),
-            daemon=True,
-        )
-        thread.start()
-        return {
-            "task_id": task_id,
-            "status": "queued",
-            "slug": req.slug,
-            "estimated_seconds": service.estimated_seconds,
-        }
+    task_id = create_task(req.slug, req.params, user_id=user_id)
+    return _dispatch_task(task_id, service, req.slug, req.params, user_id)
 
 
 @router.get("/status/{task_id}")
-def get_report_status(task_id: str):
-    """Check task status. Falls back to report_history DB after container restart."""
+def get_report_status(task_id: str, user: dict = Depends(get_current_user)):
+    """Check task status. Falls back to report_history DB after container restart.
+
+    User-scoped: in-memory tasks are checked by task_id only (ownership is
+    implicit since task_ids are opaque random tokens), but the DB fallback
+    enforces user_id so the persistent record cannot be read across users.
+    """
     task = get_task(task_id)
     if task:
+        # In-memory tasks carry the user_id they were created under.
+        # Reject if the task belongs to a different user.
+        task_user = task.get("user_id")
+        if task_user and task_user != user["id"] and not is_admin_user(user):
+            raise HTTPException(status_code=404, detail="Task not found")
         return task
 
-    # In-memory miss — try persistent report_history
+    # In-memory miss — try persistent report_history (always user-scoped)
     try:
         with transaction() as cur:
             cur.execute(
                 "SELECT task_id, slug, title, markdown_preview, files_json, created_at "
-                "FROM report_history WHERE task_id = %s LIMIT 1",
-                (task_id,),
+                "FROM report_history WHERE task_id = %s AND user_id = %s LIMIT 1",
+                (task_id, user["id"]),
             )
             row = cur.fetchone()
     except Exception:
@@ -162,35 +183,47 @@ def get_report_status(task_id: str):
 def retry_report(task_id: str, user: dict = Depends(get_current_user)):
     """Re-run a failed (or completed) task with its original params.
 
+    Falls back to report_history DB so retry works even after a process
+    restart (in-memory task store is cleared on restart).
     Returns a new task_id; the original task row is preserved for audit.
     """
+    user_id = user["id"]
     task = get_task(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found (may have expired)")
-    slug = task.get("slug")
-    params = task.get("params") or {}
+    if task:
+        task_owner = task.get("user_id")
+        if task_owner and task_owner != user_id and not is_admin_user(user):
+            raise HTTPException(status_code=404, detail="Task not found")
+        slug = task.get("slug")
+        params = task.get("params") or {}
+    else:
+        # In-memory miss — look up params from the persistent history table (user-scoped).
+        try:
+            with transaction() as cur:
+                cur.execute(
+                    "SELECT slug, params_json FROM report_history "
+                    "WHERE task_id = %s AND user_id = %s LIMIT 1",
+                    (task_id, user_id),
+                )
+                row = cur.fetchone()
+        except Exception:
+            row = None
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail="Task not found. It may have been created before params were persisted.",
+            )
+        slug = row["slug"]
+        try:
+            params = json.loads(row["params_json"] or "{}") if row.get("params_json") else {}
+        except (json.JSONDecodeError, TypeError):
+            params = {}
+
     service = get_service(slug)
     if not service:
         raise HTTPException(status_code=404, detail=f"Unknown service: {slug}")
 
-    new_task_id = create_task(slug, params)
-    user_id = user["id"]
-
-    if service.mode == "sync":
-        _execute_and_persist(new_task_id, service, params, user_id)
-        return get_task(new_task_id)
-    thread = threading.Thread(
-        target=_execute_and_persist,
-        args=(new_task_id, service, params, user_id),
-        daemon=True,
-    )
-    thread.start()
-    return {
-        "task_id": new_task_id,
-        "status": "queued",
-        "slug": slug,
-        "estimated_seconds": service.estimated_seconds,
-    }
+    new_task_id = create_task(slug, params, user_id=user_id)
+    return _dispatch_task(new_task_id, service, slug, params, user_id)
 
 
 @router.get("/list")
@@ -240,32 +273,42 @@ def parse_report_args(req: ParseArgsRequest, user: dict = Depends(get_current_us
 
 
 @router.get("/tasks")
-def list_report_tasks(limit: int = 50):
-    """List recent report tasks (for debugging / history UI)."""
-    return {"tasks": list_tasks(limit=limit)}
+def list_report_tasks(limit: int = 50, user: dict = Depends(get_current_user)):
+    """List recent report tasks — admin sees all, others see only their own."""
+    if is_admin_user(user):
+        tasks = list_tasks(limit=limit)
+    else:
+        # Fetch a larger window then filter so non-admins reliably get up to
+        # `limit` of their own tasks (filter-after-limit would under-return).
+        tasks = [t for t in list_tasks(limit=limit * 10)
+                 if t.get("user_id") == user["id"]][:limit]
+    return {"tasks": tasks}
 
 
 @router.get("/download/{task_id}/{format}")
-def download_report(task_id: str, format: str):
+def download_report(task_id: str, format: str, user: dict = Depends(get_current_user)):
     """Serve the generated file for a completed task.
 
     Falls back to report_history DB when in-memory task is unavailable
-    (e.g. after container restart).
+    (e.g. after container restart). User-scoped: DB query filters by user_id.
     """
     files: list = []
 
     # 1. Try in-memory task store first
     task = get_task(task_id)
     if task and task.get("status") == "completed":
-        files = _parse_files_json((task.get("result") or {}).get("files", []))
+        task_user = task.get("user_id")
+        if not task_user or task_user == user["id"] or is_admin_user(user):
+            files = _parse_files_json((task.get("result") or {}).get("files", []))
 
-    # 2. Fall back to report_history DB
+    # 2. Fall back to report_history DB (always user-scoped)
     if not files:
         try:
             with transaction() as cur:
                 cur.execute(
-                    "SELECT files_json FROM report_history WHERE task_id = %s LIMIT 1",
-                    (task_id,),
+                    "SELECT files_json FROM report_history "
+                    "WHERE task_id = %s AND user_id = %s LIMIT 1",
+                    (task_id, user["id"]),
                 )
                 row = cur.fetchone()
         except Exception:

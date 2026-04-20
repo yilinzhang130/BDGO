@@ -5,7 +5,7 @@ the BD-relevant fields as a prompt block" lookup. Keep one copy here."""
 
 from __future__ import annotations
 
-from db import query
+from crm_store import query
 
 _ASSET_KEEP_FIELDS = [
     "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", "适应症",

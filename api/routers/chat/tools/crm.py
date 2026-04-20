@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 
 from database import transaction
-from db import query, query_one
+from crm_store import query, query_one
 from services.helpers.resolve import resolve_company, resolve_mnc, fuzzy_company_names
 
 logger = logging.getLogger(__name__)
@@ -514,4 +514,33 @@ IMPLS = {
     "add_to_watchlist": add_to_watchlist,
     "search_conference": search_conference,
     "get_conference_company": get_conference_company,
+}
+
+# ── Tool-registry metadata ────────────────────────────────────────────────
+# Consumed by tools/__init__.py to configure registry.py without any
+# hardcoding in those shared files.
+
+# Single-table CRM tools: map tool name → CRM table for field-visibility
+# stripping (external users cannot see internal BD/scoring columns).
+TABLE_MAP: dict[str, str] = {
+    "search_companies": "公司",
+    "get_company":      "公司",
+    "search_assets":    "资产",
+    "get_asset":        "资产",
+    "search_clinical":  "临床",
+    "search_deals":     "交易",
+}
+
+# add_to_watchlist writes to Postgres and needs the caller's user id.
+NEEDS_USER_ID: set[str] = {"add_to_watchlist"}
+
+# search_global returns {companies, assets, deals, clinical} — each sub-list
+# needs its own table's field policy applied.
+MULTI_TABLE_MAP: dict[str, list[tuple[str, str]]] = {
+    "search_global": [
+        ("companies", "公司"),
+        ("assets",    "资产"),
+        ("deals",     "交易"),
+        ("clinical",  "临床"),
+    ],
 }

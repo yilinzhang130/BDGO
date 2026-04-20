@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 
-from db import query
+from crm_store import query
 from services.helpers.resolve import get_mnc_profiles
 from services.helpers.text import safe_json_loads
 

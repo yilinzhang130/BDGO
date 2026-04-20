@@ -4,7 +4,7 @@ import subprocess, uuid, logging, time, threading, json, os, re
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from db import query, update_row
+from crm_store import query, update_row
 from config import MINIMAX_ANTHROPIC_VERSION, MINIMAX_KEY, MINIMAX_MODEL, MINIMAX_URL
 
 logger = logging.getLogger(__name__)

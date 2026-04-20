@@ -2,10 +2,59 @@
 CRM Dashboard API — FastAPI backend wrapping crm_db.
 """
 
+import json
+import logging
 import os
+import traceback
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+
+# ── Structured JSON logging ───────────────────────────────────
+# Enabled in production (LOG_FORMAT=json env var or when DATABASE_URL is set).
+# Keeps dev logs human-readable by default.
+
+class _JSONFormatter(logging.Formatter):
+
+    def format(self, record: logging.LogRecord) -> str:
+        obj: dict = {
+            "ts":      self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level":   record.levelname,
+            "logger":  record.name,
+            "msg":     record.getMessage(),
+        }
+        if record.exc_info:
+            obj["exc"] = traceback.format_exception(*record.exc_info)[-1].strip()
+        return json.dumps(obj, ensure_ascii=False)
+
+
+_use_json_logs = (
+    os.environ.get("LOG_FORMAT", "").lower() == "json"
+    or bool(os.environ.get("DATABASE_URL"))   # production heuristic
+)
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(
+    _JSONFormatter() if _use_json_logs else logging.Formatter(
+        "%(asctime)s %(levelname)-8s %(name)s  %(message)s",
+        datefmt="%H:%M:%S",
+    )
+)
+root_logger = logging.getLogger()
+if not root_logger.handlers:
+    # No handlers yet (direct `python main.py`): configure from scratch.
+    logging.basicConfig(level=logging.INFO, handlers=[_handler])
+else:
+    # uvicorn already installed its handlers — replace only the formatter so
+    # our JSON/text format is used without nuking uvicorn's own handler chain.
+    root_logger.setLevel(logging.INFO)
+    for h in root_logger.handlers:
+        h.setFormatter(_handler.formatter)
+# Quiet noisy third-party loggers
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 from auth import get_current_user
 from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports, catalysts, watchlist, admin, aidd_sso, inbox, conference
@@ -61,4 +110,20 @@ app.include_router(credits_router.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    """Liveness + readiness probe.
+
+    Returns 200 {"status": "ok"} when the service is healthy.
+    Returns 503 {"status": "degraded", "db": "error: ..."} when Postgres
+    is unreachable — systemd HEALTHCHECK / load balancer will act on this.
+    """
+    import database
+
+    try:
+        with database.transaction() as cur:
+            cur.execute("SELECT 1")
+        return {"status": "ok", "db": "ok"}
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "db": f"error: {str(e)[:120]}"},
+        )  # 503 so load balancers / systemd HEALTHCHECK treat this as unhealthy

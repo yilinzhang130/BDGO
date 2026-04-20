@@ -19,7 +19,7 @@ import logging
 import planner as planner_mod
 from models import ModelSpec
 
-from .session_store import get_session_brief, save_session_brief
+from .chat_store import get_session_brief, save_session_brief
 
 logger = logging.getLogger(__name__)
 

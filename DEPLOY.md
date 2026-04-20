@@ -136,8 +136,9 @@ ssh ubuntu@146.56.247.221 "sudo systemctl restart nginx"
 ## PostgreSQL 权限（VM 重启后偶发）
 
 ```bash
+# Replace <PG_PASSWORD> with the actual postgres superuser password (do NOT commit it)
 ssh ubuntu@146.56.247.221 "
-  PGPASSWORD=Wazx910130 psql -U postgres -h 127.0.0.1 -d bdgo -c \"
+  PGPASSWORD=<PG_PASSWORD> psql -U postgres -h 127.0.0.1 -d bdgo -c \"
     GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO bdgo;
     GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO bdgo;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO bdgo;

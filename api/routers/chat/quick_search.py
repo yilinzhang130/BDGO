@@ -17,7 +17,7 @@ import credits as credits_mod
 from models import resolve_model
 from services.helpers.search import search_web
 
-from .session_store import ensure_session, load_history, save_message
+from .chat_store import ensure_session, load_history, save_message
 from .streaming import _stream_with_fallback
 
 logger = logging.getLogger(__name__)
@@ -54,11 +54,11 @@ async def stream_quick_search(req):
     usage_accum = {"input_tokens": 0, "output_tokens": 0}
 
     if user_id:
-        ensure_session(session_id, user_id)
+        await asyncio.to_thread(ensure_session, session_id, user_id)
 
     # Persist the user message immediately (same as stream_chat).
     if user_id:
-        save_message(session_id, "user", req.message)
+        await asyncio.to_thread(save_message, session_id, "user", req.message)
 
     # Search off the event loop — search_web is synchronous httpx.
     try:
@@ -75,7 +75,7 @@ async def stream_quick_search(req):
     )
 
     # Build single-turn history: prior turns for short-term memory + this query.
-    history = load_history(session_id)
+    history = await asyncio.to_thread(load_history, session_id)
     history = [m for m in history if isinstance(m.get("content"), str)][-6:]
     context_block = _format_sources(sources)
     user_prompt = f"用户问题：{req.message}\n\n搜索结果：\n{context_block}"
@@ -102,18 +102,18 @@ async def stream_quick_search(req):
         if final_text.strip():
             # Save as structured content so it round-trips through load_history
             # the same way regular assistant turns do.
-            save_message(
+            await asyncio.to_thread(
+                save_message,
                 session_id, "assistant",
                 [{"type": "text", "text": final_text}],
-                tools_json=json.dumps(
-                    {"kind": "quick_search", "sources": sources}, ensure_ascii=False,
-                ),
+                json.dumps({"kind": "quick_search", "sources": sources}, ensure_ascii=False),
             )
 
         credits_charged = 0.0
         balance_remaining = None
         if user_id and not req.is_admin:
-            credits_charged = credits_mod.record_usage(
+            credits_charged = await asyncio.to_thread(
+                credits_mod.record_usage,
                 user_id=user_id,
                 session_id=session_id,
                 model_id=model.id,
@@ -123,7 +123,9 @@ async def stream_quick_search(req):
                 output_weight=model.output_weight,
             )
             try:
-                balance_remaining = credits_mod.get_balance(user_id)["balance"]
+                balance_remaining = (
+                    await asyncio.to_thread(credits_mod.get_balance, user_id)
+                )["balance"]
             except Exception:
                 balance_remaining = None
 

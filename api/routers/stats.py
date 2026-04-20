@@ -1,7 +1,7 @@
 """Stats / dashboard aggregation endpoints."""
 
 from fastapi import APIRouter
-from db import query, query_one, parse_numeric
+from crm_store import query, query_one, parse_numeric
 
 router = APIRouter()
 

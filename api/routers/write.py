@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from db import update_row, delete_row, distinct_values, rename_company, ALLOWED_TABLES
+from crm_store import update_row, delete_row, distinct_values, rename_company, ALLOWED_TABLES
 from auth import get_current_user
 from field_policy import is_admin_user
 
@@ -71,7 +71,13 @@ def rename(old_name: str, body: RenameBody, _: dict = Depends(_require_admin)):
 
 
 @router.get("/distinct/{table}/{column}")
-def get_distinct(table: str, column: str, limit: int = 500):
+def get_distinct(table: str, column: str, limit: int = 500,
+                 _: dict = Depends(_require_admin)):
+    """Return distinct column values + counts for filter UIs.
+
+    Admin-only: the column name is caller-supplied and could expose hidden
+    internal fields (BD priority, Q-scores, etc.) to external users.
+    """
     if table not in ALLOWED_TABLES:
         raise HTTPException(400, f"Invalid table: {table}")
     return distinct_values(table, column, limit)

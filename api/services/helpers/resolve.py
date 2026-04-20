@@ -43,7 +43,7 @@ def _get_company_names() -> list[dict]:
     with _lock:
         if now - _company_ts < _CACHE_TTL and _company_cache:
             return _company_cache
-        from db import query
+        from crm_store import query
         _company_cache = query('SELECT "客户名称","英文名","中文名" FROM "公司"', ())
         _company_ts = now
     return _company_cache
@@ -58,7 +58,7 @@ def _get_mnc_names() -> list[dict]:
     with _lock:
         if now - _mnc_ts < _CACHE_TTL and _mnc_cache:
             return _mnc_cache
-        from db import query
+        from crm_store import query
         rows = query('SELECT "company_name","company_cn" FROM "MNC画像"', ())
         # Adapt to 公司 shape so find_existing_company works
         _mnc_cache = [
@@ -79,7 +79,7 @@ def get_mnc_profiles() -> list[dict]:
     with _lock:
         if now - _mnc_full_ts < _CACHE_TTL and _mnc_full_cache:
             return _mnc_full_cache
-        from db import query
+        from crm_store import query
         _mnc_full_cache = query(
             'SELECT "company_name","company_cn","heritage_ta","innovation_philosophy",'
             '"risk_appetite","deal_size_preference","sunk_cost_by_ta","bd_pattern_theses",'
@@ -123,7 +123,7 @@ class ResolveResult(NamedTuple):
 
 def resolve_company(name: str) -> ResolveResult:
     """Resolve a company name to a 公司 row using exact → LIKE → crm_match fuzzy."""
-    from db import query, query_one
+    from crm_store import query, query_one
 
     # 1. Exact
     row = query_one('SELECT * FROM "公司" WHERE "客户名称" = ?', (name,))
@@ -152,7 +152,7 @@ def resolve_company(name: str) -> ResolveResult:
 
 def resolve_mnc(name: str) -> ResolveResult:
     """Resolve a company name to an MNC画像 row using exact → LIKE → crm_match fuzzy."""
-    from db import query, query_one
+    from crm_store import query, query_one
 
     # 1. Exact
     row = query_one('SELECT * FROM "MNC画像" WHERE "company_name" = ?', (name,))

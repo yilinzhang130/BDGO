@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 from urllib.parse import unquote
-from db import paginate, query_one
+from crm_store import paginate, query_one
 
 router = APIRouter()
 

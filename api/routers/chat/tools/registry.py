@@ -1,5 +1,11 @@
 """Central tool-dispatch gate: enforces field visibility and count_by guard
-before any CRM data reaches the LLM."""
+before any CRM data reaches the LLM.
+
+Metadata dicts below are intentionally empty at module load time.
+``tools/__init__.py`` auto-discovers every sibling module and merges in
+each module's TABLE_MAP / NEEDS_USER_ID / MULTI_TABLE_MAP declarations,
+so adding a new tool file never requires touching this file.
+"""
 
 from __future__ import annotations
 
@@ -14,41 +20,44 @@ logger = logging.getLogger(__name__)
 # detect persistent failures without parsing error text.
 TOOL_FAILED_KEY = "_tool_failed"
 
-# Map each CRM tool to its source table so we can apply field visibility.
-# Tools NOT in this map (watchlist / reports / skill calls) are not filtered.
-TOOL_TABLE: dict[str, str] = {
-    "search_companies": "公司",
-    "get_company": "公司",
-    "search_assets": "资产",
-    "get_asset": "资产",
-    "search_clinical": "临床",
-    "search_deals": "交易",
-}
+# ── Populated by __init__.py at import time ────────────────────────────────
+
+# Maps tool name → CRM table name for single-table field-visibility stripping.
+# e.g. {"search_companies": "公司", "get_asset": "资产"}
+TOOL_TABLE: dict[str, str] = {}
+
+# Tool names that require the calling user's ID injected as ``_user_id``.
+# e.g. {"add_to_watchlist", "generate_buyer_profile"}
+NEEDS_USER_ID: set[str] = set()
+
+# For tools that return a dict of {key: [rows]} spanning multiple CRM tables.
+# Maps tool name → list of (result_key, crm_table) pairs to strip in-place.
+# e.g. {"search_global": [("companies","公司"), ("assets","资产"), ...]}
+MULTI_TABLE_MAP: dict[str, list[tuple[str, str]]] = {}
+
+# ──────────────────────────────────────────────────────────────────────────
 
 
 def _strip_tool_result(name: str, result, can_see_internal: bool):
     """Apply field_policy to a tool's return value. External users only.
 
-    Handles the 6 individual CRM tools plus search_global (which returns
-    a dict of {companies, assets, deals, clinical} sub-lists).
+    Single-table tools are handled via TOOL_TABLE.
+    Multi-table tools (e.g. search_global) are handled via MULTI_TABLE_MAP.
+    Both dicts are populated by __init__.py from each module's declarations.
     """
     if can_see_internal or result is None:
         return result
 
     table = TOOL_TABLE.get(name)
     if table:
-        # strip_hidden handles both dict (single row) and list[dict]
         if isinstance(result, dict) and "error" in result:
             return result
         return strip_hidden(result, table, False)
 
-    if name == "search_global" and isinstance(result, dict):
-        pairs = (
-            ("companies", "公司"), ("assets", "资产"),
-            ("deals", "交易"), ("clinical", "临床"),
-        )
+    pairs = MULTI_TABLE_MAP.get(name)
+    if pairs and isinstance(result, dict):
         for key, tbl in pairs:
-            if key in result and result[key]:
+            if result.get(key):
                 result[key] = strip_hidden(result[key], tbl, False)
         return result
 
@@ -76,7 +85,9 @@ def execute_tool(
 
     # Block count_by on hidden columns for external users — otherwise
     # they could extract the distribution of internal fields (e.g.
-    # BD-priority counts).
+    # BD-priority counts). count_by is the only aggregation tool that
+    # accepts raw column names, so this guard lives here rather than in
+    # the module.
     if name == "count_by" and not can_see_internal:
         table = (inp or {}).get("table", "")
         group_by = (inp or {}).get("group_by", "")
@@ -88,7 +99,10 @@ def execute_tool(
 
     try:
         kwargs = dict(inp or {})
-        if user_id and (name == "add_to_watchlist" or name.startswith("generate_")):
+        # Inject caller's user_id for tools that need it (e.g. watchlist,
+        # report generators). The set is populated from each module's
+        # NEEDS_USER_ID declaration by __init__.py.
+        if user_id and name in NEEDS_USER_ID:
             kwargs["_user_id"] = user_id
 
         result = fn(**kwargs)

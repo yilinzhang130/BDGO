@@ -107,15 +107,15 @@ class ReportContext:
 
     # ── CRM ─────────────────────────────────────────────────
     def crm_query(self, sql: str, params: tuple = ()) -> list[dict]:
-        from db import query as _q
+        from crm_store import query as _q
         return _q(sql, params)
 
     def crm_query_one(self, sql: str, params: tuple = ()) -> dict | None:
-        from db import query_one as _q
+        from crm_store import query_one as _q
         return _q(sql, params)
 
     def crm_count(self, sql: str, params: tuple = ()) -> int:
-        from db import count as _c
+        from crm_store import count as _c
         return _c(sql, params)
 
     # ── File I/O ────────────────────────────────────────────
@@ -225,12 +225,13 @@ def _evict_old_tasks() -> None:
         _report_tasks.pop(tid, None)
 
 
-def create_task(slug: str, params: dict) -> str:
+def create_task(slug: str, params: dict, user_id: str | None = None) -> str:
     task_id = uuid.uuid4().hex[:12]
     _report_tasks[task_id] = {
         "id": task_id,
         "slug": slug,
         "params": params,
+        "user_id": user_id,   # stored so status/download can enforce ownership
         "status": "queued",
         "progress_log": [],
         "created_at": time.time(),

@@ -7,6 +7,7 @@ execution). Delegates everything else to submodules.
 
 from __future__ import annotations
 
+import asyncio
 import re
 
 from fastapi import APIRouter, Depends
@@ -15,6 +16,7 @@ from pydantic import BaseModel, field_validator
 
 import credits as credits_mod
 from auth import get_current_user
+from rate_limit import chat_slot, check_rpm
 
 from .planning import should_plan
 from .quick_search import stream_quick_search
@@ -90,28 +92,46 @@ class ChatRequest(BaseModel):
 
 router = APIRouter()
 
+_SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
+
+
+async def _guarded_stream(gen, user_id: str):
+    """Wrap an SSE generator with a concurrent-slot guard.
+
+    The slot is held for the full lifetime of the stream so one user cannot
+    exceed MAX_CONCURRENT_CHAT simultaneous open connections. Releasing in a
+    ``finally`` block handles normal finish, error, and client-disconnect.
+    """
+    async with chat_slot(user_id):
+        async for chunk in gen:
+            yield chunk
+
 
 @router.post("")
 async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
     req.user_id = user["id"]
     req.is_admin = bool(user.get("is_admin"))
     req.is_internal = bool(user.get("is_internal"))
-    # Admin users bypass credit check (still logged, just never blocked).
+
+    # Admins bypass both rate limits and credit checks.
     if not req.is_admin:
-        # Fail fast with a clean 402 if the user is out of credits —
-        # never mid-stream.
-        credits_mod.ensure_balance(user["id"])
+        # 1. Sliding-window rate limit: max 20 chat requests / minute.
+        await check_rpm(user["id"])
+
+        # 2. Credit check: fail fast with 402 before starting the stream.
+        #    Offload to thread — ensure_balance does a psycopg2 query.
+        await asyncio.to_thread(credits_mod.ensure_balance, user["id"])
 
     # Quick-search mode bypasses planning and tool-use entirely.
     if req.search_mode == "quick" and req.plan_confirm is None:
         return StreamingResponse(
-            stream_quick_search(req),
+            _guarded_stream(stream_quick_search(req), user["id"]),
             media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
-            },
+            headers=_SSE_HEADERS,
         )
 
     # Decide: planning phase, execution phase, or normal (no-plan) flow.
@@ -133,11 +153,7 @@ async def chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
         generator = stream_chat(req)
 
     return StreamingResponse(
-        generator,
+        _guarded_stream(generator, user["id"]),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        headers=_SSE_HEADERS,
     )

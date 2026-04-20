@@ -3,7 +3,7 @@
 import re
 from datetime import date, datetime
 from fastapi import APIRouter, Query
-from db import query
+from crm_store import query
 
 router = APIRouter()
 
