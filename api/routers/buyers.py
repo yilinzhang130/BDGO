@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 from urllib.parse import unquote
-from crm_store import paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 
 router = APIRouter()
 
@@ -19,8 +19,8 @@ def list_buyers(
     params: list = []
 
     if q:
-        conditions.append('("company_name" LIKE ? OR "company_cn" LIKE ? OR "heritage_ta" LIKE ?)')
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+        conditions.append(f'("company_name" LIKE ? {LIKE_ESCAPE} OR "company_cn" LIKE ? {LIKE_ESCAPE} OR "heritage_ta" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q)] * 3)
 
     where = " AND ".join(conditions) if conditions else ""
     allowed_sorts = {"company_name", "heritage_ta", "annual_revenue", "last_updated", "risk_appetite", "deal_size_preference"}

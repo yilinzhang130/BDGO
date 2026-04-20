@@ -21,6 +21,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from crm_store import LIKE_ESCAPE, like_contains
 from services.helpers import docx_builder, search
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 
@@ -449,18 +450,19 @@ class DiseaseLandscapeService(ReportService):
         companies = self._query_companies(ctx, enum, keyword)
         trials = self._query_clinical(ctx, keyword, limit=20)
         deals = self._query_deals(ctx, keyword, limit=10)
+        dz_pat = like_contains(keyword or enum)
         guidelines_recs = _guidelines_query(
-            '''SELECT r."治疗线", r."推荐等级", r."证据级别", r."药物", r."药物类型",
-                      r."适应条件", r."疗效概述", g."指南来源", g."版本"
-               FROM "推荐" r JOIN "指南" g ON r."指南ID" = g."记录ID"
-               WHERE g."疾病" LIKE ?
-               ORDER BY r."治疗线", r."推荐等级"
-               LIMIT 30''',
-            (f"%{keyword or enum}%",),
+            f'''SELECT r."治疗线", r."推荐等级", r."证据级别", r."药物", r."药物类型",
+                       r."适应条件", r."疗效概述", g."指南来源", g."版本"
+                FROM "推荐" r JOIN "指南" g ON r."指南ID" = g."记录ID"
+                WHERE g."疾病" LIKE ? {LIKE_ESCAPE}
+                ORDER BY r."治疗线", r."推荐等级"
+                LIMIT 30''',
+            (dz_pat,),
         )
         guidelines_biomarkers = _guidelines_query(
-            'SELECT "标志物", "检测方法", "阳性阈值", "临床意义" FROM "生物标志物" WHERE "疾病" LIKE ? LIMIT 20',
-            (f"%{keyword or enum}%",),
+            f'SELECT "标志物", "检测方法", "阳性阈值", "临床意义" FROM "生物标志物" WHERE "疾病" LIKE ? {LIKE_ESCAPE} LIMIT 20',
+            (dz_pat,),
         )
         ctx.log(
             f"CRM: {len(assets)} assets, {len(companies)} companies, "
@@ -685,11 +687,11 @@ class DiseaseLandscapeService(ReportService):
         conds: list[str] = []
         params: list[Any] = []
         if enum:
-            conds.append('"疾病领域" LIKE ?')
-            params.append(f"%{enum}%")
+            conds.append(f'"疾病领域" LIKE ? {LIKE_ESCAPE}')
+            params.append(like_contains(enum))
         if keyword:
-            conds.append('("适应症" LIKE ? OR "靶点" LIKE ? OR "作用机制(MOA)" LIKE ?)')
-            params.extend([f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"])
+            conds.append(f'("适应症" LIKE ? {LIKE_ESCAPE} OR "靶点" LIKE ? {LIKE_ESCAPE} OR "作用机制(MOA)" LIKE ? {LIKE_ESCAPE})')
+            params.extend([like_contains(keyword)] * 3)
         if not conds:
             return []
 
@@ -712,11 +714,11 @@ class DiseaseLandscapeService(ReportService):
         conds: list[str] = []
         params: list[Any] = []
         if enum:
-            conds.append('"疾病领域" LIKE ?')
-            params.append(f"%{enum}%")
+            conds.append(f'"疾病领域" LIKE ? {LIKE_ESCAPE}')
+            params.append(like_contains(enum))
         if keyword:
-            conds.append('("疾病领域" LIKE ? OR "核心产品的阶段" LIKE ? OR "主要核心pipeline的名字" LIKE ?)')
-            params.extend([f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"])
+            conds.append(f'("疾病领域" LIKE ? {LIKE_ESCAPE} OR "核心产品的阶段" LIKE ? {LIKE_ESCAPE} OR "主要核心pipeline的名字" LIKE ? {LIKE_ESCAPE})')
+            params.extend([like_contains(keyword)] * 3)
         if not conds:
             return []
         where = " OR ".join(conds) if len(conds) > 1 else conds[0]
@@ -734,11 +736,11 @@ class DiseaseLandscapeService(ReportService):
             'SELECT "试验ID", "资产名称", "公司名称", "适应症", "临床期次", '
             '"主要终点名称", "主要终点结果值", "结果判定", "临床综合评分" '
             'FROM "临床" '
-            'WHERE "适应症" LIKE ? '
+            f'WHERE "适应症" LIKE ? {LIKE_ESCAPE} '
             'ORDER BY "评估日期" DESC '
             'LIMIT ?'
         )
-        return ctx.crm_query(sql, (f"%{keyword}%", limit))
+        return ctx.crm_query(sql, (like_contains(keyword), limit))
 
     def _query_deals(self, ctx: ReportContext, keyword: str, limit: int = 10) -> list[dict]:
         if not keyword:
@@ -747,11 +749,12 @@ class DiseaseLandscapeService(ReportService):
             'SELECT "交易名称", "交易类型", "买方公司", "卖方/合作方", "资产名称", '
             '"靶点", "临床阶段", "首付款($M)", "交易总额($M)", "宣布日期" '
             'FROM "交易" '
-            'WHERE "适应症" LIKE ? OR "靶点" LIKE ? '
+            f'WHERE "适应症" LIKE ? {LIKE_ESCAPE} OR "靶点" LIKE ? {LIKE_ESCAPE} '
             'ORDER BY "宣布日期" DESC '
             'LIMIT ?'
         )
-        return ctx.crm_query(sql, (f"%{keyword}%", f"%{keyword}%", limit))
+        pat = like_contains(keyword)
+        return ctx.crm_query(sql, (pat, pat, limit))
 
     # ── web search ──────────────────────────────────────────
     def _run_web_searches(self, display: str, enum: str, keyword: str) -> list[dict]:

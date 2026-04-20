@@ -397,6 +397,24 @@ def connect():
         return conn
 
 
+import re as _re
+
+# Same literal-aware rewriter as crm_store._qmark_to_percent — duplicated
+# here so this module stays importable without a crm_store dependency.
+_QMARK_RE = _re.compile(r"""'[^']*'|"[^"]*"|\?""")
+
+
+def _qmark_to_percent(sql: str) -> str:
+    """Rewrite ``?`` placeholders to ``%s``, preserving quoted strings
+    and quoted identifiers (a literal ``?`` in a SQL string would be
+    corrupted by a naive ``str.replace('?', '%s')``).
+    """
+    return _QMARK_RE.sub(
+        lambda m: "%s" if m.group() == "?" else m.group(),
+        sql,
+    )
+
+
 class _PgCompatCursor:
     """PG cursor包装器，兼容 sqlite3.Cursor 接口。
     自动把 ? 转为 %s，返回 dict-like rows。
@@ -410,14 +428,14 @@ class _PgCompatCursor:
         self.description = None
 
     def execute(self, sql, params=None):
-        sql = sql.replace('?', '%s')
+        sql = _qmark_to_percent(sql)
         self._cur.execute(sql, params or ())
         self.description = self._cur.description
         self.rowcount = self._cur.rowcount
         return self
 
     def executemany(self, sql, params_list):
-        sql = sql.replace('?', '%s')
+        sql = _qmark_to_percent(sql)
         self._cur.executemany(sql, params_list)
         self.rowcount = self._cur.rowcount
         return self

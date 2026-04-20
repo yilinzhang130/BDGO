@@ -123,7 +123,7 @@ class ResolveResult(NamedTuple):
 
 def resolve_company(name: str) -> ResolveResult:
     """Resolve a company name to a 公司 row using exact → LIKE → crm_match fuzzy."""
-    from crm_store import query, query_one
+    from crm_store import LIKE_ESCAPE, like_contains, query, query_one
 
     # 1. Exact
     row = query_one('SELECT * FROM "公司" WHERE "客户名称" = ?', (name,))
@@ -132,8 +132,10 @@ def resolve_company(name: str) -> ResolveResult:
 
     # 2. Substring LIKE across all name columns
     rows = query(
-        'SELECT * FROM "公司" WHERE "客户名称" LIKE ? OR "英文名" LIKE ? OR "中文名" LIKE ? LIMIT 1',
-        (f"%{name}%",) * 3,
+        f'SELECT * FROM "公司" WHERE "客户名称" LIKE ? {LIKE_ESCAPE} '
+        f'OR "英文名" LIKE ? {LIKE_ESCAPE} '
+        f'OR "中文名" LIKE ? {LIKE_ESCAPE} LIMIT 1',
+        (like_contains(name),) * 3,
     )
     if rows:
         r = rows[0]
@@ -152,7 +154,7 @@ def resolve_company(name: str) -> ResolveResult:
 
 def resolve_mnc(name: str) -> ResolveResult:
     """Resolve a company name to an MNC画像 row using exact → LIKE → crm_match fuzzy."""
-    from crm_store import query, query_one
+    from crm_store import LIKE_ESCAPE, like_contains, query, query_one
 
     # 1. Exact
     row = query_one('SELECT * FROM "MNC画像" WHERE "company_name" = ?', (name,))
@@ -160,9 +162,11 @@ def resolve_mnc(name: str) -> ResolveResult:
         return ResolveResult(row, name, False, [])
 
     # 2. LIKE on both name columns
+    pat = like_contains(name)
     rows = query(
-        'SELECT * FROM "MNC画像" WHERE "company_name" LIKE ? OR "company_cn" LIKE ? LIMIT 1',
-        (f"%{name}%", f"%{name}%"),
+        f'SELECT * FROM "MNC画像" WHERE "company_name" LIKE ? {LIKE_ESCAPE} '
+        f'OR "company_cn" LIKE ? {LIKE_ESCAPE} LIMIT 1',
+        (pat, pat),
     )
     if rows:
         r = rows[0]

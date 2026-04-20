@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 from urllib.parse import unquote
-from crm_store import paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 
 router = APIRouter()
 
@@ -23,14 +23,14 @@ def list_ip(
     params: list = []
 
     if q:
-        conditions.append('("专利号" LIKE ? OR "关联公司" LIKE ? OR "关联资产" LIKE ? OR "专利持有人" LIKE ?)')
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+        conditions.append(f'("专利号" LIKE ? {LIKE_ESCAPE} OR "关联公司" LIKE ? {LIKE_ESCAPE} OR "关联资产" LIKE ? {LIKE_ESCAPE} OR "专利持有人" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q)] * 4)
     if company:
-        conditions.append('"关联公司" LIKE ?')
-        params.append(f"%{company}%")
+        conditions.append(f'"关联公司" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(company))
     if asset:
-        conditions.append('"关联资产" LIKE ?')
-        params.append(f"%{asset}%")
+        conditions.append(f'"关联资产" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(asset))
     if status:
         conditions.append('"状态" = ?')
         params.append(status)

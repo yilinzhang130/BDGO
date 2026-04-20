@@ -23,6 +23,7 @@ data/
 # IDE
 .vscode/
 .idea/
+.claude/settings.local.json
 
 # Build
 dist/

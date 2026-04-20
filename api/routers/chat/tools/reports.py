@@ -10,62 +10,38 @@ it here — no edits needed to this file.
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
-
-from database import transaction
 
 logger = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────────────────────
-# Persistence helper
-# ─────────────────────────────────────────────────────────────
-
-def _persist_report(task_id: str, slug: str, user_id: str) -> None:
-    """Save completed report to report_history so it shows up in My Reports."""
-    from services.report_builder import get_task
-
-    task = get_task(task_id)
-    if not (task and task.get("status") == "completed"):
-        return
-    result = task.get("result") or {}
-    title = result.get("meta", {}).get("title") or slug
-    markdown_preview = (result.get("markdown") or "")[:2000]
-    files_json = json.dumps(result.get("files", []), ensure_ascii=False, default=str)
-    meta_json = json.dumps(result.get("meta", {}), ensure_ascii=False, default=str)
-    params_json = json.dumps(task.get("params") or {}, ensure_ascii=False, default=str)
-    try:
-        with transaction() as cur:
-            cur.execute(
-                "INSERT INTO report_history "
-                "(user_id, task_id, slug, title, markdown_preview, files_json, meta_json, params_json) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
-                "ON CONFLICT (task_id) DO NOTHING",
-                (user_id, task_id, slug, title, markdown_preview, files_json, meta_json, params_json),
-            )
-    except Exception:
-        logger.exception("Failed to persist report history for task %s", task_id)
-
-
 def _make_report_tool(_svc):
-    """Build a tool implementation closure for a single ReportService."""
-    from services.report_builder import create_task, execute_task, get_task
+    """Build a tool implementation closure for a single ReportService.
+
+    execute_task persists to report_history, so this closure only
+    orchestrates sync vs. async dispatch and shapes the chat-tool reply.
+    """
+    from services.report_builder import (
+        STATUS_COMPLETED,
+        STATUS_FAILED,
+        STATUS_QUEUED,
+        create_task,
+        execute_task,
+        get_task,
+    )
 
     def _impl(_user_id=None, **kwargs):
         task_id = create_task(_svc.slug, kwargs, user_id=_user_id)
 
         if _svc.mode == "sync":
             execute_task(task_id, _svc, kwargs)
-            t = get_task(task_id)
-            if t["status"] == "completed":
-                if _user_id:
-                    _persist_report(task_id, _svc.slug, _user_id)
+            t = get_task(task_id) or {}
+            if t.get("status") == STATUS_COMPLETED:
                 result = t.get("result") or {}
                 return {
                     "task_id": task_id,
-                    "status": "completed",
+                    "status": STATUS_COMPLETED,
                     "markdown_preview": (result.get("markdown") or "")[:3000],
                     "files": result.get("files", []),
                     "message": (
@@ -75,20 +51,18 @@ def _make_report_tool(_svc):
                 }
             return {
                 "task_id": task_id,
-                "status": t["status"],
+                "status": t.get("status", STATUS_FAILED),
                 "error": t.get("error"),
             }
 
-        # Async: spawn thread, return immediately
-        def _run():
-            execute_task(task_id, _svc, kwargs)
-            if _user_id:
-                _persist_report(task_id, _svc.slug, _user_id)
-
-        threading.Thread(target=_run, daemon=True).start()
+        # Async: spawn thread, return immediately. execute_task writes its
+        # own state transitions to the DB.
+        threading.Thread(
+            target=execute_task, args=(task_id, _svc, kwargs), daemon=True,
+        ).start()
         return {
             "task_id": task_id,
-            "status": "queued",
+            "status": STATUS_QUEUED,
             "estimated_seconds": _svc.estimated_seconds,
             "display_message": (
                 f"已开始 {_svc.display_name}。预计 {_svc.estimated_seconds} 秒完成，"

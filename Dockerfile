@@ -38,4 +38,8 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8001/api/health || exit 1
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Run pending Alembic migrations before serving traffic. ``upgrade head``
+# is a no-op on an already-current DB and auto-creates the alembic_version
+# table on first run (stamping at the empty baseline) — safe for both
+# fresh deploys and existing prod DBs.
+CMD sh -c "alembic upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8001"

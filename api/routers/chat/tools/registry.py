@@ -20,6 +20,34 @@ logger = logging.getLogger(__name__)
 # detect persistent failures without parsing error text.
 TOOL_FAILED_KEY = "_tool_failed"
 
+# Hard cap on any string coming from the LLM. Schemas advertise a per-field
+# maxLength (see tools/__init__.py), but that's just a hint — the LLM can
+# still send whatever it wants, so we clamp at the dispatch boundary. The
+# cap here is the generous "notes" ceiling; anything longer is almost
+# certainly hallucinated noise and would force expensive LIKE scans.
+_MAX_TOOL_STRING_LEN = 500
+
+
+def _clamp_tool_input(inp: dict | None) -> dict:
+    """Clamp every string value in a flat tool-input dict to a safe length.
+
+    Lists-of-strings are clamped element-wise. Non-string values pass through
+    untouched. Returns a new dict; the caller's copy is untouched.
+    """
+    if not inp:
+        return {}
+    out: dict = {}
+    for k, v in inp.items():
+        if isinstance(v, str):
+            out[k] = v[:_MAX_TOOL_STRING_LEN]
+        elif isinstance(v, list):
+            out[k] = [
+                (x[:_MAX_TOOL_STRING_LEN] if isinstance(x, str) else x) for x in v
+            ]
+        else:
+            out[k] = v
+    return out
+
 # ── Populated by __init__.py at import time ────────────────────────────────
 
 # Maps tool name → CRM table name for single-table field-visibility stripping.
@@ -98,7 +126,7 @@ def execute_tool(
             )
 
     try:
-        kwargs = dict(inp or {})
+        kwargs = _clamp_tool_input(inp)
         # Inject caller's user_id for tools that need it (e.g. watchlist,
         # report generators). The set is populated from each module's
         # NEEDS_USER_ID declaration by __init__.py.

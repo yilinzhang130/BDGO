@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from urllib.parse import unquote
-from crm_store import paginate, query, query_one
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query, query_one
 from auth import get_current_user
 from field_policy import strip_hidden, is_admin_user
 
@@ -26,8 +26,8 @@ def list_companies(
     params: list = []
 
     if q:
-        conditions.append('("客户名称" LIKE ? OR "英文名" LIKE ? OR "中文名" LIKE ?)')
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+        conditions.append(f'("客户名称" LIKE ? {LIKE_ESCAPE} OR "英文名" LIKE ? {LIKE_ESCAPE} OR "中文名" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q)] * 3)
     if country:
         conditions.append('"所处国家" = ?')
         params.append(country)

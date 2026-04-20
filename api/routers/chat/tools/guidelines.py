@@ -8,6 +8,7 @@ import sqlite3
 import threading
 
 from config import GUIDELINES_DB_PATH
+from crm_store import LIKE_ESCAPE, like_contains
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +47,14 @@ def _guidelines_query(sql: str, params: tuple = ()) -> list[dict]:
 
 
 def query_treatment_guidelines(disease="", line="", source="", limit=20):
-    conds = ['g."疾病" LIKE ?']
-    params: list = [f"%{disease}%"]
+    conds = [f'g."疾病" LIKE ? {LIKE_ESCAPE}']
+    params: list = [like_contains(disease)]
     if line:
-        conds.append('r."治疗线" LIKE ?')
-        params.append(f"%{line}%")
+        conds.append(f'r."治疗线" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(line))
     if source:
-        conds.append('g."指南来源" LIKE ?')
-        params.append(f"%{source}%")
+        conds.append(f'g."指南来源" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(source))
     where = " AND ".join(conds)
     sql = f'''
         SELECT g."疾病", g."疾病亚型", g."指南来源", g."版本", g."发布年份",
@@ -70,11 +71,11 @@ def query_treatment_guidelines(disease="", line="", source="", limit=20):
 
 
 def query_biomarker(disease="", biomarker=""):
-    conds = ['"疾病" LIKE ?']
-    params: list = [f"%{disease}%"]
+    conds = [f'"疾病" LIKE ? {LIKE_ESCAPE}']
+    params: list = [like_contains(disease)]
     if biomarker:
-        conds.append('"标志物" LIKE ?')
-        params.append(f"%{biomarker}%")
+        conds.append(f'"标志物" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(biomarker))
     where = " AND ".join(conds)
     sql = f'''
         SELECT "疾病", "标志物", "检测方法", "阳性阈值", "临床意义", "指南来源", "最近更新"
@@ -90,11 +91,11 @@ def list_guidelines(disease="", source=""):
     conds: list[str] = []
     params: list = []
     if disease:
-        conds.append('"疾病" LIKE ?')
-        params.append(f"%{disease}%")
+        conds.append(f'"疾病" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(disease))
     if source:
-        conds.append('"指南来源" LIKE ?')
-        params.append(f"%{source}%")
+        conds.append(f'"指南来源" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(source))
     where = " AND ".join(conds) if conds else "1=1"
     sql = f'''
         SELECT "疾病", "疾病亚型", "指南来源", "版本", "发布年份", "URL"

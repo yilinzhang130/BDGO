@@ -19,6 +19,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from crm_store import LIKE_ESCAPE, like_contains
 from services.helpers import docx_builder, search
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
@@ -296,11 +297,11 @@ class TargetRadarService(ReportService):
 
     # ── CRM queries ─────────────────────────────────────────
     def _query_assets(self, ctx: ReportContext, target: str, indication: str | None, limit: int) -> list[dict]:
-        conds = ['("靶点" LIKE ? OR "作用机制(MOA)" LIKE ? OR "资产名称" LIKE ?)']
-        params: list[Any] = [f"%{target}%", f"%{target}%", f"%{target}%"]
+        conds = [f'("靶点" LIKE ? {LIKE_ESCAPE} OR "作用机制(MOA)" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE})']
+        params: list[Any] = [like_contains(target)] * 3
         if indication:
-            conds.append('"适应症" LIKE ?')
-            params.append(f"%{indication}%")
+            conds.append(f'"适应症" LIKE ? {LIKE_ESCAPE}')
+            params.append(like_contains(indication))
         where = " AND ".join(conds)
         sql = (
             'SELECT "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", '
@@ -312,11 +313,11 @@ class TargetRadarService(ReportService):
         return ctx.crm_query(sql, tuple(params))
 
     def _query_clinical(self, ctx: ReportContext, target: str, indication: str | None, limit: int) -> list[dict]:
-        conds = ['("资产名称" LIKE ? OR "适应症" LIKE ?)']
-        params: list[Any] = [f"%{target}%", f"%{target}%"]
+        conds = [f'("资产名称" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE})']
+        params: list[Any] = [like_contains(target), like_contains(target)]
         if indication:
-            conds.append('"适应症" LIKE ?')
-            params.append(f"%{indication}%")
+            conds.append(f'"适应症" LIKE ? {LIKE_ESCAPE}')
+            params.append(like_contains(indication))
         where = " AND ".join(conds)
         sql = (
             'SELECT "试验ID", "资产名称", "公司名称", "适应症", "临床期次", '

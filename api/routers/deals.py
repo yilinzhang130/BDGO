@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from urllib.parse import unquote
-from crm_store import paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from auth import get_current_user
 from field_policy import strip_hidden
 
@@ -25,17 +25,17 @@ def list_deals(
     params: list = []
 
     if q:
-        conditions.append('("交易名称" LIKE ? OR "买方公司" LIKE ? OR "卖方/合作方" LIKE ? OR "资产名称" LIKE ?)')
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+        conditions.append(f'("交易名称" LIKE ? {LIKE_ESCAPE} OR "买方公司" LIKE ? {LIKE_ESCAPE} OR "卖方/合作方" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q)] * 4)
     if type:
         conditions.append('"交易类型" = ?')
         params.append(type)
     if buyer:
-        conditions.append('"买方公司" LIKE ?')
-        params.append(f"%{buyer}%")
+        conditions.append(f'"买方公司" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(buyer))
     if seller:
-        conditions.append('"卖方/合作方" LIKE ?')
-        params.append(f"%{seller}%")
+        conditions.append(f'"卖方/合作方" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(seller))
 
     where = " AND ".join(conditions) if conditions else ""
     allowed_sorts = {"交易名称", "交易类型", "买方公司", "卖方/合作方", "交易总额($M)", "宣布日期", "战略评分", "资产名称", "靶点", "临床阶段", "首付款($M)"}

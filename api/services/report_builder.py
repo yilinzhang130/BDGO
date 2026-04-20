@@ -37,6 +37,15 @@ REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 MAX_STORED_TASKS = 500
 
 
+# Task status values — mirrored in the report_history.status column.
+# Anything else would be a bug; keep tests and state-machine code in sync
+# with this tuple.
+STATUS_QUEUED = "queued"
+STATUS_RUNNING = "running"
+STATUS_COMPLETED = "completed"
+STATUS_FAILED = "failed"
+
+
 # ─────────────────────────────────────────────────────────────
 # Result + Context types
 # ─────────────────────────────────────────────────────────────
@@ -209,62 +218,205 @@ class ReportService(ABC):
 
 
 # ─────────────────────────────────────────────────────────────
-# Async task store (shared by reports router)
+# Task store (DB-backed queue + in-memory progress cache)
+#
+# DB is the source of truth for state: status, params, result, error,
+# timestamps. This makes the queue visible across workers and survives
+# restarts — a multi-worker deployment where requests hit different
+# workers no longer loses in-flight tasks.
+#
+# The in-memory ``_task_cache`` only carries the live ``progress_log``
+# so the UI can show streaming progress without a DB hit per log line.
+# If a poll lands on a different worker the log is empty but status is
+# always correct; a small, acceptable UX cost for multi-worker safety.
 # ─────────────────────────────────────────────────────────────
 
-_report_tasks: dict[str, dict] = {}
+import json as _json
+from datetime import datetime
+
+_task_cache: dict[str, dict] = {}   # task_id → {"progress_log": list[str], "user_id": ..., "slug": ...}
 
 
-def _evict_old_tasks() -> None:
-    """Drop oldest tasks once the store exceeds MAX_STORED_TASKS."""
-    if len(_report_tasks) <= MAX_STORED_TASKS:
-        return
-    ordered = sorted(_report_tasks.items(), key=lambda kv: kv[1].get("created_at", 0))
-    to_drop = len(_report_tasks) - MAX_STORED_TASKS
-    for tid, _ in ordered[:to_drop]:
-        _report_tasks.pop(tid, None)
+def _cache_put(task_id: str, user_id: str | None, slug: str) -> list[str]:
+    log: list[str] = []
+    _task_cache[task_id] = {
+        "progress_log": log,
+        "user_id": user_id,
+        "slug": slug,
+    }
+    # Bound cache size — oldest entries evicted first
+    if len(_task_cache) > MAX_STORED_TASKS:
+        excess = len(_task_cache) - MAX_STORED_TASKS
+        for tid in list(_task_cache.keys())[:excess]:
+            _task_cache.pop(tid, None)
+    return log
+
+
+def _epoch(dt) -> float | None:
+    """Convert a DB timestamp to epoch float, or pass through a float."""
+    if dt is None:
+        return None
+    if isinstance(dt, (int, float)):
+        return float(dt)
+    if isinstance(dt, datetime):
+        return dt.timestamp()
+    return None
+
+
+def _row_to_task(row: dict, progress_log: list[str] | None = None) -> dict:
+    """Reshape a report_history row into the legacy task-dict contract.
+
+    Callers (routers/reports.py, chat) rely on the old dict shape; rather
+    than touch all sites, we translate at the boundary.
+    """
+    try:
+        files = _json.loads(row.get("files_json") or "[]")
+    except (_json.JSONDecodeError, TypeError):
+        files = []
+    try:
+        meta = _json.loads(row.get("meta_json") or "{}")
+    except (_json.JSONDecodeError, TypeError):
+        meta = {}
+    try:
+        params = _json.loads(row.get("params_json") or "{}")
+    except (_json.JSONDecodeError, TypeError):
+        params = {}
+
+    return {
+        "id": row["task_id"],
+        "slug": row["slug"],
+        "params": params,
+        "user_id": str(row["user_id"]) if row.get("user_id") else None,
+        "status": row.get("status") or STATUS_COMPLETED,
+        "progress_log": progress_log if progress_log is not None else [],
+        "created_at": _epoch(row.get("created_at")),
+        "started_at": _epoch(row.get("started_at")),
+        "finished_at": _epoch(row.get("finished_at")),
+        "result": {
+            "markdown": row.get("markdown_preview") or "",
+            "files": files,
+            "meta": meta,
+        } if row.get("status") == STATUS_COMPLETED else None,
+        "error": row.get("error"),
+    }
 
 
 def create_task(slug: str, params: dict, user_id: str | None = None) -> str:
+    """Queue a task. Writes the queue row immediately so any worker can see it."""
+    from database import transaction
+
     task_id = uuid.uuid4().hex[:12]
-    _report_tasks[task_id] = {
-        "id": task_id,
-        "slug": slug,
-        "params": params,
-        "user_id": user_id,   # stored so status/download can enforce ownership
-        "status": "queued",
-        "progress_log": [],
-        "created_at": time.time(),
-        "started_at": None,
-        "finished_at": None,
-        "result": None,
-        "error": None,
-    }
-    _evict_old_tasks()
+    _cache_put(task_id, user_id, slug)
+
+    params_json = _json.dumps(params or {}, ensure_ascii=False, default=str)
+    try:
+        with transaction() as cur:
+            cur.execute(
+                "INSERT INTO report_history "
+                "(user_id, task_id, slug, params_json, status) "
+                "VALUES (%s, %s, %s, %s, %s) "
+                "ON CONFLICT (task_id) DO NOTHING",
+                (user_id, task_id, slug, params_json, STATUS_QUEUED),
+            )
+    except Exception:
+        # DB write failure shouldn't block task execution — the in-memory
+        # cache still lets this worker track and serve the task. Multi-worker
+        # visibility is degraded but not lost.
+        logger.exception("Failed to persist queued task %s", task_id)
+
     return task_id
 
 
+def _update_state(task_id: str, **fields) -> None:
+    """Patch the task's report_history row. Silent on DB error."""
+    if not fields:
+        return
+    from database import transaction
+
+    cols = ", ".join(f"{k} = %s" for k in fields)
+    values = list(fields.values()) + [task_id]
+    try:
+        with transaction() as cur:
+            cur.execute(
+                f"UPDATE report_history SET {cols} WHERE task_id = %s",
+                tuple(values),
+            )
+    except Exception:
+        logger.exception("Failed to update task %s state", task_id)
+
+
 def get_task(task_id: str) -> dict | None:
-    return _report_tasks.get(task_id)
+    """Return the task dict for polling. DB is authoritative; hot log comes
+    from the in-memory cache when the task is on this worker."""
+    from database import transaction
+
+    try:
+        with transaction() as cur:
+            cur.execute(
+                "SELECT user_id, task_id, slug, title, markdown_preview, "
+                "files_json, meta_json, params_json, status, error, "
+                "created_at, started_at, finished_at "
+                "FROM report_history WHERE task_id = %s LIMIT 1",
+                (task_id,),
+            )
+            row = cur.fetchone()
+    except Exception:
+        row = None
+
+    if not row:
+        return None
+
+    cached = _task_cache.get(task_id)
+    return _row_to_task(dict(row), progress_log=cached["progress_log"] if cached else [])
 
 
-def list_tasks(limit: int = 50) -> list[dict]:
-    tasks = sorted(_report_tasks.values(), key=lambda t: t.get("created_at", 0), reverse=True)
-    return tasks[:limit]
+def list_tasks(limit: int = 50, user_id: str | None = None) -> list[dict]:
+    """Recent tasks, DB-ordered. ``user_id=None`` returns everyone (admin)."""
+    from database import transaction
+
+    try:
+        with transaction() as cur:
+            if user_id:
+                cur.execute(
+                    "SELECT user_id, task_id, slug, title, markdown_preview, "
+                    "files_json, meta_json, params_json, status, error, "
+                    "created_at, started_at, finished_at "
+                    "FROM report_history WHERE user_id = %s "
+                    "ORDER BY created_at DESC LIMIT %s",
+                    (user_id, limit),
+                )
+            else:
+                cur.execute(
+                    "SELECT user_id, task_id, slug, title, markdown_preview, "
+                    "files_json, meta_json, params_json, status, error, "
+                    "created_at, started_at, finished_at "
+                    "FROM report_history "
+                    "ORDER BY created_at DESC LIMIT %s",
+                    (limit,),
+                )
+            rows = cur.fetchall()
+    except Exception:
+        logger.exception("Failed to list tasks")
+        return []
+
+    out = []
+    for row in rows:
+        d = dict(row)
+        cached = _task_cache.get(d["task_id"])
+        out.append(_row_to_task(d, progress_log=cached["progress_log"] if cached else []))
+    return out
 
 
 def execute_task(task_id: str, service: ReportService, params: dict) -> None:
     """Run a service synchronously within the current thread.
 
     Called either directly (sync mode) or inside threading.Thread (async mode).
-    Mutates _report_tasks[task_id] in place.
+    Updates report_history in place through state transitions.
     """
-    task = _report_tasks.get(task_id)
-    if not task:
-        return
-    task["status"] = "running"
-    task["started_at"] = time.time()
-    progress_log = task["progress_log"]
+    cached = _task_cache.get(task_id)
+    progress_log: list[str] = cached["progress_log"] if cached else _cache_put(task_id, None, "")
+
+    _update_state(task_id, status=STATUS_RUNNING, started_at=datetime.utcnow())
 
     try:
         ctx = ReportContext(task_id, progress_log)
@@ -275,29 +427,37 @@ def execute_task(task_id: str, service: ReportService, params: dict) -> None:
         if service.enable_qc and result.markdown:
             qc_result = ctx.qc(result.markdown)
             result.markdown += qc_result.badge_md
-        task["result"] = {
-            "markdown": result.markdown,
-            "files": [
-                {
-                    "filename": f.filename,
-                    "format": f.format,
-                    "size": f.size,
-                    "download_url": f.download_url,
-                }
-                for f in result.files
-            ],
-            "meta": result.meta,
-        }
-        task["status"] = "completed"
+
+        title = (result.meta or {}).get("title") or service.slug
+        markdown_preview = (result.markdown or "")[:2000]
+        files_payload = [
+            {
+                "filename": f.filename,
+                "format": f.format,
+                "size": f.size,
+                "download_url": f.download_url,
+            }
+            for f in result.files
+        ]
+        _update_state(
+            task_id,
+            status=STATUS_COMPLETED,
+            title=title,
+            markdown_preview=markdown_preview,
+            files_json=_json.dumps(files_payload, ensure_ascii=False, default=str),
+            meta_json=_json.dumps(result.meta, ensure_ascii=False, default=str),
+            finished_at=datetime.utcnow(),
+        )
     except Exception as e:
         logger.exception("Report task %s failed", task_id)
-        task["status"] = "failed"
-        # Include exception class and last few progress-log lines so the
-        # UI's "查看详情" actually tells us where it broke.
         tail = "\n".join(progress_log[-6:]) if progress_log else ""
-        task["error"] = (
+        error_msg = (
             f"{type(e).__name__}: {str(e)[:400]}"
             + (f"\n\n最近进度：\n{tail}" if tail else "")
         )
-    finally:
-        task["finished_at"] = time.time()
+        _update_state(
+            task_id,
+            status=STATUS_FAILED,
+            error=error_msg,
+            finished_at=datetime.utcnow(),
+        )

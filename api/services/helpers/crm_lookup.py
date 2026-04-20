@@ -5,7 +5,7 @@ the BD-relevant fields as a prompt block" lookup. Keep one copy here."""
 
 from __future__ import annotations
 
-from crm_store import query
+from crm_store import LIKE_ESCAPE, like_contains, query
 
 _ASSET_KEEP_FIELDS = [
     "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", "适应症",
@@ -20,9 +20,9 @@ def asset_crm_block(company_name: str, asset_name: str,
     Includes up to 5 linked clinical trials when ``include_clinical`` is set
     (used by the deal evaluator which wants stage/status context)."""
     rows = query(
-        'SELECT * FROM "资产" WHERE ("资产名称" = ? OR "资产名称" LIKE ?) '
-        'AND ("所属客户" = ? OR "所属客户" LIKE ?) LIMIT 1',
-        (asset_name, f"%{asset_name}%", company_name, f"%{company_name}%"),
+        f'SELECT * FROM "资产" WHERE ("资产名称" = ? OR "资产名称" LIKE ? {LIKE_ESCAPE}) '
+        f'AND ("所属客户" = ? OR "所属客户" LIKE ? {LIKE_ESCAPE}) LIMIT 1',
+        (asset_name, like_contains(asset_name), company_name, like_contains(company_name)),
     )
     lines: list[str] = []
     if rows:
@@ -33,9 +33,11 @@ def asset_crm_block(company_name: str, asset_name: str,
                 lines.append(f"- **{k}**: {v}")
 
     if include_clinical:
+        pat = like_contains(asset_name)
         clin = query(
-            'SELECT * FROM "临床" WHERE "资产名称" LIKE ? OR "研究产品" LIKE ? LIMIT 5',
-            (f"%{asset_name}%", f"%{asset_name}%"),
+            f'SELECT * FROM "临床" WHERE "资产名称" LIKE ? {LIKE_ESCAPE} '
+            f'OR "研究产品" LIKE ? {LIKE_ESCAPE} LIMIT 5',
+            (pat, pat),
         )
         if clin:
             lines.append("\n**相关临床试验**：")

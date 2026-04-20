@@ -1,7 +1,7 @@
 """Global cross-table search endpoint — with Chinese bigram fuzzy matching."""
 
 from fastapi import APIRouter, Query
-from crm_store import query
+from crm_store import LIKE_ESCAPE, like_escape, query
 from services.helpers.resolve import fuzzy_company_names
 
 router = APIRouter()
@@ -35,8 +35,13 @@ _MAX_BIGRAMS = 4
 
 
 def _build_patterns(q: str) -> list[str]:
-    q = q.strip()
-    patterns: list[str] = [f"%{q}%"]
+    """Build escaped LIKE patterns (full string + bigrams).
+
+    Every returned pattern is pre-escaped for use with ``LIKE ? ESCAPE '\\'`` —
+    the caller MUST include that clause, or wildcards in user input leak.
+    """
+    q = q.strip()[:100]  # DoS clamp: huge strings force expensive scans
+    patterns: list[str] = [f"%{like_escape(q)}%"]
 
     if len(q) >= 3:
         seen: set[str] = {q}
@@ -46,7 +51,7 @@ def _build_patterns(q: str) -> list[str]:
             bigram = q[i : i + 2]
             if bigram not in seen:
                 seen.add(bigram)
-                patterns.append(f"%{bigram}%")
+                patterns.append(f"%{like_escape(bigram)}%")
 
     return patterns
 
@@ -74,7 +79,7 @@ def global_search(
         params: list = []
         for col in search_cols:
             for pat in patterns:
-                col_clauses.append(f'"{col}" LIKE ?')
+                col_clauses.append(f'"{col}" LIKE ? {LIKE_ESCAPE}')
                 params.append(pat)
 
         where = " OR ".join(col_clauses)

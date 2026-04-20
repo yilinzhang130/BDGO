@@ -59,6 +59,36 @@ for _finder, _modname, _ispkg in pkgutil.iter_modules([_pkg_path]):
     if hasattr(_mod, "TOOL_NAME_TO_SLUG"):
         REPORT_TOOL_NAME_TO_SLUG.update(_mod.TOOL_NAME_TO_SLUG)
 
+# ── Inject advisory maxLength on every string input ──────────────
+#
+# The LLM sees these schemas and is asked to respect them, which keeps
+# most inputs sane. Hard enforcement still happens in
+# registry.execute_tool (see _MAX_TOOL_STRING_LEN there) — we can't
+# trust an LLM-hinted schema alone, but combined with the clamp it
+# gives defense in depth against oversized inputs that would force
+# expensive LIKE scans.
+
+_DEFAULT_MAX_STRING = 100
+_LONGER_MAX_STRING = 500  # for free-form "notes" / "description" fields
+_LONG_FIELD_NAMES = {"notes", "description", "message", "summary"}
+
+
+def _inject_string_maxlength(schemas: list[dict]) -> None:
+    for schema in schemas:
+        props = (schema.get("input_schema") or {}).get("properties") or {}
+        for name, prop in props.items():
+            if not isinstance(prop, dict):
+                continue
+            if prop.get("type") != "string" or "maxLength" in prop:
+                continue
+            prop["maxLength"] = (
+                _LONGER_MAX_STRING if name in _LONG_FIELD_NAMES else _DEFAULT_MAX_STRING
+            )
+
+
+_inject_string_maxlength(TOOLS)
+
+
 logger.debug(
     "Tool registry loaded: %d tools from modules in %s",
     len(TOOLS),

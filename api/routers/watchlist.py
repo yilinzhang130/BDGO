@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from auth import get_current_user
+from crm_store import like_contains
 from database import transaction
 
 router = APIRouter()
@@ -42,8 +43,8 @@ def list_watchlist(
         params.append(type)
 
     if q:
-        conditions.append("entity_key ILIKE %s")
-        params.append(f"%{q}%")
+        conditions.append("entity_key ILIKE %s ESCAPE '\\'")
+        params.append(like_contains(q))
 
     where = " AND ".join(conditions)
     offset = (page - 1) * page_size

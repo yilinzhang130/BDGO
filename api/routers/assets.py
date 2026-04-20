@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from urllib.parse import unquote
-from crm_store import paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from auth import get_current_user
 from field_policy import strip_hidden, is_admin_user
 
@@ -28,8 +28,8 @@ def list_assets(
     params: list = []
 
     if q:
-        conditions.append('("资产名称" LIKE ? OR "资产代号" LIKE ? OR "靶点" LIKE ?)')
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+        conditions.append(f'("资产名称" LIKE ? {LIKE_ESCAPE} OR "资产代号" LIKE ? {LIKE_ESCAPE} OR "靶点" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q)] * 3)
     if company:
         conditions.append('"所属客户" = ?')
         params.append(company)
@@ -40,8 +40,8 @@ def list_assets(
         conditions.append('"疾病领域" = ?')
         params.append(disease)
     if target:
-        conditions.append('"靶点" LIKE ?')
-        params.append(f"%{target}%")
+        conditions.append(f'"靶点" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(target))
     if tracked:
         conditions.append('"追踪状态" = ?')
         params.append(tracked)

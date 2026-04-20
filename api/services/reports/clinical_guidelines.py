@@ -18,6 +18,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from crm_store import LIKE_ESCAPE, like_contains
 from services.helpers import docx_builder
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
@@ -209,10 +210,10 @@ class ClinicalGuidelinesService(ReportService):
         ctx.log(f"Querying guidelines DB for '{disease}'...")
 
         guidelines = _gdb_query(
-            'SELECT * FROM "指南" WHERE "疾病" LIKE ?' + (
-                ' AND "指南来源" LIKE ?' if inp.source else ''
+            f'SELECT * FROM "指南" WHERE "疾病" LIKE ? {LIKE_ESCAPE}' + (
+                f' AND "指南来源" LIKE ? {LIKE_ESCAPE}' if inp.source else ''
             ),
-            (f"%{disease}%",) + ((f"%{inp.source}%",) if inp.source else ()),
+            (like_contains(disease),) + ((like_contains(inp.source),) if inp.source else ()),
         )
 
         # Get guideline IDs for recommendation lookup
@@ -229,8 +230,8 @@ class ClinicalGuidelinesService(ReportService):
             )
 
         biomarkers = _gdb_query(
-            'SELECT * FROM "生物标志物" WHERE "疾病" LIKE ?',
-            (f"%{disease}%",),
+            f'SELECT * FROM "生物标志物" WHERE "疾病" LIKE ? {LIKE_ESCAPE}',
+            (like_contains(disease),),
         )
 
         ctx.log(f"Found: {len(guidelines)} guidelines, {len(recs)} recommendations, {len(biomarkers)} biomarkers")

@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from auth import get_current_user
+from crm_store import like_contains
 from database import transaction
 
 logger = logging.getLogger(__name__)
@@ -110,19 +111,20 @@ def search_sessions(q: str = "", limit: int = 6, user: dict = Depends(get_curren
     with transaction() as cur:
         if q:
             # EXISTS avoids scanning all messages per session (vs unbounded LEFT JOIN)
+            pat = like_contains(q)
             cur.execute(
-                """SELECT s.id, s.title, s.updated_at
-                   FROM sessions s
-                   WHERE s.user_id = %s
-                     AND (s.title ILIKE %s
-                          OR EXISTS (
-                              SELECT 1 FROM messages m
-                              WHERE m.session_id = s.id AND m.content ILIKE %s
-                              LIMIT 1
-                          ))
-                   ORDER BY s.updated_at DESC
-                   LIMIT %s""",
-                (user_id, f"%{q}%", f"%{q}%", limit),
+                r"""SELECT s.id, s.title, s.updated_at
+                    FROM sessions s
+                    WHERE s.user_id = %s
+                      AND (s.title ILIKE %s ESCAPE '\'
+                           OR EXISTS (
+                               SELECT 1 FROM messages m
+                               WHERE m.session_id = s.id AND m.content ILIKE %s ESCAPE '\'
+                               LIMIT 1
+                           ))
+                    ORDER BY s.updated_at DESC
+                    LIMIT %s""",
+                (user_id, pat, pat, limit),
             )
         else:
             cur.execute(

@@ -24,6 +24,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from crm_store import LIKE_ESCAPE, like_contains
 from services.helpers import docx_builder
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
@@ -515,8 +516,8 @@ class CommercialAssessmentService(ReportService):
         conds = []
         params = []
         for kw in kws:
-            conds.append('("靶点" LIKE ? OR "适应症" LIKE ? OR "资产名称" LIKE ?)')
-            params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+            conds.append(f'("靶点" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE})')
+            params.extend([like_contains(kw)] * 3)
 
         where = " OR ".join(conds)
         sql = (

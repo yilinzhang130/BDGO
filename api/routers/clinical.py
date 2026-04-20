@@ -1,7 +1,7 @@
 """Clinical trial endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from crm_store import paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from auth import get_current_user
 from field_policy import strip_hidden
 
@@ -26,8 +26,8 @@ def list_clinical(
     params: list = []
 
     if q:
-        conditions.append('("试验ID" LIKE ? OR "资产名称" LIKE ? OR "公司名称" LIKE ? OR "适应症" LIKE ?)')
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+        conditions.append(f'("试验ID" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE} OR "公司名称" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q)] * 4)
     if company:
         conditions.append('"公司名称" = ?')
         params.append(company)

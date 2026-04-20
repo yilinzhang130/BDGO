@@ -48,6 +48,64 @@ def _ph():
     return '%s' if _is_pg() else '?'
 
 
+# Match (in order): single-quoted string | double-quoted identifier | ?
+# The first two alternatives swallow their contents so a literal '?' that
+# happens to live inside a string like ``'what?'`` is preserved verbatim.
+# Without this guard, the naive ``sql.replace('?', '%s')`` would also
+# rewrite placeholder-lookalikes inside quoted sections and produce
+# silently-broken SQL.
+_QMARK_RE = re.compile(r"""'[^']*'|"[^"]*"|\?""")
+
+
+def _qmark_to_percent(sql: str) -> str:
+    """Rewrite ``?`` placeholders to psycopg2's ``%s`` form.
+
+    Quoted strings and quoted identifiers pass through untouched.
+    """
+    return _QMARK_RE.sub(
+        lambda m: "%s" if m.group() == "?" else m.group(),
+        sql,
+    )
+
+
+# ── LIKE pattern escaping ────────────────────────────────────
+#
+# User-supplied strings (search boxes, LLM tool inputs, etc.) must not
+# be dropped into LIKE patterns raw — a literal '%' or '_' from the
+# user would be interpreted as a wildcard. That leaks weird matches
+# ("A_B" matching "AxB") and lets a malicious/confused caller force a
+# full table scan via "%%%%%%".
+#
+# Use ``like_contains(q)`` for the common ``%q%`` case, and pair it
+# with :data:`LIKE_ESCAPE` in the SQL, e.g.:
+#     WHERE col LIKE ? ESCAPE '\'
+# ─────────────────────────────────────────────────────────────
+
+LIKE_ESCAPE = "ESCAPE '\\'"
+_LIKE_MAX = 100
+
+
+def like_escape(q: str) -> str:
+    """Escape %, _, and backslash so they match literally inside LIKE.
+
+    Must be paired with the ``ESCAPE '\\'`` clause in the SQL.
+    """
+    if not q:
+        return ""
+    return q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def like_contains(q: str, max_len: int = _LIKE_MAX) -> str:
+    """Build an escaped ``%q%`` substring pattern, clamped to ``max_len``.
+
+    The clamp is a DoS guard — without it, a caller could pass a
+    multi-kilobyte string and force expensive substring scans on
+    every indexed column.
+    """
+    q = (q or "").strip()[:max_len]
+    return f"%{like_escape(q)}%"
+
+
 # ── Connection pool (read-only) ──────────────────────────────
 #
 # PostgreSQL: ThreadedConnectionPool avoids the 1-3 ms TCP handshake
@@ -60,9 +118,16 @@ def _ph():
 # ─────────────────────────────────────────────────────────────
 
 _pg_read_pool = None          # psycopg2.pool.ThreadedConnectionPool | None
+_pg_write_pool = None         # psycopg2.pool.ThreadedConnectionPool | None
 _pg_pool_lock = threading.Lock()
 _PG_POOL_MIN = 2
 _PG_POOL_MAX = 10             # sized for asyncio.to_thread default pool (~8 workers)
+
+# Writes are rare compared to reads (dashboard edits, company renames), so
+# a small pool is plenty. Keeping them separate from the read pool prevents
+# a burst of long-running edits from starving read-side latency.
+_PG_WRITE_POOL_MIN = 1
+_PG_WRITE_POOL_MAX = 4
 
 
 def _get_pg_read_pool():
@@ -80,6 +145,23 @@ def _get_pg_read_pool():
             dsn=crm_db.PG_DSN,
         )
         return _pg_read_pool
+
+
+def _get_pg_write_pool():
+    """Lazy-init the PG write-connection pool (double-checked locking)."""
+    global _pg_write_pool
+    if _pg_write_pool is not None:
+        return _pg_write_pool
+    with _pg_pool_lock:
+        if _pg_write_pool is not None:
+            return _pg_write_pool
+        import psycopg2.pool
+        _pg_write_pool = psycopg2.pool.ThreadedConnectionPool(
+            minconn=_PG_WRITE_POOL_MIN,
+            maxconn=_PG_WRITE_POOL_MAX,
+            dsn=crm_db.PG_DSN,
+        )
+        return _pg_write_pool
 
 
 def get_conn():
@@ -147,7 +229,7 @@ def _fetchone(conn, sql, params=()):
 def query(sql: str, params: tuple = ()) -> list[dict]:
     """Execute SQL and return list of dicts."""
     if _is_pg():
-        sql = sql.replace('?', '%s')
+        sql = _qmark_to_percent(sql)
     with _crm_conn() as conn:
         return _fetchall(conn, sql, params)
 
@@ -155,7 +237,7 @@ def query(sql: str, params: tuple = ()) -> list[dict]:
 def query_one(sql: str, params: tuple = ()) -> dict | None:
     """Execute SQL and return single dict or None."""
     if _is_pg():
-        sql = sql.replace('?', '%s')
+        sql = _qmark_to_percent(sql)
     with _crm_conn() as conn:
         return _fetchone(conn, sql, params)
 
@@ -163,7 +245,7 @@ def query_one(sql: str, params: tuple = ()) -> dict | None:
 def count(sql: str, params: tuple = ()) -> int:
     """Execute a COUNT query and return the integer."""
     if _is_pg():
-        sql = sql.replace('?', '%s')
+        sql = _qmark_to_percent(sql)
     with _crm_conn() as conn:
         if _is_pg():
             cur = conn.cursor()
@@ -200,10 +282,16 @@ def parse_numeric(val) -> float | None:
 
 
 def get_write_conn():
-    """Create a read-write connection for mutations."""
+    """Borrow a read-write connection for mutations.
+
+    Callers MUST pair this with :func:`put_write_conn` (or use the
+    :func:`_crm_write_conn` context manager which also handles commit /
+    rollback). Plain ``conn.close()`` on a pooled psycopg2 connection
+    shuts its socket down and leaks the pool slot.
+    """
     if _is_pg():
-        import psycopg2
-        conn = psycopg2.connect(crm_db.PG_DSN)
+        pool = _get_pg_write_pool()
+        conn = pool.getconn()
         conn.autocommit = False
         return conn
     else:
@@ -215,12 +303,58 @@ def get_write_conn():
         return conn
 
 
+def put_write_conn(conn) -> None:
+    """Return a write connection to the pool (PG) or close it (SQLite).
+
+    Rolls back any in-flight transaction before returning to the pool —
+    psycopg2's pool will log a warning otherwise and the next borrower
+    would inherit a dirty transaction state.
+    """
+    if _is_pg():
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        _get_pg_write_pool().putconn(conn)
+    else:
+        conn.close()
+
+
+@contextmanager
+def _crm_write_conn():
+    """Context manager for write connections. Rolls back + returns to pool
+    on exception; caller is still responsible for ``conn.commit()`` on
+    success. SQLite is closed outright.
+    """
+    conn = get_write_conn()
+    try:
+        yield conn
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        put_write_conn(conn)
+
+
 _backed_up_today = False
+_backup_lock = threading.Lock()
+
 
 def _ensure_backup():
-    """Create a backup before the first write of the day."""
+    """Create a backup before the first write of the day (thread-safe).
+
+    ``crm_db.backup()`` is idempotent per day, but two concurrent writes
+    both seeing ``_backed_up_today=False`` would trigger redundant work.
+    """
     global _backed_up_today
-    if not _backed_up_today:
+    if _backed_up_today:
+        return
+    with _backup_lock:
+        if _backed_up_today:
+            return
         crm_db.backup(tag="dashboard_edit")
         _backed_up_today = True
 
@@ -248,8 +382,7 @@ def update_row(table: str, pk_value: str | dict, fields: dict[str, str]) -> dict
         where = f'"{pk}" = {ph}'
         params.append(pk_value)
 
-    conn = get_write_conn()
-    try:
+    with _crm_write_conn() as conn:
         if _is_pg():
             cur = conn.cursor()
             cur.execute(
@@ -270,8 +403,6 @@ def update_row(table: str, pk_value: str | dict, fields: dict[str, str]) -> dict
             conn.commit()
             row = conn.execute(f'SELECT * FROM "{physical}" WHERE {where}', params[len(fields):]).fetchone()
             return dict(row) if row else None
-    finally:
-        conn.close()
 
 
 def delete_row(table: str, pk_value: str | dict) -> bool:
@@ -291,8 +422,7 @@ def delete_row(table: str, pk_value: str | dict) -> bool:
         where = f'"{pk}" = {ph}'
         params = (pk_value,)
 
-    conn = get_write_conn()
-    try:
+    with _crm_write_conn() as conn:
         if _is_pg():
             cur = conn.cursor()
             cur.execute(f'DELETE FROM "{physical}" WHERE {where}', params)
@@ -302,16 +432,13 @@ def delete_row(table: str, pk_value: str | dict) -> bool:
             cur = conn.execute(f'DELETE FROM "{physical}" WHERE {where}', params)
             conn.commit()
             return cur.rowcount > 0
-    finally:
-        conn.close()
 
 
 def rename_company(old_name: str, new_name: str) -> bool:
     """Rename a company, updating all references across tables."""
     _ensure_backup()
     ph = _ph()
-    conn = get_write_conn()
-    try:
+    with _crm_write_conn() as conn:
         row = _fetchone(conn, f'SELECT 1 FROM "公司" WHERE "客户名称" = {ph}', (old_name,))
         if not row:
             return False
@@ -339,8 +466,6 @@ def rename_company(old_name: str, new_name: str) -> bool:
                 conn.execute(sql, p)
             conn.commit()
         return True
-    finally:
-        conn.close()
 
 
 _SAFE_COLUMN_RE = re.compile(r'^[\w\u4e00-\u9fff()/\s·\-]+$')
@@ -380,7 +505,7 @@ def paginate(
 
     # Convert any ? in caller's where clause to %s for PG
     if _is_pg() and '?' in where_clause:
-        where_clause = where_clause.replace('?', '%s')
+        where_clause = _qmark_to_percent(where_clause)
 
     with _crm_conn() as conn:
         if _is_pg():

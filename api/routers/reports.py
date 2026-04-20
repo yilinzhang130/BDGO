@@ -14,7 +14,6 @@ import json
 import logging
 import secrets
 import threading
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -24,10 +23,11 @@ from database import transaction
 from auth import get_current_user
 from config import REPORTS_DIR, safe_path_within
 from field_policy import is_admin_user
-from services import REPORT_SERVICES, get_service, list_services
+from services import get_service, list_services
 from services.helpers.llm import extract_params_from_text
 from services.report_builder import (
-    ReportContext,
+    STATUS_COMPLETED,
+    STATUS_QUEUED,
     create_task,
     execute_task,
     get_task,
@@ -54,59 +54,28 @@ def _parse_files_json(raw) -> list:
         return []
 
 
-def _save_report_history(user_id: str, task_id: str, slug: str, task: dict) -> None:
-    """Save a completed report to the report_history table.
-
-    Uses ON CONFLICT (task_id) DO NOTHING so duplicate calls
-    (e.g. from both the REST router and the chat tool path) are safe.
-    params_json is stored so /retry can re-run after a process restart.
-    """
-    result = task.get("result") or {}
-    title = result.get("meta", {}).get("title") or slug
-    markdown_preview = (result.get("markdown") or "")[:2000]
-    files_json = json.dumps(result.get("files", []), ensure_ascii=False, default=str)
-    meta_json = json.dumps(result.get("meta", {}), ensure_ascii=False, default=str)
-    params_json = json.dumps(task.get("params") or {}, ensure_ascii=False, default=str)
-
-    try:
-        with transaction() as cur:
-            cur.execute(
-                "INSERT INTO report_history "
-                "(user_id, task_id, slug, title, markdown_preview, files_json, meta_json, params_json) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
-                "ON CONFLICT (task_id) DO NOTHING",
-                (user_id, task_id, slug, title, markdown_preview, files_json, meta_json, params_json),
-            )
-    except Exception:
-        logger.exception("Failed to save report history for task %s", task_id)
-
-
 class GenerateRequest(BaseModel):
     slug: str
     params: dict = {}
 
 
-def _execute_and_persist(task_id: str, service, params: dict, user_id: str | None) -> None:
-    """Execute a report task and save to history on success."""
-    execute_task(task_id, service, params)
-    task = get_task(task_id)
-    if task and task["status"] == "completed" and user_id:
-        _save_report_history(user_id, task_id, task.get("slug", ""), task)
-
-
 def _dispatch_task(task_id: str, service, slug: str, params: dict, user_id: str) -> dict:
-    """Run or queue a task; return the appropriate API response dict."""
+    """Run or queue a task; return the appropriate API response dict.
+
+    execute_task persists state to report_history itself, so we no longer
+    wrap it with a post-hoc save.
+    """
     if service.mode == "sync":
-        _execute_and_persist(task_id, service, params, user_id)
+        execute_task(task_id, service, params)
         return get_task(task_id)
     threading.Thread(
-        target=_execute_and_persist,
-        args=(task_id, service, params, user_id),
+        target=execute_task,
+        args=(task_id, service, params),
         daemon=True,
     ).start()
     return {
         "task_id": task_id,
-        "status": "queued",
+        "status": STATUS_QUEUED,
         "slug": slug,
         "estimated_seconds": service.estimated_seconds,
     }
@@ -136,88 +105,36 @@ def generate_report(req: GenerateRequest, user: dict = Depends(get_current_user)
 
 @router.get("/status/{task_id}")
 def get_report_status(task_id: str, user: dict = Depends(get_current_user)):
-    """Check task status. Falls back to report_history DB after container restart.
-
-    User-scoped: in-memory tasks are checked by task_id only (ownership is
-    implicit since task_ids are opaque random tokens), but the DB fallback
-    enforces user_id so the persistent record cannot be read across users.
+    """Check task status. ``get_task`` reads from report_history so this
+    works across workers and after restarts — no separate DB fallback needed.
     """
     task = get_task(task_id)
-    if task:
-        # In-memory tasks carry the user_id they were created under.
-        # Reject if the task belongs to a different user.
-        task_user = task.get("user_id")
-        if task_user and task_user != user["id"] and not is_admin_user(user):
-            raise HTTPException(status_code=404, detail="Task not found")
-        return task
-
-    # In-memory miss — try persistent report_history (always user-scoped)
-    try:
-        with transaction() as cur:
-            cur.execute(
-                "SELECT task_id, slug, title, markdown_preview, files_json, created_at "
-                "FROM report_history WHERE task_id = %s AND user_id = %s LIMIT 1",
-                (task_id, user["id"]),
-            )
-            row = cur.fetchone()
-    except Exception:
-        row = None
-
-    if not row:
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    return {
-        "id": row["task_id"],
-        "slug": row["slug"],
-        "status": "completed",
-        "result": {
-            "meta": {"title": row["title"]},
-            "markdown": row["markdown_preview"] or "",
-            "files": _parse_files_json(row.get("files_json") or "[]"),
-        },
-        "created_at": row["created_at"].timestamp() if row.get("created_at") else None,
-    }
+    task_user = task.get("user_id")
+    if task_user and task_user != user["id"] and not is_admin_user(user):
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
 
 
 @router.post("/retry/{task_id}")
 def retry_report(task_id: str, user: dict = Depends(get_current_user)):
     """Re-run a failed (or completed) task with its original params.
 
-    Falls back to report_history DB so retry works even after a process
-    restart (in-memory task store is cleared on restart).
-    Returns a new task_id; the original task row is preserved for audit.
+    State lives in report_history so this works after restarts.
+    Returns a new task_id; the original row is preserved for audit.
     """
     user_id = user["id"]
     task = get_task(task_id)
-    if task:
-        task_owner = task.get("user_id")
-        if task_owner and task_owner != user_id and not is_admin_user(user):
-            raise HTTPException(status_code=404, detail="Task not found")
-        slug = task.get("slug")
-        params = task.get("params") or {}
-    else:
-        # In-memory miss — look up params from the persistent history table (user-scoped).
-        try:
-            with transaction() as cur:
-                cur.execute(
-                    "SELECT slug, params_json FROM report_history "
-                    "WHERE task_id = %s AND user_id = %s LIMIT 1",
-                    (task_id, user_id),
-                )
-                row = cur.fetchone()
-        except Exception:
-            row = None
-        if not row:
-            raise HTTPException(
-                status_code=404,
-                detail="Task not found. It may have been created before params were persisted.",
-            )
-        slug = row["slug"]
-        try:
-            params = json.loads(row["params_json"] or "{}") if row.get("params_json") else {}
-        except (json.JSONDecodeError, TypeError):
-            params = {}
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    task_owner = task.get("user_id")
+    if task_owner and task_owner != user_id and not is_admin_user(user):
+        raise HTTPException(status_code=404, detail="Task not found")
 
+    slug = task.get("slug")
+    params = task.get("params") or {}
     service = get_service(slug)
     if not service:
         raise HTTPException(status_code=404, detail=f"Unknown service: {slug}")
@@ -275,49 +192,24 @@ def parse_report_args(req: ParseArgsRequest, user: dict = Depends(get_current_us
 @router.get("/tasks")
 def list_report_tasks(limit: int = 50, user: dict = Depends(get_current_user)):
     """List recent report tasks — admin sees all, others see only their own."""
-    if is_admin_user(user):
-        tasks = list_tasks(limit=limit)
-    else:
-        # Fetch a larger window then filter so non-admins reliably get up to
-        # `limit` of their own tasks (filter-after-limit would under-return).
-        tasks = [t for t in list_tasks(limit=limit * 10)
-                 if t.get("user_id") == user["id"]][:limit]
-    return {"tasks": tasks}
+    user_id = None if is_admin_user(user) else user["id"]
+    return {"tasks": list_tasks(limit=limit, user_id=user_id)}
 
 
 @router.get("/download/{task_id}/{format}")
 def download_report(task_id: str, format: str, user: dict = Depends(get_current_user)):
-    """Serve the generated file for a completed task.
-
-    Falls back to report_history DB when in-memory task is unavailable
-    (e.g. after container restart). User-scoped: DB query filters by user_id.
-    """
-    files: list = []
-
-    # 1. Try in-memory task store first
+    """Serve the generated file for a completed task."""
     task = get_task(task_id)
-    if task and task.get("status") == "completed":
-        task_user = task.get("user_id")
-        if not task_user or task_user == user["id"] or is_admin_user(user):
-            files = _parse_files_json((task.get("result") or {}).get("files", []))
+    if not task or task.get("status") != STATUS_COMPLETED:
+        raise HTTPException(status_code=404, detail="Task not found or not completed")
 
-    # 2. Fall back to report_history DB (always user-scoped)
-    if not files:
-        try:
-            with transaction() as cur:
-                cur.execute(
-                    "SELECT files_json FROM report_history "
-                    "WHERE task_id = %s AND user_id = %s LIMIT 1",
-                    (task_id, user["id"]),
-                )
-                row = cur.fetchone()
-        except Exception:
-            row = None
-        if row:
-            files = _parse_files_json(row.get("files_json") or "[]")
+    task_user = task.get("user_id")
+    if task_user and task_user != user["id"] and not is_admin_user(user):
+        raise HTTPException(status_code=404, detail="Task not found")
 
+    files = (task.get("result") or {}).get("files") or []
     if not files:
-        raise HTTPException(status_code=404, detail="Task not found or has no files")
+        raise HTTPException(status_code=404, detail="Task has no files")
 
     match = next((f for f in files if f.get("format") == format), None)
     if not match:

@@ -220,20 +220,22 @@ def _crm_lookup(entity: str, ctx: "ReportContext") -> str:
     if not entity.strip():
         return ""
     try:
+        from crm_store import like_contains
+        pat = like_contains(entity)
         row = ctx.crm_query_one(
-            """SELECT name_cn, name_en, type FROM companies
-               WHERE name_cn ILIKE %s OR name_en ILIKE %s
-               LIMIT 1""",
-            (f"%{entity}%", f"%{entity}%"),
+            r"""SELECT name_cn, name_en, type FROM companies
+                WHERE name_cn ILIKE %s ESCAPE '\' OR name_en ILIKE %s ESCAPE '\'
+                LIMIT 1""",
+            (pat, pat),
         )
         if row:
             return f"{row.get('name_cn') or row.get('name_en')} ({row.get('type', '')})"
 
         row = ctx.crm_query_one(
-            """SELECT name_cn, name_en FROM assets
-               WHERE name_cn ILIKE %s OR name_en ILIKE %s
-               LIMIT 1""",
-            (f"%{entity}%", f"%{entity}%"),
+            r"""SELECT name_cn, name_en FROM assets
+                WHERE name_cn ILIKE %s ESCAPE '\' OR name_en ILIKE %s ESCAPE '\'
+                LIMIT 1""",
+            (pat, pat),
         )
         if row:
             return f"资产: {row.get('name_cn') or row.get('name_en')}"

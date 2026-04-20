@@ -21,6 +21,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from crm_store import LIKE_ESCAPE, like_contains
 from services.helpers import docx_builder
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
@@ -497,10 +498,10 @@ class DDChecklistService(ReportService):
     # ── CRM queries ─────────────────────────────────────────
     def _query_company(self, ctx: ReportContext, company: str) -> dict | None:
         rows = ctx.crm_query(
-            'SELECT "客户名称", "客户类型", "所处国家", "核心产品的阶段", '
-            '"主要核心pipeline的名字", "BD跟进优先级" '
-            'FROM "公司" WHERE "客户名称" ILIKE ? LIMIT 1',
-            (f"%{company}%",),
+            f'SELECT "客户名称", "客户类型", "所处国家", "核心产品的阶段", '
+            f'"主要核心pipeline的名字", "BD跟进优先级" '
+            f'FROM "公司" WHERE "客户名称" ILIKE ? {LIKE_ESCAPE} LIMIT 1',
+            (like_contains(company),),
         )
         return rows[0] if rows else None
 
@@ -509,19 +510,19 @@ class DDChecklistService(ReportService):
     ) -> list[dict]:
         if asset_name:
             rows = ctx.crm_query(
-                'SELECT "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", '
-                '"疾病领域", "适应症", "差异化分级", "差异化描述", "Q总分", "技术平台类别" '
-                'FROM "资产" WHERE "资产名称" ILIKE ? AND "所属客户" ILIKE ? LIMIT 10',
-                (f"%{asset_name}%", f"%{company}%"),
+                f'SELECT "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", '
+                f'"疾病领域", "适应症", "差异化分级", "差异化描述", "Q总分", "技术平台类别" '
+                f'FROM "资产" WHERE "资产名称" ILIKE ? {LIKE_ESCAPE} AND "所属客户" ILIKE ? {LIKE_ESCAPE} LIMIT 10',
+                (like_contains(asset_name), like_contains(company)),
             )
             if rows:
                 return rows
         # Fallback: all assets of the company
         return ctx.crm_query(
-            'SELECT "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", '
-            '"疾病领域", "适应症", "差异化分级", "差异化描述", "Q总分", "技术平台类别" '
-            'FROM "资产" WHERE "所属客户" ILIKE ? LIMIT 10',
-            (f"%{company}%",),
+            f'SELECT "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", '
+            f'"疾病领域", "适应症", "差异化分级", "差异化描述", "Q总分", "技术平台类别" '
+            f'FROM "资产" WHERE "所属客户" ILIKE ? {LIKE_ESCAPE} LIMIT 10',
+            (like_contains(company),),
         )
 
     # ── Web search ──────────────────────────────────────────

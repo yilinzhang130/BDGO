@@ -96,6 +96,23 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     ALTER TABLE report_history ADD COLUMN params_json TEXT;
 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+-- Queue/execution state. Without these, in-flight tasks are invisible to
+-- any worker other than the one that spawned them — a polling client hitting
+-- a different worker sees "not found" and the UI spins forever.
+DO $$ BEGIN
+    ALTER TABLE report_history ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'completed';
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE report_history ADD COLUMN error TEXT;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE report_history ADD COLUMN started_at TIMESTAMP;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN
+    ALTER TABLE report_history ADD COLUMN finished_at TIMESTAMP;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+CREATE INDEX IF NOT EXISTS idx_report_history_status_created
+    ON report_history(status, created_at DESC);
 
 -- Profile fields (added via ALTER TABLE for compatibility with existing DBs)
 DO $$ BEGIN
@@ -208,6 +225,18 @@ CREATE TABLE IF NOT EXISTS inbox_messages (
 CREATE INDEX IF NOT EXISTS idx_inbox_messages_created
     ON inbox_messages(created_at DESC);
 """
+
+# ---------------------------------------------------------------------------
+# NOTE on schema management
+# ---------------------------------------------------------------------------
+# The DDL above is the legacy bootstrap — every statement is idempotent
+# so existing deploys still get auto-initialised on startup. Going
+# forward, schema changes should be added as Alembic revisions under
+# ``migrations/versions/`` instead of as new ``DO $$ ALTER $$`` blocks
+# here. The Dockerfile runs ``alembic upgrade head`` before uvicorn.
+#
+# Retiring these auto-init blocks isn't urgent — they stay as a safety
+# net while we build out Alembic coverage. See migrations/README.md.
 
 # ---------------------------------------------------------------------------
 # Connection pool (lazy-initialised, thread-safe)

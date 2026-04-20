@@ -86,6 +86,27 @@ ssh ubuntu@106.54.202.181 "
 "
 ```
 
+### 数据库结构变更（Alembic 迁移）
+
+auth/sessions 库通过 Alembic 管迁移。代码里加了新迁移文件（`api/migrations/versions/*.py`）后，push 自动上线会把文件带过去，但需要手动跑一次 upgrade：
+```bash
+ssh ubuntu@106.54.202.181 "
+  cd ~/bdgo/api &&
+  DATABASE_URL=\$(grep ^DATABASE_URL ~/bdgo/.env | cut -d= -f2-) \
+  ../venv/bin/alembic upgrade head
+"
+```
+
+**首次接入 Alembic（存量库）**：跑一次 stamp，让 Alembic 认识"当前 schema 已是最新"：
+```bash
+# 只做一次，以后都用 upgrade head
+DATABASE_URL=... venv/bin/alembic -c api/alembic.ini stamp head
+```
+
+Docker 部署路径则自动：`Dockerfile` 的 `CMD` 已经 `alembic upgrade head && uvicorn` 串起来了，推镜像就行。
+
+CRM 库（SQLite/PG 双后端）没接 Alembic，schema 继续由 `crm_db.py` 管。
+
 ---
 
 ## 前端更新（改了 frontend/ 下的文件）

@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 
 from database import transaction
-from crm_store import query, query_one
+from crm_store import LIKE_ESCAPE, like_contains, query, query_one
 from services.helpers.resolve import resolve_company, resolve_mnc, fuzzy_company_names
 
 logger = logging.getLogger(__name__)
@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 def search_companies(q="", country="", type="", disease="", limit=10):
     conds, params = [], []
     if q:
-        conds.append('("客户名称" LIKE ? OR "英文名" LIKE ? OR "中文名" LIKE ?)')
-        params.extend([f"%{q}%"] * 3)
+        conds.append(f'("客户名称" LIKE ? {LIKE_ESCAPE} OR "英文名" LIKE ? {LIKE_ESCAPE} OR "中文名" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q)] * 3)
     if country:
         conds.append('"所处国家" = ?')
         params.append(country)
@@ -29,8 +29,8 @@ def search_companies(q="", country="", type="", disease="", limit=10):
         conds.append('"客户类型" = ?')
         params.append(type)
     if disease:
-        conds.append('"疾病领域" LIKE ?')
-        params.append(f"%{disease}%")
+        conds.append(f'"疾病领域" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(disease))
     where = " AND ".join(conds) if conds else "1=1"
     sql = (
         'SELECT "客户名称","客户类型","所处国家","疾病领域","核心产品的阶段",'
@@ -74,20 +74,20 @@ def get_company(name):
 def search_assets(q="", company="", phase="", disease="", target="", limit=10):
     conds, params = [], []
     if q:
-        conds.append('("资产名称" LIKE ? OR "资产代号" LIKE ?)')
-        params.extend([f"%{q}%", f"%{q}%"])
+        conds.append(f'("资产名称" LIKE ? {LIKE_ESCAPE} OR "资产代号" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q), like_contains(q)])
     if company:
-        conds.append('"所属客户" LIKE ?')
-        params.append(f"%{company}%")
+        conds.append(f'"所属客户" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(company))
     if phase:
         conds.append('"临床阶段" = ?')
         params.append(phase)
     if disease:
-        conds.append('"疾病领域" LIKE ?')
-        params.append(f"%{disease}%")
+        conds.append(f'"疾病领域" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(disease))
     if target:
-        conds.append('"靶点" LIKE ?')
-        params.append(f"%{target}%")
+        conds.append(f'"靶点" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(target))
     where = " AND ".join(conds) if conds else "1=1"
     sql = (
         'SELECT "资产名称","所属客户","临床阶段","疾病领域","适应症","靶点",'
@@ -112,14 +112,14 @@ def get_asset(name, company):
 def search_clinical(q="", company="", asset="", phase="", limit=10):
     conds, params = [], []
     if q:
-        conds.append('("试验ID" LIKE ? OR "适应症" LIKE ?)')
-        params.extend([f"%{q}%", f"%{q}%"])
+        conds.append(f'("试验ID" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE})')
+        params.extend([like_contains(q), like_contains(q)])
     if company:
-        conds.append('"公司名称" LIKE ?')
-        params.append(f"%{company}%")
+        conds.append(f'"公司名称" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(company))
     if asset:
-        conds.append('"资产名称" LIKE ?')
-        params.append(f"%{asset}%")
+        conds.append(f'"资产名称" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(asset))
     if phase:
         conds.append('"临床期次" = ?')
         params.append(phase)
@@ -140,17 +140,17 @@ def search_clinical(q="", company="", asset="", phase="", limit=10):
 def search_deals(q="", buyer="", seller="", type="", sort_by="date", limit=10):
     conds, params = [], []
     if q:
-        conds.append('"交易名称" LIKE ?')
-        params.append(f"%{q}%")
+        conds.append(f'"交易名称" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(q))
     if buyer:
-        conds.append('"买方公司" LIKE ?')
-        params.append(f"%{buyer}%")
+        conds.append(f'"买方公司" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(buyer))
     if seller:
-        conds.append('"卖方/合作方" LIKE ?')
-        params.append(f"%{seller}%")
+        conds.append(f'"卖方/合作方" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(seller))
     if type:
-        conds.append('"交易类型" LIKE ?')
-        params.append(f"%{type}%")
+        conds.append(f'"交易类型" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(type))
     where = " AND ".join(conds) if conds else "1=1"
     order_col = {"date": "宣布日期", "upfront": "首付款($M)", "total": "交易总额($M)"}.get(sort_by, "宣布日期")
     sql = (
@@ -169,11 +169,11 @@ def search_deals(q="", buyer="", seller="", type="", sort_by="date", limit=10):
 def search_patents(q="", company="", status="", limit=10):
     conds, params = [], []
     if q:
-        conds.append('"专利号" LIKE ?')
-        params.append(f"%{q}%")
+        conds.append(f'"专利号" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(q))
     if company:
-        conds.append('"关联公司" LIKE ?')
-        params.append(f"%{company}%")
+        conds.append(f'"关联公司" LIKE ? {LIKE_ESCAPE}')
+        params.append(like_contains(company))
     if status:
         conds.append('"状态" = ?')
         params.append(status)
