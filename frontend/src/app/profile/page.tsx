@@ -269,7 +269,7 @@ export default function ProfilePage() {
     setSavingDisplay(true);
     try {
       let existing: UserPreferences = {};
-      try { existing = JSON.parse(preferences) as UserPreferences; } catch { /* use empty */ }
+      try { existing = JSON.parse(user?.preferences_json || "{}") as UserPreferences; } catch { /* use empty */ }
       const merged = JSON.stringify({ ...existing, [key]: value });
       const updated = await updateProfile({ preferences_json: merged });
       updateUser(updated);

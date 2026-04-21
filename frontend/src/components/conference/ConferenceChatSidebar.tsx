@@ -33,7 +33,11 @@ export function ConferenceChatSidebar({
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [sessionId] = useState(() => `conference-${session}-${Date.now()}`);
+  // sessions.id is VARCHAR(12) in Postgres — use a 12-char UUID slice like
+  // the main chat does. The previous `conference-${session}-${Date.now()}`
+  // overflowed the column, so ensure_session raised mid-stream and the client
+  // got a 200 OK with an empty body (→ the "未收到回复" fallback).
+  const [sessionId] = useState(() => crypto.randomUUID().slice(0, 12));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -94,7 +94,22 @@ export function useAuth(): AuthContextValue {
 // Provider
 // ═══════════════════════════════════════════
 
-const PUBLIC_PATHS = ["/login", "/", "/share"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/",
+  "/share",
+  "/privacy",
+  "/terms",
+  "/security",
+  "/blog",
+  "/about",
+  "/features",
+  "/pricing",
+  "/use-cases",
+  "/api-docs",
+  "/careers",
+  "/contact",
+];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();

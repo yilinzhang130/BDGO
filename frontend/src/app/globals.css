@@ -961,13 +961,6 @@ input, textarea, select { font-family: inherit; }
   padding: 2rem;
 }
 
-.chat-empty-logo {
-  width: 80px;
-  height: 80px;
-  margin-bottom: 1rem;
-  object-fit: contain;
-}
-
 .chat-title {
   font-size: 2.25rem;
   font-weight: 800;

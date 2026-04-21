@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
+import { BDGoMark } from "@/components/LandingNav";
 
 // ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
 
 const STATS = [
-  { value: "10K+",  label: "生物医药企业" },
-  { value: "50K+",  label: "管线资产" },
-  { value: "100K+", label: "临床试验" },
-  { value: "5K+",   label: "BD交易" },
+  { value: "多 Agent",  label: "协同分工" },
+  { value: "BD × 立项", label: "双场景闭环" },
+  { value: "AI 原生",   label: "中英双语交互" },
+  { value: "可追溯",    label: "引用来源可验证" },
 ];
 
 const USE_CASES = [
@@ -52,12 +53,12 @@ const USE_CASES = [
 ];
 
 const FEATURES = [
-  { icon: "🤖", title: "AI对话引擎",     desc: "用中英文自然语言提问，即获得带引用来源的深度洞察" },
-  { icon: "📊", title: "管线情报",       desc: "覆盖所有治疗领域的22,000+生物资产实时跟踪与竞争格局分析" },
-  { icon: "📅", title: "催化剂日历",     desc: "随时掌握临床数据读出、监管决策与里程碑节点" },
-  { icon: "🤝", title: "交易流分析",     desc: "结构化许可、M&A与合作交易数据，含条款、估值与战略逻辑" },
-  { icon: "🏥", title: "临床深度拆解",   desc: "44,000+临床记录，涵盖终点、安全性、试验设计与头对头比较" },
-  { icon: "📄", title: "自动化报告",     desc: "生成公司分析、买方画像、资产评估与rNPV模型，格式专业可直接分享" },
+  { icon: "🤖", title: "多 Agent 协作",   desc: "多个专精 Agent 分工协作——意图理解、多步检索、交叉分析、结构化输出一气呵成" },
+  { icon: "💬", title: "自然语言对话",   desc: "中英文提问，一次对话即可调度多个 Agent，所有结论均附引用来源可追溯" },
+  { icon: "📊", title: "管线与竞争情报", desc: "跨治疗领域的资产梳理、靶点格局拆解、头对头比较，支持实时更新" },
+  { icon: "📅", title: "催化剂日历",     desc: "聚焦临床数据读出、监管决策与里程碑节点，帮助团队锁定关键时点" },
+  { icon: "🎯", title: "买方画像 Agent", desc: "自动拆解 MNC 管线策略、历史 BD 图谱、战略 gap 与可交易机会矩阵" },
+  { icon: "📄", title: "自动化报告",     desc: "公司分析、买方画像、资产评估、立项备忘——格式专业、可直接分享" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -67,12 +68,7 @@ const FEATURES = [
 function NavLogo() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-      <svg width="32" height="32" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-        <rect width="36" height="36" rx="9" fill="#1E3A8A" />
-        <circle cx="11" cy="18" r="3.5" fill="white" />
-        <line x1="15" y1="18" x2="22.5" y2="18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-        <path d="M22 13 L29 18 L22 23 Z" fill="white" />
-      </svg>
+      <BDGoMark size={32} />
       <span style={{ fontSize: 16, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.01em" }}>
         BD<span style={{ fontWeight: 500 }}> Go</span>
       </span>
@@ -85,35 +81,37 @@ function NavLogo() {
 // ---------------------------------------------------------------------------
 
 function HeroDashboardCard() {
+  const agents = [
+    { name: "资产发现 Agent", color: "#2563EB", status: "已完成", pct: 100 },
+    { name: "买方画像 Agent", color: "#059669", status: "运行中", pct: 72 },
+    { name: "立项评估 Agent", color: "#7C3AED", status: "排队中", pct: 0 },
+  ];
   return (
     <div style={{
       background: "#fff", borderRadius: 16, border: "1px solid #E2E8F0",
       boxShadow: "0 20px 60px rgba(30,58,138,0.12)", padding: "20px 22px",
       width: 320, flexShrink: 0,
     }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", marginBottom: 4 }}>管线情报</div>
-      <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 16 }}>实时BD机会总览</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 18 }}>
-        {[["活跃交易","156"],["公司","2.8K"],["资产","12K"]].map(([l, v]) => (
-          <div key={l}>
-            <div style={{ fontSize: 10, color: "#94A3B8", marginBottom: 2 }}>{l}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#1E3A8A" }}>{v}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", marginBottom: 4 }}>多 Agent 协作</div>
+      <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 18 }}>BD × 立项 一体化推进</div>
+      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+        {agents.map((a) => (
+          <div key={a.name}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+              <span style={{ fontSize: 12, color: "#0F172A", fontWeight: 600 }}>{a.name}</span>
+              <span style={{ fontSize: 10, color: "#64748B" }}>{a.status}</span>
+            </div>
+            <div style={{ height: 4, background: "#F1F5F9", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ width: `${a.pct}%`, height: "100%", background: a.color, borderRadius: 2 }} />
+            </div>
           </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 4, alignItems: "flex-end", marginBottom: 14 }}>
-        {[40,60,45,75,55,80,65,90,70,85].map((h, i) => (
-          <div key={i} style={{
-            flex: 1, height: h * 0.7, borderRadius: 3,
-            background: i >= 8 ? "#1E3A8A" : "#DBEAFE",
-          }} />
         ))}
       </div>
       <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 15 }}>✓</span>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#065F46" }}>AI分析完成</div>
-          <div style={{ fontSize: 10, color: "#047857" }}>匹配度评分 87%</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#065F46" }}>综合报告已生成</div>
+          <div style={{ fontSize: 10, color: "#047857" }}>引用来源可追溯</div>
         </div>
       </div>
     </div>
@@ -161,16 +159,16 @@ export default function LandingPage() {
               borderRadius: 999, padding: "6px 14px", marginBottom: 28,
             }}>
               <span style={{ fontSize: 13 }}>✨</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#3730A3", letterSpacing: "0.02em" }}>AI驱动的BD情报平台</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#3730A3", letterSpacing: "0.02em" }}>首个面向 BD 与立项的多 Agent 平台</span>
             </div>
             <h1 style={{ fontSize: 52, fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 10px", color: "#0F172A" }}>
               加速您的
             </h1>
             <h1 style={{ fontSize: 52, fontWeight: 800, lineHeight: 1.12, letterSpacing: "-0.03em", margin: "0 0 24px", color: "#1E3A8A" }}>
-              Biotech 交易
+              BD 与立项决策
             </h1>
             <p style={{ fontSize: 17, lineHeight: 1.7, color: "#475569", margin: "0 0 36px", maxWidth: 460 }}>
-              BD Go 是专为生物医药BD总监打造的AI情报平台——发现资产、分析合作机会、加速决策，覆盖中国及全球市场。
+              BD Go 是业内首个面向 BD 与立项场景的多 Agent 协作平台。多个专精 Agent 分工协作，帮助团队在资产发现、买方画像与立项评估中更快做出高质量决策。
             </p>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 36 }}>
               <Link href={ctaHref} style={btn.primaryLg}>免费开始使用 →</Link>
@@ -182,14 +180,8 @@ export default function LandingPage() {
               </button>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ display: "flex" }}>
-                {["#2563EB","#059669","#D97706","#7C3AED"].map((c,i) => (
-                  <div key={i} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: "2px solid #fff", marginLeft: i ? -8 : 0, zIndex: 4-i, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 700 }}>
-                    {["B","C","D","E"][i]}
-                  </div>
-                ))}
-              </div>
-              <span style={{ fontSize: 13, color: "#64748B", fontWeight: 500 }}>200+ BD团队正在使用</span>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22C55E", display: "inline-block", boxShadow: "0 0 0 4px rgba(34,197,94,0.18)" }} />
+              <span style={{ fontSize: 13, color: "#64748B", fontWeight: 500 }}>即将上线 · 首批内测席位开放中</span>
             </div>
           </div>
           {/* Right */}
@@ -220,7 +212,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1160, margin: "0 auto", padding: "40px 32px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0 }}>
           {STATS.map((s, i) => (
             <div key={s.label} style={{ textAlign: "center", padding: "8px 0", borderRight: i < 3 ? "1px solid #F1F5F9" : "none" }}>
-              <div style={{ fontSize: 36, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.02em", lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: "#1E3A8A", letterSpacing: "-0.01em", lineHeight: 1.1 }}>{s.value}</div>
               <div style={{ fontSize: 13, color: "#64748B", marginTop: 6, fontWeight: 500 }}>{s.label}</div>
             </div>
           ))}
@@ -232,8 +224,8 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1160, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 60 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#F59E0B", textTransform: "uppercase", marginBottom: 14 }}>使用场景</div>
-            <h2 style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 14px", color: "#0F172A" }}>专为BD总监与交易撮合者打造</h2>
-            <p style={{ fontSize: 16, color: "#64748B", maxWidth: 520, margin: "0 auto" }}>从资产筛查到合作评估，全面优化您的工作流程</p>
+            <h2 style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 14px", color: "#0F172A" }}>专为 BD 与立项团队打造</h2>
+            <p style={{ fontSize: 16, color: "#64748B", maxWidth: 520, margin: "0 auto" }}>多个 Agent 分工协作，从资产筛查到立项评估一体化完成</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
             {USE_CASES.map((uc) => (
@@ -255,12 +247,12 @@ export default function LandingPage() {
           <div style={{ flex: "1 1 380px", color: "#fff" }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#93C5FD", textTransform: "uppercase", marginBottom: 16 }}>AI驱动</div>
             <h2 style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 16px", lineHeight: 1.2 }}>
-              复杂问题<br />即时解答
+              多 Agent 协同<br />一次对话完成
             </h2>
             <p style={{ fontSize: 15, lineHeight: 1.7, color: "#BFDBFE", margin: "0 0 28px", maxWidth: 400 }}>
-              BD Go AI 跨越50,000+资产、临床试验、专利与交易数据进行分析，提供精准洞察与引用来源。
+              BD Go AI 调度多个专精 Agent 协同工作——从意图理解到多步检索、交叉分析、结构化输出，所有结论均附引用来源可追溯。
             </p>
-            {["支持中英文自然语言提问","实时覆盖10,000+生物医药企业","自动报告附引用来源","基于历史记录的智能推荐"].map((t) => (
+            {["支持中英文自然语言提问","多 Agent 分工协作，覆盖 BD 与立项","结论均附引用来源可追溯","一键导出 Word / PPT 报告"].map((t) => (
               <div key={t} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -277,7 +269,7 @@ export default function LandingPage() {
               </div>
               <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 8 }}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="white"><path d="M8 1l1.76 3.57 3.94.57-2.85 2.78.67 3.9L8 10.36 4.48 12.32l.67-3.9L2.3 5.64l3.94-.57L8 1z"/></svg>
-                <span style={{ fontSize: 12, color: "#E0EFFE", fontWeight: 500 }}>已找到 12 家匹配企业，正在生成分析报告…</span>
+                <span style={{ fontSize: 12, color: "#E0EFFE", fontWeight: 500 }}>资产发现 Agent 已调度，正在生成分析报告…</span>
               </div>
             </div>
           </div>
@@ -319,22 +311,17 @@ export default function LandingPage() {
             <div style={{ background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 20, padding: "36px 36px 32px", position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(37,99,235,0.06)" }} />
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                <svg width="40" height="40" viewBox="0 0 36 36" fill="none">
-                  <rect width="36" height="36" rx="9" fill="#1E3A8A" />
-                  <circle cx="11" cy="18" r="3.5" fill="white" />
-                  <line x1="15" y1="18" x2="22.5" y2="18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                  <path d="M22 13 L29 18 L22 23 Z" fill="white" />
-                </svg>
+                <BDGoMark size={40} />
                 <div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: "#1E3A8A" }}>BD <span style={{ fontWeight: 500 }}>Go</span></div>
                   <div style={{ fontSize: 12, color: "#6366F1", fontWeight: 500 }}>商务拓展情报平台</div>
                 </div>
               </div>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: "#3730A3", margin: "0 0 28px" }}>
-                AI驱动的生物医药BD情报平台。发现资产、分析合作机会、生成DD报告，覆盖中国及全球市场。
+                业内首个面向 BD 与立项的多 Agent 协作平台。多个专精 Agent 分工协作，自动完成资产发现、买方画像、立项评估与 DD 报告。
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
-                {["管线情报", "交易数据库", "AI对话分析", "自动化报告"].map(t => (
+                {["多 Agent 协作", "买方画像", "立项评估", "自动化报告"].map(t => (
                   <span key={t} style={{ fontSize: 12, fontWeight: 500, color: "#3730A3", background: "rgba(99,102,241,0.12)", padding: "4px 10px", borderRadius: 99 }}>{t}</span>
                 ))}
               </div>
@@ -399,7 +386,7 @@ export default function LandingPage() {
             准备好达成<br />更好的交易了吗？
           </h2>
           <p style={{ fontSize: 16, color: "#94A3B8", margin: "0 auto 44px", maxWidth: 460, lineHeight: 1.7 }}>
-            加入 200+ 个使用 BD Go 的BD团队，在中国及全球范围内更快发现机会、加速合作。
+            业内首个面向 BD 与立项的多 Agent 协作平台，首批内测席位开放中——让多个 Agent 为您并肩工作。
           </p>
           <div style={{ display: "flex", gap: 16, justifyContent: "center", marginBottom: 28, flexWrap: "wrap" }}>
             <Link href={ctaHref} style={{ ...btn.primaryLg, background: "#fff", color: "#1E3A8A" }}>免费试用 →</Link>
@@ -426,7 +413,7 @@ export default function LandingPage() {
                 <NavLogo />
               </div>
               <p style={{ fontSize: 13, lineHeight: 1.7, color: "#64748B", maxWidth: 260, margin: "0 0 16px" }}>
-                AI驱动的生物医药商务拓展情报平台，服务全球交易撮合者。
+                业内首个面向 BD 与立项的多 Agent 协作平台。
               </p>
               <div style={{ fontSize: 12, color: "#94A3B8" }}>© 2026 BD Go. 保留所有权利</div>
             </div>
