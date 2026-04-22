@@ -102,12 +102,12 @@ const PUBLIC_PATHS = [
   "/terms",
   "/security",
   "/blog",
+  "/docs",
   "/about",
   "/features",
   "/pricing",
   "/use-cases",
   "/api-docs",
-  "/careers",
   "/contact",
 ];
 

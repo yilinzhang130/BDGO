@@ -419,8 +419,8 @@ export default function LandingPage() {
             </div>
             {/* Link cols */}
             {[
-              { title: "产品", links: [{ label: "功能特性", href: "/features" }, { label: "定价", href: "/pricing" }, { label: "使用案例", href: "/use-cases" }, { label: "API接入", href: "/api-docs" }] },
-              { title: "公司", links: [{ label: "关于我们", href: "/about" }, { label: "博客", href: "/blog" }, { label: "招贤纳士", href: "/careers" }, { label: "联系我们", href: "/contact" }] },
+              { title: "产品", links: [{ label: "功能特性", href: "/features" }, { label: "定价", href: "/pricing" }, { label: "使用案例", href: "/use-cases" }, { label: "使用文档", href: "/docs" }] },
+              { title: "公司", links: [{ label: "关于我们", href: "/about" }, { label: "博客", href: "/blog" }, { label: "联系我们", href: "/contact" }] },
               { title: "法律", links: [{ label: "隐私政策", href: "/privacy" }, { label: "服务条款", href: "/terms" }, { label: "安全合规", href: "/security" }] },
             ].map((col) => (
               <div key={col.title}>
