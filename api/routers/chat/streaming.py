@@ -122,96 +122,95 @@ async def stream_chat(req):
     tool_error_counts: dict[str, int] = {}
 
     try:
-        async with httpx.AsyncClient(timeout=300) as client:
-            for _iteration in range(MAX_TOOL_ROUNDS):
-                final_content = None
-                final_stop_reason = None
+        for _iteration in range(MAX_TOOL_ROUNDS):
+            final_content = None
+            final_stop_reason = None
 
-                async for event_type, payload in stream_with_fallback(
-                    client, history, model, usage_accum,
-                    system_prompt=active_system_prompt,
-                ):
-                    if event_type == "chunk":
-                        yield sse("chunk", content=payload)
-                    elif event_type == "tool_call_start":
-                        yield sse("tool_call", name=payload["name"])
-                    elif event_type == "error":
-                        yield sse("error", message=payload)
-                        yield sse_done()
-                        return
-                    elif event_type == "_end":
-                        final_content = payload["content"]
-                        final_stop_reason = payload["stop_reason"]
+            async for event_type, payload in stream_with_fallback(
+                history, model, usage_accum,
+                system_prompt=active_system_prompt,
+            ):
+                if event_type == "chunk":
+                    yield sse("chunk", content=payload)
+                elif event_type == "tool_call_start":
+                    yield sse("tool_call", name=payload["name"])
+                elif event_type == "error":
+                    yield sse("error", message=payload)
+                    yield sse_done()
+                    return
+                elif event_type == "_end":
+                    final_content = payload["content"]
+                    final_stop_reason = payload["stop_reason"]
 
-                if final_content is None:
-                    break
-
-                history.append({"role": "assistant", "content": final_content})
-
-                tool_uses = [b for b in final_content if b.get("type") == "tool_use"]
-                if final_stop_reason == "tool_use" and tool_uses:
-                    tool_results_msg: list = []
-                    tool_events: list = []
-                    for tu in tool_uses:
-                        async for sse_line in execute_tool_call(
-                            tool_use=tu,
-                            user_id=user_id,
-                            can_see_internal=can_see_internal,
-                            tool_error_counts=tool_error_counts,
-                            tool_results_msg=tool_results_msg,
-                            tool_events=tool_events,
-                            all_entities=all_entities,
-                        ):
-                            yield sse_line
-
-                    tools_json = json.dumps(tool_events, ensure_ascii=False, default=str)
-                    await asyncio.to_thread(
-                        save_message, session_id, "assistant", final_content, tools_json,
-                    )
-                    await asyncio.to_thread(
-                        save_message, session_id, "user", tool_results_msg,
-                    )
-
-                    history.append({"role": "user", "content": tool_results_msg})
-                    continue
-
-                # Final assistant text (no more tool calls) — persist it
-                await asyncio.to_thread(save_message, session_id, "assistant", final_content)
+            if final_content is None:
                 break
 
-            else:
-                # for-loop exhausted MAX_TOOL_ROUNDS without a `break` — the LLM
-                # was still calling tools on the last iteration and never produced
-                # a text response. Inject a system hint and force one final synthesis
-                # call with tools disabled so the user always gets an answer.
-                logger.warning(
-                    "Tool round limit reached for session %s; forcing synthesis", session_id
+            history.append({"role": "assistant", "content": final_content})
+
+            tool_uses = [b for b in final_content if b.get("type") == "tool_use"]
+            if final_stop_reason == "tool_use" and tool_uses:
+                tool_results_msg: list = []
+                tool_events: list = []
+                for tu in tool_uses:
+                    async for sse_line in execute_tool_call(
+                        tool_use=tu,
+                        user_id=user_id,
+                        can_see_internal=can_see_internal,
+                        tool_error_counts=tool_error_counts,
+                        tool_results_msg=tool_results_msg,
+                        tool_events=tool_events,
+                        all_entities=all_entities,
+                    ):
+                        yield sse_line
+
+                tools_json = json.dumps(tool_events, ensure_ascii=False, default=str)
+                await asyncio.to_thread(
+                    save_message, session_id, "assistant", final_content, tools_json,
                 )
-                synthesis_hint = [{
-                    "role": "user",
-                    "content": (
-                        f"[系统：已达最大工具调用轮次（{MAX_TOOL_ROUNDS}轮）。"
-                        "请直接用中文总结以上所有工具调用结果，回答用户的问题，不要再调用任何工具。]"
-                    ),
-                }]
-                synthesis_content = None
-                async for event_type, payload in stream_with_fallback(
-                    client, history + synthesis_hint, model, usage_accum,
-                    system_prompt=active_system_prompt,
-                    tools=[],  # disable tools — text-only response
-                ):
-                    if event_type == "chunk":
-                        yield sse("chunk", content=payload)
-                    elif event_type == "error":
-                        yield sse("error", message=payload)
-                        yield sse_done()
-                        return
-                    elif event_type == "_end":
-                        synthesis_content = payload.get("content")
-                if synthesis_content:
-                    await asyncio.to_thread(
-                        save_message, session_id, "assistant", synthesis_content
-                    )
+                await asyncio.to_thread(
+                    save_message, session_id, "user", tool_results_msg,
+                )
+
+                history.append({"role": "user", "content": tool_results_msg})
+                continue
+
+            # Final assistant text (no more tool calls) — persist it
+            await asyncio.to_thread(save_message, session_id, "assistant", final_content)
+            break
+
+        else:
+            # for-loop exhausted MAX_TOOL_ROUNDS without a `break` — the LLM
+            # was still calling tools on the last iteration and never produced
+            # a text response. Inject a system hint and force one final synthesis
+            # call with tools disabled so the user always gets an answer.
+            logger.warning(
+                "Tool round limit reached for session %s; forcing synthesis", session_id
+            )
+            synthesis_hint = [{
+                "role": "user",
+                "content": (
+                    f"[系统：已达最大工具调用轮次（{MAX_TOOL_ROUNDS}轮）。"
+                    "请直接用中文总结以上所有工具调用结果，回答用户的问题，不要再调用任何工具。]"
+                ),
+            }]
+            synthesis_content = None
+            async for event_type, payload in stream_with_fallback(
+                history + synthesis_hint, model, usage_accum,
+                system_prompt=active_system_prompt,
+                tools=[],  # disable tools — text-only response
+            ):
+                if event_type == "chunk":
+                    yield sse("chunk", content=payload)
+                elif event_type == "error":
+                    yield sse("error", message=payload)
+                    yield sse_done()
+                    return
+                elif event_type == "_end":
+                    synthesis_content = payload.get("content")
+            if synthesis_content:
+                await asyncio.to_thread(
+                    save_message, session_id, "assistant", synthesis_content
+                )
 
         # Persist extracted entities fire-and-forget — don't block the response.
         if all_entities:

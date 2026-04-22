@@ -5,13 +5,17 @@ Two guards, both in-memory and process-local (good enough for a single-
 process uvicorn deployment; for multi-process / multi-pod setups upgrade
 to Redis-backed counters):
 
-  check_rpm(user_id)  — sliding-window 20 req/min; checked once on entry,
-                        raises 429 immediately if exceeded.
+  check_rpm(user_id)  — sliding-window MAX_RPM req/min; checked once on
+                        entry, raises 429 immediately if exceeded.
 
-  chat_slot(user_id)  — concurrent-request semaphore (max 3 streams at a
-                        time per user); holds a slot for the entire SSE
-                        stream lifetime so one user can't monopolise the
-                        thread pool.
+  chat_slot(user_id)  — concurrent-request semaphore (MAX_CONCURRENT_CHAT
+                        parallel streams per user); holds a slot for the
+                        entire SSE stream lifetime so one user can't
+                        monopolise the MiniMax pool.
+
+Both limits are env-tunable (MAX_CONCURRENT_CHAT_PER_USER, MAX_RPM_PER_USER)
+so capacity planning stays in ops land rather than requiring code changes
+when you buy more MiniMax plans.
 
 Admins bypass both limits (is_admin flag checked by the caller).
 """
@@ -19,16 +23,17 @@ Admins bypass both limits (is_admin flag checked by the caller).
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
 
-# ─── Tuning constants ────────────────────────────────────────
-MAX_CONCURRENT_CHAT = 3   # max parallel SSE streams per user
-MAX_RPM = 20              # max chat requests per 60-second window
-# ─────────────────────────────────────────────────────────────
+# Sized against the MiniMax pool: with 10 keys × 2 concurrency = 20 total
+# slots, per-user 2 streams serves ~10 active users without queueing.
+MAX_CONCURRENT_CHAT = int(os.environ.get("MAX_CONCURRENT_CHAT_PER_USER", "2"))
+MAX_RPM = int(os.environ.get("MAX_RPM_PER_USER", "20"))
 
 # Concurrent slot tracking
 _active: dict[str, int] = defaultdict(int)

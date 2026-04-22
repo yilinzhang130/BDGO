@@ -20,8 +20,7 @@ import re
 import uuid
 from typing import Any
 
-import httpx
-
+from llm_pool import acquire_for, get_client
 from models import ModelSpec
 
 logger = logging.getLogger(__name__)
@@ -98,16 +97,19 @@ async def generate_plan(
         "stream": False,
         # NO tools — planner must not execute, only plan
     }
-    headers = {
-        "x-api-key": model.api_key,
-        "Content-Type": "application/json",
-    }
-    if model.anthropic_version:
-        headers["anthropic-version"] = model.anthropic_version
 
+    client = get_client()
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(model.api_url, json=body, headers=headers)
+        async with acquire_for(model) as (api_key, _pool):
+            headers = {
+                "x-api-key": api_key,
+                "Content-Type": "application/json",
+            }
+            if model.anthropic_version:
+                headers["anthropic-version"] = model.anthropic_version
+            resp = await client.post(
+                model.api_url, json=body, headers=headers, timeout=60,
+            )
             if resp.status_code != 200:
                 logger.warning("Planner LLM returned %d: %s", resp.status_code, resp.text[:300])
                 return None
@@ -299,16 +301,19 @@ async def summarize_history(
         "max_tokens": 600,
         "stream": False,
     }
-    headers = {
-        "x-api-key": model.api_key,
-        "Content-Type": "application/json",
-    }
-    if model.anthropic_version:
-        headers["anthropic-version"] = model.anthropic_version
 
+    client = get_client()
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(model.api_url, json=body, headers=headers)
+        async with acquire_for(model) as (api_key, _pool):
+            headers = {
+                "x-api-key": api_key,
+                "Content-Type": "application/json",
+            }
+            if model.anthropic_version:
+                headers["anthropic-version"] = model.anthropic_version
+            resp = await client.post(
+                model.api_url, json=body, headers=headers, timeout=60,
+            )
             if resp.status_code != 200:
                 logger.warning("Summarizer LLM returned %d: %s", resp.status_code, resp.text[:200])
                 return None

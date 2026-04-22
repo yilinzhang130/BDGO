@@ -76,9 +76,30 @@ MINIMAX_URL = os.environ.get(
     "MINIMAX_URL",
     "https://api.minimaxi.com/anthropic/v1/messages",
 )
-MINIMAX_KEY = os.environ.get("MINIMAX_API_KEY", "")
-if not MINIMAX_KEY:
-    _logger.warning("MINIMAX_API_KEY is not set — LLM-dependent endpoints will fail")
+
+# MINIMAX_KEYS="key1,key2,..." for multi-plan deploys; falls back to single
+# MINIMAX_API_KEY. MINIMAX_KEY is the first element — kept for back-compat
+# with ModelSpec.api_key; real per-request routing happens in llm_pool.
+_keys_raw = os.environ.get("MINIMAX_KEYS", "").strip()
+if _keys_raw:
+    MINIMAX_KEYS = [k.strip() for k in _keys_raw.split(",") if k.strip()]
+else:
+    _single = os.environ.get("MINIMAX_API_KEY", "").strip()
+    MINIMAX_KEYS = [_single] if _single else []
+
+MINIMAX_KEY = MINIMAX_KEYS[0] if MINIMAX_KEYS else ""
+if not MINIMAX_KEYS:
+    _logger.warning(
+        "No MiniMax keys configured (set MINIMAX_KEYS or MINIMAX_API_KEY) — "
+        "LLM-dependent endpoints will fail"
+    )
+elif len(MINIMAX_KEYS) > 1:
+    _logger.info("MiniMax pool: %d keys configured", len(MINIMAX_KEYS))
+
+# Set to the *minimum* plan limit across your keys — a mix of 2- and
+# 3-concurrent plans must use 2, else the 2-plan rate-limits.
+MINIMAX_PER_KEY_CONCURRENCY = int(os.environ.get("MINIMAX_PER_KEY_CONCURRENCY", "2"))
+
 MINIMAX_MODEL = os.environ.get("MINIMAX_MODEL", "MiniMax-M1-80k")
 MINIMAX_ANTHROPIC_VERSION = "2023-06-01"
 

@@ -158,6 +158,22 @@ def list_users(x_admin_key: str = Header(...)):
 # JWT-authenticated endpoints (for frontend admin dashboard)
 # ---------------------------------------------------------------------------
 
+@router.get("/llm-pool")
+def admin_llm_pool(_: dict = Depends(_require_admin)):
+    """Live snapshot of the MiniMax key pool (in-flight / muted / totals).
+
+    Use this to verify you're getting even load across keys and to spot
+    muted keys that may have bad credentials or be getting rate-limited.
+    """
+    try:
+        from llm_pool import get_pool, pool_available
+        if not pool_available():
+            return {"available": False, "reason": "pool not initialized — no keys configured"}
+        return {"available": True, **get_pool().snapshot()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pool snapshot failed: {e}")
+
+
 @router.get("/dashboard")
 def admin_dashboard(_: dict = Depends(_require_admin)):
     """Users + credit balances for admin UI."""

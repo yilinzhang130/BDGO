@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import traceback
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,12 +58,29 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 from auth import get_current_user
+from llm_pool import close_pool, init_pool
 from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports, catalysts, watchlist, admin, aidd_sso, inbox, conference
 from routers import auth as auth_router
 from routers import sessions as sessions_router
 from routers import credits as credits_router
 
-app = FastAPI(title="OpenClaw CRM Dashboard API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Build the LLM key pool + shared httpx client on startup, close on shutdown.
+
+    init_pool() is safe to call with zero keys configured — it just logs a
+    warning; chat endpoints will 500 if hit without keys, but the service
+    still boots so admin endpoints / health checks work.
+    """
+    init_pool()
+    try:
+        yield
+    finally:
+        await close_pool()
+
+
+app = FastAPI(title="OpenClaw CRM Dashboard API", version="0.1.0", lifespan=lifespan)
 
 _default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 _cors_env = os.environ.get("CORS_ORIGINS", "")
