@@ -100,14 +100,14 @@ class ReportContext:
         max_tokens: int = 4096,
     ) -> str:
         """Call LLM and return final assistant text (non-streaming)."""
-        from services.helpers.llm import call_llm_sync
+        from services.external.llm import call_llm_sync
 
         return call_llm_sync(system=system, messages=messages, max_tokens=max_tokens)
 
     # ── QC ──────────────────────────────────────────────────
     def qc(self, markdown: str) -> QCResult:  # noqa: F821
         """Run QC on a markdown string and return QCResult (with .badge_md)."""
-        from services.helpers.qc import QCResult, run_qc
+        from services.qc import QCResult, run_qc
 
         try:
             return run_qc(markdown, self)

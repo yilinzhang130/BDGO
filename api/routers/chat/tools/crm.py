@@ -9,7 +9,7 @@ import logging
 from auth_db import transaction
 from crm_store import LIKE_ESCAPE, like_contains, query, query_one
 from services.conference import load_report_data
-from services.helpers.resolve import fuzzy_company_names, resolve_company, resolve_mnc
+from services.crm.resolve import fuzzy_company_names, resolve_company, resolve_mnc
 
 logger = logging.getLogger(__name__)
 

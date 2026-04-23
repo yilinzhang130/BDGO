@@ -14,15 +14,15 @@ import logging
 
 from pydantic import BaseModel
 
-from services.helpers import docx_builder
-from services.helpers.crm_lookup import asset_crm_block
-from services.helpers.enums import MODALITY_VALUES, PHASE_VALUES_WITH_PATH_R
-from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
+from services.crm.crm_lookup import asset_crm_block
+from services.document import docx_builder
+from services.enums import MODALITY_VALUES, PHASE_VALUES_WITH_PATH_R
 from services.report_builder import (
     ReportContext,
     ReportResult,
     ReportService,
 )
+from services.text import format_web_results, safe_slug, search_and_deduplicate
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ Pipeline:
   1. Resolve company / asset in CRM to seed metadata (modality, phase, TA)
   2. Optional Tavily web search for pricing comps + epidemiology anchors
   3. Single-shot LLM call producing a structured JSON config
-  4. Generate .xlsx via services.helpers.rnpv_excel.generate()
+  4. Generate .xlsx via services.document.rnpv_excel.generate()
   5. Also produce a short markdown summary of key outputs (rNPV, peak rev)
 """
 
@@ -18,22 +18,22 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from services.helpers import rnpv_excel
-from services.helpers.crm_lookup import asset_crm_block
-from services.helpers.enums import MODALITY_VALUES, PHASE_VALUES
-from services.helpers.llm import _extract_json_object
-from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
+from services.crm.crm_lookup import asset_crm_block
+from services.document import rnpv_excel
+from services.enums import MODALITY_VALUES, PHASE_VALUES
+from services.external.llm import _extract_json_object
 from services.report_builder import (
     ReportContext,
     ReportResult,
     ReportService,
 )
+from services.text import format_web_results, safe_slug, search_and_deduplicate
 
 logger = logging.getLogger(__name__)
 
 
 _BENCHMARKS_PATH = (
-    Path(__file__).resolve().parent.parent / "helpers" / "rnpv_default_benchmarks.json"
+    Path(__file__).resolve().parent.parent / "document" / "rnpv_default_benchmarks.json"
 )
 _BENCHMARKS_STR: str | None = None
 

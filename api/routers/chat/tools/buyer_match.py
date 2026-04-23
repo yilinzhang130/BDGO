@@ -17,8 +17,8 @@ import json
 import logging
 
 from crm_store import query
-from services.helpers.resolve import get_mnc_profiles
-from services.helpers.text import safe_json_loads
+from services.crm.resolve import get_mnc_profiles
+from services.text import safe_json_loads
 
 logger = logging.getLogger(__name__)
 

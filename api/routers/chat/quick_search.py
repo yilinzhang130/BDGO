@@ -13,7 +13,7 @@ import logging
 
 import httpx
 from models import resolve_model
-from services.helpers.search import search_web
+from services.external.search import search_web
 
 from .billing import charge_turn
 from .chat_store import ensure_session, load_history, save_message

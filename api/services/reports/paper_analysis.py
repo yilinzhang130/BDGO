@@ -19,13 +19,13 @@ from typing import Literal
 from config import BP_DIR
 from pydantic import BaseModel
 
-from services.helpers import pubmed
-from services.helpers.text import safe_slug
+from services.external import pubmed
 from services.report_builder import (
     ReportContext,
     ReportResult,
     ReportService,
 )
+from services.text import safe_slug
 
 logger = logging.getLogger(__name__)
 

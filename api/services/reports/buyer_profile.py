@@ -19,17 +19,17 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from services.helpers import docx_builder
-from services.helpers.text import (
-    format_web_results,
-    safe_json_loads,
-    safe_slug,
-    search_and_deduplicate,
-)
+from services.document import docx_builder
 from services.report_builder import (
     ReportContext,
     ReportResult,
     ReportService,
+)
+from services.text import (
+    format_web_results,
+    safe_json_loads,
+    safe_slug,
+    search_and_deduplicate,
 )
 
 logger = logging.getLogger(__name__)
@@ -272,7 +272,7 @@ class BuyerProfileService(ReportService):
 
         # Phase 1: Resolve company via shared fuzzy resolver
         ctx.log(f"Looking up {inp.company_name} in MNC画像...")
-        from services.helpers.resolve import resolve_mnc
+        from services.crm.resolve import resolve_mnc
 
         resolve = resolve_mnc(inp.company_name)
         profile = resolve.row
@@ -550,7 +550,7 @@ class BuyerProfileService(ReportService):
                 messages=[{"role": "user", "content": extract_prompt}],
                 max_tokens=800,
             )
-            from services.helpers.llm import _extract_json_object
+            from services.external.llm import _extract_json_object
 
             data = _extract_json_object(raw) or {}
             if not data.get("company_name"):
