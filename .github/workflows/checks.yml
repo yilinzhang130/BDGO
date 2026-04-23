@@ -83,9 +83,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Semgrep scan
-        run: semgrep scan --config=auto --error --metrics=off
+        run: semgrep scan --config=auto --error
         # --error 让 Semgrep 在发现问题时返回非 0 退出码,CI 会标红
-        # --metrics=off 关闭匿名遥测
+        # 注: --config=auto 需要允许匿名遥测(规则集推送依赖它),不能加 --metrics=off
+        # 想禁用遥测,把 config 换成固定规则集如 --config=p/default
 
   # ──────────────────────────────────────────────────────────
   # CodeQL: GitHub 官方深度分析(Python + JS/TS)
