@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from auth import get_current_user, require_admin
-from database import transaction
+from auth_db import transaction
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 

@@ -16,8 +16,8 @@ import secrets
 import threading
 
 from auth import get_current_user
+from auth_db import transaction
 from config import REPORTS_DIR, safe_path_within
-from database import transaction
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from field_policy import is_admin_user

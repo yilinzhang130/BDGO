@@ -1,12 +1,12 @@
 # Alembic migrations — auth DB
 
 Managed schema for the Postgres auth / sessions database (everything in
-`database.py:_SCHEMA_SQL`). The CRM database lives elsewhere and is NOT
+`auth_db.py:_SCHEMA_SQL`). The CRM database lives elsewhere and is NOT
 managed by Alembic.
 
 ## First rollout to an existing prod DB
 
-The DB already has the full schema because `database.py` auto-runs
+The DB already has the full schema because `auth_db.py` auto-runs
 `CREATE TABLE IF NOT EXISTS` on startup. Before Alembic takes over,
 tell it the DB is already caught up:
 

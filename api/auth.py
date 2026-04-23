@@ -91,7 +91,7 @@ _USER_COLUMNS = (
 
 def _lookup_user(user_id: str) -> dict:
     """Fetch user row from Postgres by id. Returns dict or raises 401."""
-    from database import transaction
+    from auth_db import transaction
 
     with transaction() as cur:
         cur.execute(

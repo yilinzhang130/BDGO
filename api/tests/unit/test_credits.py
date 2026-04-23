@@ -73,12 +73,12 @@ class TestEnsureBalance:
         from credits import ensure_balance
         from fastapi import HTTPException
 
-        # mock database.transaction 让它返回一个假余额
+        # mock auth_db.transaction 让它返回一个假余额
         mock_row = {"balance": "0.00"}
         mock_cur = MagicMock()
         mock_cur.fetchone.return_value = mock_row
 
-        with patch("credits.database.transaction") as mock_tx:
+        with patch("credits.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -97,7 +97,7 @@ class TestEnsureBalance:
         mock_cur = MagicMock()
         mock_cur.fetchone.return_value = mock_row
 
-        with patch("credits.database.transaction") as mock_tx:
+        with patch("credits.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -114,7 +114,7 @@ class TestEnsureBalance:
         mock_cur = MagicMock()
         mock_cur.fetchone.return_value = mock_row
 
-        with patch("credits.database.transaction") as mock_tx:
+        with patch("credits.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
 

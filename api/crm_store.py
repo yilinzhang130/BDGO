@@ -8,10 +8,10 @@ Wraps the external ``crm_db`` workspace module to provide:
   - parse_numeric() for deal-value text fields
 
 Manages the **CRM database** (公司 / 资产 / 交易 / 临床 / IP / MNC画像).
-This is entirely separate from ``database.py``, which owns the **auth /
+This is entirely separate from ``auth_db.py``, which owns the **auth /
 user Postgres pool** (users / sessions / credits / report_history).
 
-Never import ``database.py`` from here, and never import ``crm_store``
+Never import ``auth_db.py`` from here, and never import ``crm_store``
 from auth or session code — the two databases must stay independent.
 """
 

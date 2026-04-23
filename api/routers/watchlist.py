@@ -1,8 +1,8 @@
 """Watchlist endpoints — per-user entity favorites (company/asset/disease/target)."""
 
 from auth import get_current_user
+from auth_db import transaction
 from crm_store import like_contains
-from database import transaction
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 

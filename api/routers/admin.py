@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 
 import credits as credits_mod
 from auth import get_current_user, serialize_user_row
-from database import transaction
+from auth_db import transaction
 from fastapi import APIRouter, Depends, Header, HTTPException
 from field_policy import is_admin_user
 from pydantic import BaseModel

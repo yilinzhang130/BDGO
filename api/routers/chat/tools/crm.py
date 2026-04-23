@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import logging
 
+from auth_db import transaction
 from crm_store import LIKE_ESCAPE, like_contains, query, query_one
-from database import transaction
 from services.helpers.resolve import fuzzy_company_names, resolve_company, resolve_mnc
 
 logger = logging.getLogger(__name__)

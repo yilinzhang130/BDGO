@@ -314,7 +314,7 @@ def _row_to_task(row: dict, progress_log: list[str] | None = None) -> dict:
 
 def create_task(slug: str, params: dict, user_id: str | None = None) -> str:
     """Queue a task. Writes the queue row immediately so any worker can see it."""
-    from database import transaction
+    from auth_db import transaction
 
     task_id = uuid.uuid4().hex[:12]
     _cache_put(task_id, user_id, slug)
@@ -342,7 +342,7 @@ def _update_state(task_id: str, **fields) -> None:
     """Patch the task's report_history row. Silent on DB error."""
     if not fields:
         return
-    from database import transaction
+    from auth_db import transaction
 
     cols = ", ".join(f"{k} = %s" for k in fields)
     values = list(fields.values()) + [task_id]
@@ -359,7 +359,7 @@ def _update_state(task_id: str, **fields) -> None:
 def get_task(task_id: str) -> dict | None:
     """Return the task dict for polling. DB is authoritative; hot log comes
     from the in-memory cache when the task is on this worker."""
-    from database import transaction
+    from auth_db import transaction
 
     try:
         with transaction() as cur:
@@ -383,7 +383,7 @@ def get_task(task_id: str) -> dict | None:
 
 def list_tasks(limit: int = 50, user_id: str | None = None) -> list[dict]:
     """Recent tasks, DB-ordered. ``user_id=None`` returns everyone (admin)."""
-    from database import transaction
+    from auth_db import transaction
 
     try:
         with transaction() as cur:

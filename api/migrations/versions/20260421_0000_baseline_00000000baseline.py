@@ -5,12 +5,12 @@ Revises:
 Create Date: 2026-04-21 00:00:00 UTC
 
 This is an empty baseline. The schema at this revision matches whatever
-``database.py:_SCHEMA_SQL`` produced when you ran your last deploy
+``auth_db.py:_SCHEMA_SQL`` produced when you ran your last deploy
 (``CREATE TABLE IF NOT EXISTS`` + idempotent ``ALTER TABLE`` blocks).
 
 Existing deployments should be stamped at this revision once:
     alembic stamp head
-Fresh deployments also land here because the auto-init in database.py
+Fresh deployments also land here because the auto-init in auth_db.py
 already ran every statement we would otherwise put in an ``upgrade()``.
 
 All future schema changes should go in new Alembic revisions rather
