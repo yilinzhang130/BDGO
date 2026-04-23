@@ -17,7 +17,7 @@ import secrets
 import string
 from datetime import UTC, datetime
 
-import database
+import auth_db
 from fastapi import HTTPException
 
 _logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ def create_key(
     if quota_daily is not None and quota_daily <= 0:
         raise HTTPException(status_code=400, detail="quota_daily 必须大于 0")
 
-    with database.transaction() as cur:
+    with auth_db.transaction() as cur:
         cur.execute(
             "SELECT COUNT(*)::int AS n FROM api_keys WHERE user_id = %s AND revoked_at IS NULL",
             (user_id,),
@@ -170,7 +170,7 @@ def verify_key(raw_key: str, *, client_ip: str | None = None) -> dict | None:
 
     key_hash = _hash_key(raw_key)
     try:
-        with database.transaction() as cur:
+        with auth_db.transaction() as cur:
             cur.execute(
                 """
                 SELECT id, user_id, scopes, quota_daily, expires_at
@@ -217,7 +217,7 @@ def list_keys(user_id: str, include_revoked: bool = False) -> list[dict]:
         sql += " AND revoked_at IS NULL"
     sql += " ORDER BY created_at DESC"
 
-    with database.transaction() as cur:
+    with auth_db.transaction() as cur:
         cur.execute(sql, (user_id,))
         rows = cur.fetchall()
     return [_serialize_row(r) for r in rows]
@@ -229,7 +229,7 @@ def revoke_key(user_id: str, key_id: str) -> dict:
     Scoped to ``user_id`` so User A can't revoke User B's keys — even if
     they guess the UUID.
     """
-    with database.transaction() as cur:
+    with auth_db.transaction() as cur:
         cur.execute(
             """
             UPDATE api_keys

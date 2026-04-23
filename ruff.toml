@@ -48,9 +48,8 @@ ignore = [
 
 # 报表生成模块里大量 "算了中间变量但没写出来" 的情况, 需要熟悉报表逻辑的人审,
 # 另开 PR 处理。目前暂时豁免 F401/F841/B007 避免阻塞 CI。
-"api/services/helpers/rnpv_excel.py" = ["F401", "F841", "B007"]
-"api/services/helpers/resolve.py" = ["F841"]   # resolve.py:186 的 suggestions 变量另审
-"api/crm_db.py" = ["B007"]                      # 一处循环变量未用, 另开 PR 改
+"api/services/document/rnpv_excel.py" = ["F401", "F841", "B007"]
+"api/services/crm/resolve.py" = ["F841"]   # resolve.py:186 的 suggestions 变量另审
 
 # FastAPI 的 Depends / Query / Header 等 helper 就是设计成放在默认参数里的,
 # 告诉 bugbear 把它们当作"不可变调用",避免 B008 把 FastAPI 正确用法误报成 bug。

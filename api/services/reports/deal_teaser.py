@@ -14,16 +14,16 @@ import logging
 
 from pydantic import BaseModel
 
-from services.helpers import docx_builder, pptx_builder
-from services.helpers.crm_lookup import asset_crm_block
-from services.helpers.enums import PHASE_VALUES
-from services.helpers.llm import _extract_json_object
-from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
+from services.crm.crm_lookup import asset_crm_block
+from services.document import docx_builder, pptx_builder
+from services.enums import PHASE_VALUES
+from services.external.llm import _extract_json_object
 from services.report_builder import (
     ReportContext,
     ReportResult,
     ReportService,
 )
+from services.text import format_web_results, safe_slug, search_and_deduplicate
 
 logger = logging.getLogger(__name__)
 

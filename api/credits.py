@@ -18,14 +18,14 @@ Design (minimum viable, Manus-inspired):
 - Initial grant: `DEFAULT_GRANT_CREDITS` on first ensure_balance lookup.
   New users get a welcome balance; top-ups are admin-only for now.
 
-The schema migration runs via database.py on startup (see _SCHEMA_SQL extension).
+The schema migration runs via auth_db.py on startup (see _SCHEMA_SQL extension).
 """
 
 from __future__ import annotations
 
 import logging
 
-import database
+import auth_db
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ MIN_CREDITS_PER_REQUEST = 10
 
 
 # ─────────────────────────────────────────────────────────────
-# Schema (appended to database._SCHEMA_SQL at import time)
+# Schema (appended to auth_db._SCHEMA_SQL at import time)
 # ─────────────────────────────────────────────────────────────
 
 SCHEMA_SQL = """
@@ -92,7 +92,7 @@ def _ensure_row(cur, user_id: str) -> None:
 
 def get_balance(user_id: str) -> dict:
     """Return {balance, total_granted, total_spent} for a user."""
-    with database.transaction() as cur:
+    with auth_db.transaction() as cur:
         _ensure_row(cur, user_id)
         cur.execute(
             """
@@ -112,7 +112,7 @@ def get_balance(user_id: str) -> dict:
 
 def ensure_balance(user_id: str, min_credits: float = MIN_CREDITS_PER_REQUEST) -> None:
     """Raise HTTPException(402) if balance < min_credits. Lazily grants welcome credits."""
-    with database.transaction() as cur:
+    with auth_db.transaction() as cur:
         _ensure_row(cur, user_id)
         cur.execute("SELECT balance FROM credits WHERE user_id = %s", (user_id,))
         row = cur.fetchone()
@@ -143,7 +143,7 @@ def record_usage(
     credits_charged = round(input_tokens * input_weight + output_tokens * output_weight, 2)
 
     try:
-        with database.transaction() as cur:
+        with auth_db.transaction() as cur:
             _ensure_row(cur, user_id)
             cur.execute(
                 """
@@ -178,7 +178,7 @@ def record_usage(
 
 def grant_credits(user_id: str, amount: float, reason: str = "") -> dict:
     """Admin top-up. Returns updated balance."""
-    with database.transaction() as cur:
+    with auth_db.transaction() as cur:
         _ensure_row(cur, user_id)
         cur.execute(
             """
@@ -202,7 +202,7 @@ def grant_credits(user_id: str, amount: float, reason: str = "") -> dict:
 
 def list_usage(user_id: str, limit: int = 50) -> list[dict]:
     """Recent usage rows for the current user."""
-    with database.transaction() as cur:
+    with auth_db.transaction() as cur:
         cur.execute(
             """
             SELECT session_id, model_id, input_tokens, output_tokens,

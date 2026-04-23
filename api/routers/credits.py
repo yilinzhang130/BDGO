@@ -1,12 +1,10 @@
 """Credits router — balance, usage history, model list, admin top-up."""
 
 import credits as credits_mod
-from auth import get_current_user
+from auth import get_current_user, require_admin_header
 from fastapi import APIRouter, Depends, Header, HTTPException
 from models import available_models
 from pydantic import BaseModel
-
-from routers.admin import _check_admin  # reuse admin guard
 
 router = APIRouter(prefix="/api", tags=["credits"])
 
@@ -40,7 +38,7 @@ class GrantBody(BaseModel):
 
 @router.post("/admin/credits/grant")
 def admin_grant(body: GrantBody, x_admin_key: str = Header(...)):
-    _check_admin(x_admin_key)
+    require_admin_header(x_admin_key)
     if body.amount <= 0:
         raise HTTPException(400, "amount 必须大于 0")
     return credits_mod.grant_credits(body.user_id, body.amount, body.reason)

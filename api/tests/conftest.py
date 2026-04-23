@@ -29,7 +29,7 @@ os.environ.setdefault("DATABASE_URL", "")  # 空 = 测试不连真实 DB
 
 # ── 注入外部依赖的 stub ──────────────────────────────────────────────
 # crm_match 是 ~/.openclaw/workspace 下的外部模块，本地不一定存在。
-# 在测试环境里注入一个最小 stub，让 services.helpers.resolve 能 import。
+# 在测试环境里注入一个最小 stub，让 services.crm.resolve 能 import。
 # 这是标准做法：测试不应该依赖外部文件系统上的东西。
 if "crm_match" not in sys.modules:
     _stub = types.ModuleType("crm_match")

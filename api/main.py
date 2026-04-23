@@ -283,10 +283,10 @@ def health():
     Returns 503 {"status": "degraded", "db": "error: ..."} when Postgres
     is unreachable — systemd HEALTHCHECK / load balancer will act on this.
     """
-    import database
+    import auth_db
 
     try:
-        with database.transaction() as cur:
+        with auth_db.transaction() as cur:
             cur.execute("SELECT 1")
         return {"status": "ok", "db": "ok"}
     except Exception as e:

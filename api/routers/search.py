@@ -3,7 +3,7 @@
 from auth import public_api
 from crm_store import LIKE_ESCAPE, like_escape, query
 from fastapi import APIRouter, Query
-from services.helpers.resolve import fuzzy_company_names
+from services.crm.resolve import fuzzy_company_names
 
 router = APIRouter()
 

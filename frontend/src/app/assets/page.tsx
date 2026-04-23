@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchAssets } from "@/lib/api";
-import { phaseBadgeClass } from "@/lib/utils";
+import { phaseBadgeClass } from "@/lib/badges";
 
 const COLUMNS = [
   { key: "资产名称", label: "Asset" },

@@ -128,9 +128,10 @@ BP_DIR = Path(
 CONFERENCES_DIR = Path(
     os.environ.get(
         "CONFERENCES_DIR",
-        # Default: conferences/ folder next to this config file (gets rsynced with api/)
-        # Override via env var to point at a richer local workspace directory
-        str(Path(__file__).parent / "conferences"),
+        # Default: data/conferences/ next to this config file — ships with the
+        # api/ image. Override via env var to point at a richer local workspace
+        # directory.
+        str(Path(__file__).parent / "data" / "conferences"),
     )
 )
 REPORTS_DIR = Path(

@@ -1,7 +1,9 @@
 """
-database.py — Postgres connection pool for the auth/users database.
+auth_db.py — Postgres connection pool for the auth / users / sessions database.
 
-Separate from db.py which handles CRM SQLite (read-only).
+Owns: users, sessions, messages, context_entities, report_history, credits,
+invite_codes. CRM data lives in ``crm_store`` (different database).
+
 Uses psycopg2 ThreadedConnectionPool for efficient connection reuse.
 """
 

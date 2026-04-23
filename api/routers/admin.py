@@ -6,29 +6,18 @@ Dual auth: X-Admin-Key header (for curl/scripts) OR JWT with is_admin=True (for 
 
 from __future__ import annotations
 
-import os
 import random
 import string
 from datetime import UTC, datetime
 
 import credits as credits_mod
-from auth import get_current_user, serialize_user_row
-from database import transaction
+from auth import get_current_user, require_admin_header, serialize_user_row
+from auth_db import transaction
 from fastapi import APIRouter, Depends, Header, HTTPException
 from field_policy import is_admin_user
 from pydantic import BaseModel
 
 router = APIRouter()
-
-ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "")
-
-
-def _check_admin(x_admin_key: str = Header(...)):
-    """Header-key auth for curl/scripts."""
-    if not ADMIN_SECRET:
-        raise HTTPException(status_code=503, detail="Admin not configured (ADMIN_SECRET not set)")
-    if x_admin_key != ADMIN_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid admin key")
 
 
 def _require_admin(user: dict = Depends(get_current_user)) -> dict:
@@ -66,7 +55,7 @@ def _fmt(row: dict) -> dict:
 
 @router.post("/invite-codes")
 def create_invite_code(body: CreateCodeRequest, x_admin_key: str = Header(...)):
-    _check_admin(x_admin_key)
+    require_admin_header(x_admin_key)
 
     code = (body.code or _random_code()).strip().upper()
     expires_at = None
@@ -88,7 +77,7 @@ def create_invite_code(body: CreateCodeRequest, x_admin_key: str = Header(...)):
 
 @router.get("/invite-codes")
 def list_invite_codes(x_admin_key: str = Header(...)):
-    _check_admin(x_admin_key)
+    require_admin_header(x_admin_key)
 
     with transaction() as cur:
         cur.execute("SELECT * FROM invite_codes ORDER BY created_at DESC")
@@ -99,7 +88,7 @@ def list_invite_codes(x_admin_key: str = Header(...)):
 
 @router.delete("/invite-codes/{code}")
 def revoke_invite_code(code: str, x_admin_key: str = Header(...)):
-    _check_admin(x_admin_key)
+    require_admin_header(x_admin_key)
 
     with transaction() as cur:
         cur.execute("DELETE FROM invite_codes WHERE code = %s RETURNING id", (code.upper(),))
@@ -129,20 +118,20 @@ def _set_admin_flag(email: str, value: bool) -> dict:
 
 @router.post("/users/{email}/set-admin")
 def set_user_admin(email: str, x_admin_key: str = Header(...)):
-    _check_admin(x_admin_key)
+    require_admin_header(x_admin_key)
     return _set_admin_flag(email, True)
 
 
 @router.post("/users/{email}/revoke-admin")
 def revoke_user_admin(email: str, x_admin_key: str = Header(...)):
-    _check_admin(x_admin_key)
+    require_admin_header(x_admin_key)
     return _set_admin_flag(email, False)
 
 
 @router.get("/users")
 def list_users(x_admin_key: str = Header(...)):
     """List all registered users (X-Admin-Key auth)."""
-    _check_admin(x_admin_key)
+    require_admin_header(x_admin_key)
 
     with transaction() as cur:
         cur.execute(

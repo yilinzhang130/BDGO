@@ -22,7 +22,7 @@ import json
 import logging
 import uuid
 
-from database import transaction
+from auth_db import transaction
 
 logger = logging.getLogger(__name__)
 

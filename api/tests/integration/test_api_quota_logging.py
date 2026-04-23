@@ -243,7 +243,7 @@ class TestCountToday:
         def _boom():
             raise RuntimeError("DB down")
 
-        monkeypatch.setattr(arl.database, "transaction", _boom)
+        monkeypatch.setattr(arl.auth_db, "transaction", _boom)
 
         assert arl.count_today("any-key-id") == 0
 
@@ -260,5 +260,5 @@ class TestCountToday:
             def __exit__(self, *_):
                 return False
 
-        monkeypatch.setattr(arl.database, "transaction", lambda: _Tx())
+        monkeypatch.setattr(arl.auth_db, "transaction", lambda: _Tx())
         assert arl.count_today("kid") == 42

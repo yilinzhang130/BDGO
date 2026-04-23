@@ -11,7 +11,8 @@ import {
   fetchIndicationsTop,
   fetchDealsTimeline,
 } from "@/lib/api";
-import { formatNumber, COLORS } from "@/lib/utils";
+import { formatNumber } from "@/lib/format";
+import { COLORS } from "@/lib/chart-colors";
 import {
   PieChart,
   Pie,

@@ -66,7 +66,7 @@ def search_and_deduplicate(
     Each result dict gets an extra "query" key with the originating query string.
     Respects sequential key drain (calls are serialized within search_web).
     """
-    from services.helpers.search import search_web
+    from services.external.search import search_web
 
     seen_urls: set[str] = set()
     combined: list[dict] = []

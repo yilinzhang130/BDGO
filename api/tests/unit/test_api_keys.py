@@ -8,7 +8,7 @@
     - 参数校验：空名字、超长名字、非法 quota
     - Key 上限：第 11 个 active key 被拒绝
 
-DB 操作用 monkeypatch 替换 database.transaction，不依赖真实 Postgres。
+DB 操作用 monkeypatch 替换 auth_db.transaction，不依赖真实 Postgres。
 """
 
 from __future__ import annotations
@@ -248,7 +248,7 @@ class TestCreateKeyValidation:
         # fetchone 返回已达上限
         mock_cur.fetchone.return_value = {"n": MAX_ACTIVE_KEYS_PER_USER}
 
-        with patch("api_keys.database.transaction") as mock_tx:
+        with patch("api_keys.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -279,7 +279,7 @@ class TestCreateKeyValidation:
             },
         ]
 
-        with patch("api_keys.database.transaction") as mock_tx:
+        with patch("api_keys.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -311,7 +311,7 @@ class TestVerifyKey:
         """非 bdgo_ 开头的 key 直接拒绝，不该打 DB"""
         from api_keys import verify_key
 
-        with patch("api_keys.database.transaction") as mock_tx:
+        with patch("api_keys.auth_db.transaction") as mock_tx:
             result = verify_key("sk-not-our-key")
         assert result is None
         assert mock_tx.call_count == 0, "不合法前缀不该打 DB"
@@ -323,7 +323,7 @@ class TestVerifyKey:
         mock_cur = MagicMock()
         mock_cur.fetchone.return_value = None
 
-        with patch("api_keys.database.transaction") as mock_tx:
+        with patch("api_keys.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
             assert verify_key("bdgo_live_fake_key_nonexistent") is None
@@ -341,7 +341,7 @@ class TestVerifyKey:
             "expires_at": datetime(2020, 1, 1),  # 早已过期
         }
 
-        with patch("api_keys.database.transaction") as mock_tx:
+        with patch("api_keys.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
             assert verify_key("bdgo_live_" + "a" * 32) is None
@@ -361,7 +361,7 @@ class TestVerifyKey:
             "expires_at": None,
         }
 
-        with patch("api_keys.database.transaction") as mock_tx:
+        with patch("api_keys.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
             ctx = verify_key("bdgo_live_" + "b" * 32)
@@ -386,7 +386,7 @@ class TestRevokeKey:
         mock_cur = MagicMock()
         mock_cur.fetchone.return_value = None  # UPDATE 返回 0 行
 
-        with patch("api_keys.database.transaction") as mock_tx:
+        with patch("api_keys.auth_db.transaction") as mock_tx:
             mock_tx.return_value.__enter__ = MagicMock(return_value=mock_cur)
             mock_tx.return_value.__exit__ = MagicMock(return_value=False)
 

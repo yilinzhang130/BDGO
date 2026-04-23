@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchCompanies } from "@/lib/api";
-import { phaseBadgeClass, priorityBadgeClass } from "@/lib/utils";
+import { phaseBadgeClass, priorityBadgeClass } from "@/lib/badges";
 
 const COLUMNS = [
   { key: "客户名称", label: "Company", width: "200px" },

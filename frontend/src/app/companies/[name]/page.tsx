@@ -11,7 +11,7 @@ import {
   updateRecord,
   deleteRecord,
 } from "@/lib/api";
-import { phaseBadgeClass, priorityBadgeClass, resultBadgeClass } from "@/lib/utils";
+import { phaseBadgeClass, priorityBadgeClass, resultBadgeClass } from "@/lib/badges";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";

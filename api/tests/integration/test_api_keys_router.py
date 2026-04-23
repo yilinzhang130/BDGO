@@ -50,9 +50,9 @@ def raw_client(app, external_user, monkeypatch):
 @pytest.fixture
 def install_mock_db(monkeypatch):
     """
-    返回一个函数，用于安装带给定 cursor 的 mock database.transaction。
+    返回一个函数，用于安装带给定 cursor 的 mock auth_db.transaction。
     caller 先准备好 cursor.fetchone/fetchall 的 return_value/side_effect，
-    然后调用这个函数把它挂到 api_keys.database.transaction 上。
+    然后调用这个函数把它挂到 api_keys.auth_db.transaction 上。
     """
     import api_keys as api_keys_mod
 
@@ -64,7 +64,7 @@ def install_mock_db(monkeypatch):
             def __exit__(self, *_):
                 return False
 
-        monkeypatch.setattr(api_keys_mod.database, "transaction", lambda: _FakeTx())
+        monkeypatch.setattr(api_keys_mod.auth_db, "transaction", lambda: _FakeTx())
 
     return _install
 

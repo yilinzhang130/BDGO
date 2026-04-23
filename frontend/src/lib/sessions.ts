@@ -11,7 +11,7 @@ import {
   postEntity,
   deleteEntity,
 } from "./api";
-import { isBrowser, bg } from "./utils";
+import { isBrowser, bg } from "./browser";
 import { getToken } from "./auth";
 
 // Types live in session-types.ts; re-exported here so all existing

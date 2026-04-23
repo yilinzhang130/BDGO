@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-import database
+import auth_db
 
 _logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ def log_request(
     ``request.url.path`` which already excludes them.
     """
     try:
-        with database.transaction() as cur:
+        with auth_db.transaction() as cur:
             cur.execute(
                 """
                 INSERT INTO api_request_logs
@@ -52,7 +52,7 @@ def count_today(key_id: str) -> int:
     makes: availability over strict accounting.
     """
     try:
-        with database.transaction() as cur:
+        with auth_db.transaction() as cur:
             cur.execute(
                 """
                 SELECT COUNT(*)::int AS n
@@ -76,7 +76,7 @@ def recent_for_user(user_id: str, limit: int = 100) -> list[dict]:
     """
     limit = min(max(1, int(limit)), 500)
     try:
-        with database.transaction() as cur:
+        with auth_db.transaction() as cur:
             cur.execute(
                 """
                 SELECT l.method, l.path, l.status, l.latency_ms, l.created_at,

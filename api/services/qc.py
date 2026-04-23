@@ -259,7 +259,7 @@ def _crm_lookup(entity: str, ctx: ReportContext) -> str:
 def _tavily_check(claim_text: str, entity: str) -> str:
     """Return snippet if Tavily finds relevant results, else empty string."""
     try:
-        from services.helpers.search import search_web
+        from services.external.search import search_web
 
         query = f"{entity} {claim_text[:80]}" if entity else claim_text[:100]
         results = search_web(query, max_results=2)

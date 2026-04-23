@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchIP, deleteRecord } from "@/lib/api";
-import { statusBadgeClass } from "@/lib/utils";
+import { statusBadgeClass } from "@/lib/badges";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const COLUMNS = [

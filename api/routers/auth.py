@@ -9,7 +9,7 @@ import re
 
 import auth as auth_mod
 import config
-from database import transaction
+from auth_db import transaction
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 

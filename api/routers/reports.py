@@ -16,14 +16,14 @@ import secrets
 import threading
 
 from auth import get_current_user
+from auth_db import transaction
 from config import REPORTS_DIR, safe_path_within
-from database import transaction
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from field_policy import is_admin_user
 from pydantic import BaseModel
 from services import get_service, list_services
-from services.helpers.llm import extract_params_from_text
+from services.external.llm import extract_params_from_text
 from services.report_builder import (
     STATUS_COMPLETED,
     STATUS_QUEUED,

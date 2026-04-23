@@ -11,12 +11,11 @@ Supported sessions (auto-discovered from directory names):
 
 from __future__ import annotations
 
-import json
 import logging
-from functools import lru_cache
 
 from config import CONFERENCES_DIR
 from fastapi import APIRouter, HTTPException, Query
+from services.conference import load_report_data
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -49,23 +48,13 @@ _SESSION_META: dict[str, dict] = {
 }
 
 
-@lru_cache(maxsize=8)
-def _load_report_data(session_id: str) -> dict:
-    """Load and cache report_data.json for a session."""
-    path = CONFERENCES_DIR / session_id / "report_data.json"
-    if not path.exists():
-        raise FileNotFoundError(f"report_data.json not found for {session_id}")
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
-
-
 def _get_session_data(session_id: str) -> dict:
     """Return {meta, companies} for a session, or raise 404."""
     session_dir = CONFERENCES_DIR / session_id
     if not session_dir.exists():
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
     try:
-        raw = _load_report_data(session_id)
+        raw = load_report_data(session_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return raw
@@ -112,7 +101,7 @@ def list_sessions():
         )
         # Attach live stats
         try:
-            raw = _load_report_data(sid)
+            raw = load_report_data(sid)
             meta = {**meta, **raw.get("meta", {})}
         except Exception:
             pass

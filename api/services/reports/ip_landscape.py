@@ -25,13 +25,14 @@ from typing import Any
 from crm_store import LIKE_ESCAPE, like_contains
 from pydantic import BaseModel
 
-from services.helpers import docx_builder, search
-from services.helpers.text import format_web_results, safe_slug
+from services.document import docx_builder
+from services.external import search
 from services.report_builder import (
     ReportContext,
     ReportResult,
     ReportService,
 )
+from services.text import format_web_results, safe_slug
 
 logger = logging.getLogger(__name__)
 

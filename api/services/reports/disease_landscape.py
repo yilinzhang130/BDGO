@@ -21,8 +21,9 @@ from typing import Any
 from crm_store import LIKE_ESCAPE, like_contains
 from pydantic import BaseModel
 
-from services.helpers import docx_builder, search
-from services.helpers.text import format_web_results, safe_slug
+from services.document import docx_builder
+from services.external import search
+from services.text import format_web_results, safe_slug
 
 # ── Guidelines DB access ─────────────────────────────────────
 _GUIDELINES_DB = os.path.expanduser("~/.openclaw/workspace/guidelines/guidelines.db")

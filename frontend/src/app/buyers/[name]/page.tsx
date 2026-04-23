@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { fetchBuyer, updateRecord } from "@/lib/api";
-import { safeJsonParse } from "@/lib/utils";
+import { safeJsonParse } from "@/lib/format";
 import { EditableField } from "@/components/ui/EditableField";
 
 const SCALAR_FIELDS: [string, string][] = [
