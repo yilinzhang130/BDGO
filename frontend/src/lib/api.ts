@@ -51,7 +51,10 @@ async function put<T = any>(path: string, body?: unknown): Promise<T> {
   handle401(res);
   if (!res.ok) {
     let detail = `${res.status}`;
-    try { const j = await res.json(); detail = j.detail ?? j.message ?? detail; } catch {}
+    try {
+      const j = await res.json();
+      detail = j.detail ?? j.message ?? detail;
+    } catch {}
     throw new Error(detail);
   }
   return res.json();
