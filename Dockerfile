@@ -32,6 +32,11 @@ COPY api/ /app/api/
 
 WORKDIR /app/api
 
+# Run as a non-root user. uvicorn binds 8001 (non-privileged), Alembic talks
+# to Postgres over TCP — no capability requiring root is needed at runtime.
+RUN useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8001
 
 # Health check — hits the /api/health endpoint
