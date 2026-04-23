@@ -3,9 +3,10 @@
 from urllib.parse import unquote
 
 from auth import get_current_user, public_api
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, query_one
 from fastapi import APIRouter, Depends, HTTPException, Query
 from field_policy import strip_hidden
+from services.crm.list_view import list_table_view
 
 router = APIRouter()
 
@@ -42,32 +43,30 @@ def list_deals(
         params.append(like_contains(seller))
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {
-        "交易名称",
-        "交易类型",
-        "买方公司",
-        "卖方/合作方",
-        "交易总额($M)",
-        "宣布日期",
-        "战略评分",
-        "资产名称",
-        "靶点",
-        "临床阶段",
-        "首付款($M)",
-    }
-    sort_col = sort if sort in allowed_sorts else "宣布日期"
-    order_dir = "DESC" if order.lower() == "desc" else "ASC"
-
-    result = paginate(
+    return list_table_view(
         "交易",
         where=where,
         params=tuple(params),
-        order_by=f'"{sort_col}" {order_dir}',
+        sort=sort,
+        order=order,
+        sort_allowlist={
+            "交易名称",
+            "交易类型",
+            "买方公司",
+            "卖方/合作方",
+            "交易总额($M)",
+            "宣布日期",
+            "战略评分",
+            "资产名称",
+            "靶点",
+            "临床阶段",
+            "首付款($M)",
+        },
+        default_sort="宣布日期",
         page=page,
         page_size=page_size,
+        user=user,
     )
-    result["data"] = strip_hidden(result["data"], "交易", user)
-    return result
 
 
 @router.get("/{name}")

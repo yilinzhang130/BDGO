@@ -2,8 +2,9 @@
 
 from urllib.parse import unquote
 
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, query_one
 from fastapi import APIRouter, HTTPException, Query
+from services.crm.list_view import list_table_view
 
 router = APIRouter()
 
@@ -42,24 +43,23 @@ def list_ip(
         params.append(jurisdiction)
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {
-        "专利号",
-        "关联公司",
-        "关联资产",
-        "到期日",
-        "状态",
-        "管辖区",
-        "专利持有人",
-        "专利类型",
-    }
-    sort_col = sort if sort in allowed_sorts else "到期日"
-    order_dir = "DESC" if order.lower() == "desc" else "ASC"
-
-    return paginate(
+    return list_table_view(
         "IP",
         where=where,
         params=tuple(params),
-        order_by=f'"{sort_col}" {order_dir}',
+        sort=sort,
+        order=order,
+        sort_allowlist={
+            "专利号",
+            "关联公司",
+            "关联资产",
+            "到期日",
+            "状态",
+            "管辖区",
+            "专利持有人",
+            "专利类型",
+        },
+        default_sort="到期日",
         page=page,
         page_size=page_size,
     )

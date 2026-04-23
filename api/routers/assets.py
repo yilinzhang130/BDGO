@@ -6,6 +6,7 @@ from auth import get_current_user, public_api
 from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from fastapi import APIRouter, Depends, HTTPException, Query
 from field_policy import strip_hidden
+from services.crm.list_view import list_table_view
 
 router = APIRouter()
 
@@ -58,29 +59,27 @@ def list_assets(
         )""")
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {
-        "资产名称",
-        "所属客户",
-        "临床阶段",
-        "疾病领域",
-        "靶点",
-        "BD优先级",
-        "技术平台类别",
-        "作用机制(MOA)",
-    }
-    sort_col = sort if sort in allowed_sorts else "资产名称"
-    order_dir = "DESC" if order.lower() == "desc" else "ASC"
-
-    result = paginate(
+    return list_table_view(
         "资产",
         where=where,
         params=tuple(params),
-        order_by=f'"{sort_col}" {order_dir}',
+        sort=sort,
+        order=order,
+        sort_allowlist={
+            "资产名称",
+            "所属客户",
+            "临床阶段",
+            "疾病领域",
+            "靶点",
+            "BD优先级",
+            "技术平台类别",
+            "作用机制(MOA)",
+        },
+        default_sort="资产名称",
         page=page,
         page_size=page_size,
+        user=user,
     )
-    result["data"] = strip_hidden(result["data"], "资产", user)
-    return result
 
 
 @router.get("/{company}/{name}")
