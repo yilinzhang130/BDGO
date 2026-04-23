@@ -9,20 +9,22 @@ managed by ``auth_db.py``.
 
 import json
 import logging
-import os
 import traceback
 from contextlib import asynccontextmanager
 
+import config
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from request_id import RequestIDMiddleware, get_request_id
 
 # ── Structured JSON logging ───────────────────────────────────
 # Enabled in production (LOG_FORMAT=json env var or when DATABASE_URL is set).
-# Keeps dev logs human-readable by default.
+# Keeps dev logs human-readable by default. Every line carries the active
+# request_id (or "-" for startup / background tasks).
 
 
 class _JSONFormatter(logging.Formatter):
@@ -31,6 +33,7 @@ class _JSONFormatter(logging.Formatter):
             "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
             "level": record.levelname,
             "logger": record.name,
+            "request_id": get_request_id(),
             "msg": record.getMessage(),
         }
         if record.exc_info:
@@ -39,8 +42,7 @@ class _JSONFormatter(logging.Formatter):
 
 
 _use_json_logs = (
-    os.environ.get("LOG_FORMAT", "").lower() == "json"
-    or bool(os.environ.get("DATABASE_URL"))  # production heuristic
+    config.LOG_FORMAT == "json" or bool(config.DATABASE_URL)  # production heuristic
 )
 
 _handler = logging.StreamHandler()
@@ -125,11 +127,14 @@ app = FastAPI(
 )
 
 _default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
-_cors_env = os.environ.get("CORS_ORIGINS", "")
+_cors_env = ",".join(config.CORS_ORIGINS)
 _allowed_origins = (
     [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else _default_origins
 )
 
+# RequestIDMiddleware added after CORSMiddleware so it wraps CORS as the
+# outermost layer — every log line for the request carries the id,
+# including CORS preflight handling.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
@@ -137,6 +142,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIDMiddleware)
 
 
 # Cross-module contract with auth.py: when an X-API-Key request resolves,

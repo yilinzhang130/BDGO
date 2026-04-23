@@ -18,49 +18,52 @@ import pytest
 
 class TestCreditFormula:
     """
-    测试 record_usage 里的积分计算公式：
+    测试 credits.calc_credits 公式（record_usage 的纯计算部分）：
         credits = input_tokens * input_weight + output_tokens * output_weight
+
+    直接调真函数而不是 re-implement —— 这样公式改了测试会立刻跟着动。
     """
 
-    def _calc(self, input_tokens, output_tokens, input_weight, output_weight):
-        """直接测公式本身，不碰 DB"""
-        input_tokens = max(0, int(input_tokens or 0))
-        output_tokens = max(0, int(output_tokens or 0))
-        return round(input_tokens * input_weight + output_tokens * output_weight, 2)
-
     def test_basic_calculation(self):
-        result = self._calc(1000, 500, 0.001, 0.003)
-        assert result == 2.5  # 1000*0.001 + 500*0.003
+        from credits import calc_credits
+
+        assert calc_credits(1000, 500, 0.001, 0.003) == 2.5  # 1000*0.001 + 500*0.003
 
     def test_zero_tokens_zero_charge(self):
-        result = self._calc(0, 0, 0.001, 0.003)
-        assert result == 0.0
+        from credits import calc_credits
+
+        assert calc_credits(0, 0, 0.001, 0.003) == 0.0
 
     def test_only_input_tokens(self):
-        result = self._calc(2000, 0, 0.001, 0.003)
-        assert result == 2.0
+        from credits import calc_credits
+
+        assert calc_credits(2000, 0, 0.001, 0.003) == 2.0
 
     def test_only_output_tokens(self):
-        result = self._calc(0, 1000, 0.001, 0.005)
-        assert result == 5.0
+        from credits import calc_credits
+
+        assert calc_credits(0, 1000, 0.001, 0.005) == 5.0
 
     def test_negative_tokens_treated_as_zero(self):
         """负数 token 不应产生负积分"""
-        result = self._calc(-100, -200, 0.001, 0.003)
-        assert result == 0.0
+        from credits import calc_credits
+
+        assert calc_credits(-100, -200, 0.001, 0.003) == 0.0
 
     def test_large_token_count(self):
         """80k context window 不溢出"""
-        result = self._calc(80_000, 8_000, 0.001, 0.003)
+        from credits import calc_credits
+
+        result = calc_credits(80_000, 8_000, 0.001, 0.003)
         assert result == 80 + 24  # == 104.0
         assert result > 0
 
     def test_rounding_to_2_decimal_places(self):
         """结果精确到 2 位小数"""
-        result = self._calc(1, 1, 0.0015, 0.0025)
-        assert result == 0.0  # round(0.004, 2) == 0.0 ← 这验证了 round 的行为
-        result2 = self._calc(100, 100, 0.0015, 0.0025)
-        assert result2 == 0.4  # 0.15 + 0.25
+        from credits import calc_credits
+
+        assert calc_credits(1, 1, 0.0015, 0.0025) == 0.0  # round(0.004, 2) == 0.0
+        assert calc_credits(100, 100, 0.0015, 0.0025) == 0.4  # 0.15 + 0.25
 
 
 class TestEnsureBalance:

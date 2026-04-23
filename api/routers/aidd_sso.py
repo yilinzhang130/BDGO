@@ -8,18 +8,16 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import os
 import time
 import urllib.parse
 
 from auth import get_current_user
+from config import AIDD_BASE_URL as _BASE_URL
+from config import AIDD_SSO_SECRET as _SECRET
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter()
-
-_SECRET = os.environ.get("AIDD_SSO_SECRET", "")
-_BASE_URL = os.environ.get("AIDD_BASE_URL", "https://aidd-two.vercel.app")
 
 
 class SsoUrlResponse(BaseModel):

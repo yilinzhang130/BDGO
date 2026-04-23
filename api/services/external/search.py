@@ -10,11 +10,11 @@ See feedback_tavily_key_rotation.md for history.
 from __future__ import annotations
 
 import logging
-import os
 import threading
 from pathlib import Path
 
 import httpx
+from config import TAVILY_API_KEY, TAVILY_API_KEYS
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +25,11 @@ DEFAULT_TIMEOUT = 10.0
 def _load_keys() -> list[str]:
     """Load Tavily keys from env. Tries TAVILY_API_KEYS (comma-separated) first,
     then TAVILY_API_KEY (single), then reads ~/.openclaw/.env as fallback."""
-    # Env vars
-    multi = os.environ.get("TAVILY_API_KEYS", "").strip()
-    if multi:
-        return [k.strip() for k in multi.split(",") if k.strip()]
+    if TAVILY_API_KEYS:
+        return [k.strip() for k in TAVILY_API_KEYS.split(",") if k.strip()]
 
-    single = os.environ.get("TAVILY_API_KEY", "").strip()
-    if single:
-        return [single]
+    if TAVILY_API_KEY:
+        return [TAVILY_API_KEY]
 
     # Fallback: read ~/.openclaw/.env directly since the API server doesn't
     # necessarily inherit the openclaw shell's env

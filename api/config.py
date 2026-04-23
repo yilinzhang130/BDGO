@@ -141,6 +141,47 @@ REPORTS_DIR = Path(
     )
 )
 
+# ─────────────────────────────────────────────────────────────
+# Logging / HTTP
+# ─────────────────────────────────────────────────────────────
+
+# Lower-cased once so callers can do `config.LOG_FORMAT == "json"`.
+LOG_FORMAT = os.environ.get("LOG_FORMAT", "").lower()
+
+# CORS allowlist; empty list = no cross-origin allowed (main.py adds its
+# dev defaults when this is empty).
+CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+
+# ─────────────────────────────────────────────────────────────
+# Rate limits (per-user)
+# ─────────────────────────────────────────────────────────────
+
+MAX_CONCURRENT_CHAT_PER_USER = int(os.environ.get("MAX_CONCURRENT_CHAT_PER_USER", "2"))
+MAX_RPM_PER_USER = int(os.environ.get("MAX_RPM_PER_USER", "20"))
+
+# ─────────────────────────────────────────────────────────────
+# Third-party API keys (optional — features gated on presence)
+# ─────────────────────────────────────────────────────────────
+
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY", "")
+
+# Tavily accepts either a comma-separated multi-key form or a single key;
+# services/external/search.py also falls back to reading ~/.openclaw/.env
+# for local-dev convenience.
+TAVILY_API_KEYS = os.environ.get("TAVILY_API_KEYS", "").strip()
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "").strip()
+
+# SEC EDGAR requires a descriptive User-Agent on every call.
+SEC_USER_AGENT = os.environ.get("SEC_USER_AGENT") or "BD Go Research (bdgo@example.com)"
+
+# ─────────────────────────────────────────────────────────────
+# AIDD SSO (external auth bridge)
+# ─────────────────────────────────────────────────────────────
+
+AIDD_SSO_SECRET = os.environ.get("AIDD_SSO_SECRET", "")
+AIDD_BASE_URL = os.environ.get("AIDD_BASE_URL", "https://aidd-two.vercel.app")
+
 
 # ─────────────────────────────────────────────────────────────
 # Shared helpers

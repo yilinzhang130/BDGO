@@ -17,10 +17,11 @@ each turn re-sends the full history → input_tokens grows per turn.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 
 from config import (
+    CLAUDE_API_KEY,
+    DEEPSEEK_API_KEY,
     MINIMAX_ANTHROPIC_VERSION,
     MINIMAX_KEY,
     MINIMAX_MODEL,
@@ -72,7 +73,7 @@ _MODELS: list[ModelSpec] = [
         display_name="DeepSeek V3",
         provider="deepseek",
         api_url="https://api.deepseek.com/anthropic/v1/messages",
-        api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+        api_key=DEEPSEEK_API_KEY,
         api_model="deepseek-chat",
         anthropic_version="2023-06-01",
         input_weight=0.8,
@@ -85,7 +86,7 @@ _MODELS: list[ModelSpec] = [
         display_name="Claude Sonnet 4",
         provider="anthropic",
         api_url="https://api.anthropic.com/v1/messages",
-        api_key=os.environ.get("CLAUDE_API_KEY", ""),
+        api_key=CLAUDE_API_KEY,
         api_model="claude-sonnet-4",
         anthropic_version="2023-06-01",
         input_weight=5.0,

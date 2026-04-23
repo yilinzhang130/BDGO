@@ -95,6 +95,22 @@ def ensure_balance(user_id: str, min_credits: float = MIN_CREDITS_PER_REQUEST) -
         )
 
 
+def calc_credits(
+    input_tokens: int,
+    output_tokens: int,
+    input_weight: float,
+    output_weight: float,
+) -> float:
+    """Pure credit-cost formula, shared by ``record_usage`` and its tests.
+
+    Keep this branchless: any drift from the stated formula should force
+    a test update, not be hidden inside a DB-touching function.
+    """
+    input_tokens = max(0, int(input_tokens or 0))
+    output_tokens = max(0, int(output_tokens or 0))
+    return round(input_tokens * input_weight + output_tokens * output_weight, 2)
+
+
 def record_usage(
     user_id: str,
     session_id: str | None,
@@ -111,7 +127,7 @@ def record_usage(
     """
     input_tokens = max(0, int(input_tokens or 0))
     output_tokens = max(0, int(output_tokens or 0))
-    credits_charged = round(input_tokens * input_weight + output_tokens * output_weight, 2)
+    credits_charged = calc_credits(input_tokens, output_tokens, input_weight, output_weight)
 
     try:
         with auth_db.transaction() as cur:

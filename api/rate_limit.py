@@ -23,17 +23,17 @@ Admins bypass both limits (is_admin flag checked by the caller).
 from __future__ import annotations
 
 import asyncio
-import os
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 
+from config import MAX_CONCURRENT_CHAT_PER_USER, MAX_RPM_PER_USER
 from fastapi import HTTPException
 
 # Sized against the MiniMax pool: with 10 keys × 2 concurrency = 20 total
 # slots, per-user 2 streams serves ~10 active users without queueing.
-MAX_CONCURRENT_CHAT = int(os.environ.get("MAX_CONCURRENT_CHAT_PER_USER", "2"))
-MAX_RPM = int(os.environ.get("MAX_RPM_PER_USER", "20"))
+MAX_CONCURRENT_CHAT = MAX_CONCURRENT_CHAT_PER_USER
+MAX_RPM = MAX_RPM_PER_USER
 
 # Concurrent slot tracking
 _active: dict[str, int] = defaultdict(int)
