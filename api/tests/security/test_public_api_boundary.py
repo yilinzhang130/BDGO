@@ -69,14 +69,17 @@ def mock_crm_queries(monkeypatch):
     """
     import crm_store
     import routers.buyers as buyers_router
+    import services.crm.list_view as list_view_mod
 
     fake_paginate = MagicMock(return_value={"data": [], "page": 1, "page_size": 50, "total": 0})
     fake_query_one = MagicMock(return_value=None)
 
     monkeypatch.setattr(crm_store, "paginate", fake_paginate)
     monkeypatch.setattr(crm_store, "query_one", fake_query_one)
-    # buyers.py 里 import 的是符号，需要替换到模块本地
-    monkeypatch.setattr(buyers_router, "paginate", fake_paginate)
+    # Python import 的是符号绑定，需要在实际调用方的模块本地替换：
+    #   - buyers.list_buyers 通过 list_table_view → services.crm.list_view.paginate
+    #   - buyers.get_buyer 直接 import crm_store.query_one
+    monkeypatch.setattr(list_view_mod, "paginate", fake_paginate)
     monkeypatch.setattr(buyers_router, "query_one", fake_query_one)
 
 
