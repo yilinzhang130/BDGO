@@ -62,7 +62,6 @@
 | S-009 | 2026-04-24 | structure | D2 | medium | open | S | n/a | api/conferences/ | Directory named like a subpackage but contains only `AACR-2026/report_data.json` — no Python code | Either rename to `api/data/conferences/` to reflect its role as a data store, or move JSON into `workspace/` per the output-path convention. Conference logic actually lives in `routers/conference.py` |
 | S-010 | 2026-04-24 | structure | C4 | medium | open | S | n/a | frontend/src/lib/utils.ts | `utils.ts` mixes 5 unrelated responsibilities: SSR guard, fire-and-forget promise helper, number formatting, 4 badge-class helpers, safe JSON parse, chart color palette | Split into `browser.ts` (isBrowser, bg), `format.ts` (formatNumber, parseNum, safeJsonParse), `badges.ts` (4 badge helpers), `chart-colors.ts` (COLORS). Currently imported by auth/reports/sessions |
 | S-011 | 2026-04-24 | structure | F1/F2 | medium | open | L | n/a | api/tests/ | Test tree does not mirror source. Only 4 unit tests (auth_helpers, credits, field_policy, tool_registry) + 1 security test. Zero tests for `services/` (11 report services), `routers/` (24 routers), or `crm_store.py`. `tests/integration/` empty | Mirror source layout: `tests/unit/services/reports/test_<each>.py`, `tests/unit/routers/test_<each>.py`, `tests/integration/test_crud_flow.py` |
-| S-013 | 2026-04-24 | structure | C4 | low | open | S | n/a | frontend/src/components/charts/ | Empty directory | Delete it, or add a README noting it's reserved |
 
 ---
 
@@ -95,3 +94,4 @@
 
 | ID | Date | Scope | Rubric | File:Line | Why False-Positive |
 |----|------|-------|--------|-----------|---------------------|
+| S-013 | 2026-04-24 | structure | C4 | frontend/src/components/charts/ | `ls` showed an empty directory locally, but git doesn't track empty dirs — `git ls-files` returned nothing. No repo-level fix needed; the dir never existed for anyone cloning the repo. Systematic lesson: structure review must distinguish "on disk" from "in git" before flagging empty dirs. |
