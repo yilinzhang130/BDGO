@@ -28,14 +28,15 @@ logger = logging.getLogger(__name__)
 # Tuning knobs
 # ─────────────────────────────────────────────────────────────
 
-KEEP_VERBATIM = 4              # last N user+assistant turns kept as-is
-TOKEN_BUDGET = 40_000          # target tokens after layer 1
-CHARS_PER_TOKEN = 2.5          # rough estimator for mixed CJK+ASCII
+KEEP_VERBATIM = 4  # last N user+assistant turns kept as-is
+TOKEN_BUDGET = 40_000  # target tokens after layer 1
+CHARS_PER_TOKEN = 2.5  # rough estimator for mixed CJK+ASCII
 
 
 # ─────────────────────────────────────────────────────────────
 # Estimation
 # ─────────────────────────────────────────────────────────────
+
 
 def estimate_tokens(history: list[dict]) -> int:
     """Cheap char-based token estimate for a history list."""
@@ -69,6 +70,7 @@ def estimate_tokens(history: list[dict]) -> int:
 # Layer 1 — strip old tool blocks
 # ─────────────────────────────────────────────────────────────
 
+
 def strip_tool_blocks_from_old(
     history: list[dict],
     keep_last_n: int,
@@ -93,10 +95,9 @@ def strip_tool_blocks_from_old(
         if isinstance(content, list):
             # Keep only text blocks in old zone
             text_blocks = [
-                b for b in content
-                if isinstance(b, dict)
-                and b.get("type") == "text"
-                and b.get("text", "").strip()
+                b
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text" and b.get("text", "").strip()
             ]
             if text_blocks:
                 result.append({"role": m["role"], "content": text_blocks})
@@ -111,6 +112,7 @@ def strip_tool_blocks_from_old(
 # ─────────────────────────────────────────────────────────────
 # Full pipeline (layer 1 + layer 2)
 # ─────────────────────────────────────────────────────────────
+
 
 async def compact_if_needed(
     session_id: str,
@@ -169,8 +171,5 @@ def _wrap_brief(brief: str) -> dict:
     """Format a raw brief string as a user turn the LLM understands."""
     return {
         "role": "user",
-        "content": (
-            f"[会话早前内容的摘要，供你参考]\n{brief}\n\n"
-            "[以下是最近几轮对话的原文]"
-        ),
+        "content": (f"[会话早前内容的摘要，供你参考]\n{brief}\n\n[以下是最近几轮对话的原文]"),
     }

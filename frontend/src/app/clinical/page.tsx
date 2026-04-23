@@ -33,7 +33,9 @@ export default function ClinicalPage() {
     fetchClinical({ q, phase, status, result, sort, order, page, page_size: 50 }).then(setData);
   }, [q, phase, status, result, sort, order, page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSort = (col: string) => {
     if (sort === col) {
@@ -55,25 +57,52 @@ export default function ClinicalPage() {
         <input
           placeholder="Search trial / company / asset..."
           value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
           style={{ width: 260 }}
         />
-        <select value={phase} onChange={(e) => { setPhase(e.target.value); setPage(1); }}>
+        <select
+          value={phase}
+          onChange={(e) => {
+            setPhase(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Phases</option>
           {["Phase 1", "Phase 1/2", "Phase 2", "Phase 2/3", "Phase 3", "Phase 4"].map((p) => (
-            <option key={p} value={p}>{p}</option>
+            <option key={p} value={p}>
+              {p}
+            </option>
           ))}
         </select>
-        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Status</option>
           {["已读出", "进行中", "入组中", "待读出", "终止", "撤回"].map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s}
+            </option>
           ))}
         </select>
-        <select value={result} onChange={(e) => { setResult(e.target.value); setPage(1); }}>
+        <select
+          value={result}
+          onChange={(e) => {
+            setResult(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Results</option>
           {["积极", "混合", "阴性", "未达成"].map((r) => (
-            <option key={r} value={r}>{r}</option>
+            <option key={r} value={r}>
+              {r}
+            </option>
           ))}
         </select>
       </div>
@@ -101,12 +130,22 @@ export default function ClinicalPage() {
                   <td>{t["公司名称"] || "-"}</td>
                   <td>{t["资产名称"] || "-"}</td>
                   <td>{t["适应症"]?.slice(0, 30) || "-"}</td>
-                  <td><span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>{t["临床期次"] || "-"}</span></td>
+                  <td>
+                    <span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>
+                      {t["临床期次"] || "-"}
+                    </span>
+                  </td>
                   <td>{t["主要终点名称"] || "-"}</td>
                   <td>
-                    {t["主要终点结果值"] != null ? `${t["主要终点结果值"]}${t["主要终点单位"] || ""}` : "-"}
+                    {t["主要终点结果值"] != null
+                      ? `${t["主要终点结果值"]}${t["主要终点单位"] || ""}`
+                      : "-"}
                   </td>
-                  <td><span className={`badge ${resultBadgeClass(t["结果判定"])}`}>{t["结果判定"] || "-"}</span></td>
+                  <td>
+                    <span className={`badge ${resultBadgeClass(t["结果判定"])}`}>
+                      {t["结果判定"] || "-"}
+                    </span>
+                  </td>
                   <td>{t["安全性标志"] || "-"}</td>
                   <td>{t["数据状态"] || "-"}</td>
                 </tr>
@@ -117,9 +156,15 @@ export default function ClinicalPage() {
 
         {data && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-            <span>Page {data.page} of {data.total_pages}</span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Prev
+            </button>
+            <span>
+              Page {data.page} of {data.total_pages}
+            </span>
+            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
+              Next
+            </button>
           </div>
         )}
       </div>

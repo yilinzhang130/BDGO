@@ -10,11 +10,20 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ReportButton } from "@/components/ui/ReportButton";
 import { useAuth } from "@/components/AuthProvider";
 import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Tooltip,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  Tooltip,
 } from "recharts";
 
-interface Section { title: string; fields: [string, string][]; defaultOpen?: boolean; }
+interface Section {
+  title: string;
+  fields: [string, string][];
+  defaultOpen?: boolean;
+}
 
 const SECTIONS: Section[] = [
   {
@@ -104,12 +113,16 @@ export default function AssetDetailPage() {
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    SECTIONS.forEach((s) => { init[s.title] = s.defaultOpen ?? false; });
+    SECTIONS.forEach((s) => {
+      init[s.title] = s.defaultOpen ?? false;
+    });
     return init;
   });
 
   useEffect(() => {
-    fetchAsset(company, name).then(setAsset).catch(() => setNotFound(true));
+    fetchAsset(company, name)
+      .then(setAsset)
+      .catch(() => setNotFound(true));
     fetchAssetTrials(company, name).then(setTrials);
   }, [company, name]);
 
@@ -144,12 +157,21 @@ export default function AssetDetailPage() {
       <button
         onClick={() => router.back()}
         style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          margin: "12px 0 0 16px", padding: "4px 10px",
-          background: "none", border: "1px solid #d1d5db", borderRadius: 6,
-          fontSize: 13, color: "#6b7280", cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          margin: "12px 0 0 16px",
+          padding: "4px 10px",
+          background: "none",
+          border: "1px solid #d1d5db",
+          borderRadius: 6,
+          fontSize: 13,
+          color: "#6b7280",
+          cursor: "pointer",
         }}
-      >← 返回</button>
+      >
+        ← 返回
+      </button>
       <div className="detail-header">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -159,10 +181,17 @@ export default function AssetDetailPage() {
               <ReportButton entityType="资产" entityKey={name} />
             </div>
             <div className="meta">
-              <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => router.push(`/companies/${encodeURIComponent(company)}`)}>
+              <span
+                style={{ cursor: "pointer", textDecoration: "underline" }}
+                onClick={() => router.push(`/companies/${encodeURIComponent(company)}`)}
+              >
                 {company}
               </span>
-              {asset["临床阶段"] && <span className={`badge ${phaseBadgeClass(asset["临床阶段"])}`}>{asset["临床阶段"]}</span>}
+              {asset["临床阶段"] && (
+                <span className={`badge ${phaseBadgeClass(asset["临床阶段"])}`}>
+                  {asset["临床阶段"]}
+                </span>
+              )}
               {asset["疾病领域"] && <span>{asset["疾病领域"]}</span>}
               {asset["靶点"] && <span>Target: {asset["靶点"]}</span>}
             </div>
@@ -170,7 +199,15 @@ export default function AssetDetailPage() {
           {isAdmin && (
             <button
               onClick={() => setShowDelete(true)}
-              style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
+              style={{
+                padding: "0.4rem 0.9rem",
+                background: "white",
+                color: "var(--red)",
+                border: "1px solid var(--red)",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
             >
               Delete
             </button>
@@ -200,7 +237,15 @@ export default function AssetDetailPage() {
       {asset["资产描述"] && (
         <div className="card" style={{ marginBottom: "0.75rem" }}>
           <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.95rem" }}>Description</h3>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.85rem",
+              color: "var(--text-secondary)",
+              lineHeight: 1.6,
+              whiteSpace: "pre-wrap",
+            }}
+          >
             {asset["资产描述"]}
           </p>
         </div>
@@ -209,8 +254,17 @@ export default function AssetDetailPage() {
       {SECTIONS.map((section) => (
         <div key={section.title} className="card" style={{ marginBottom: "0.75rem" }}>
           <h3
-            onClick={() => setOpenSections((prev) => ({ ...prev, [section.title]: !prev[section.title] }))}
-            style={{ margin: 0, fontSize: "0.95rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
+            onClick={() =>
+              setOpenSections((prev) => ({ ...prev, [section.title]: !prev[section.title] }))
+            }
+            style={{
+              margin: 0,
+              fontSize: "0.95rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
           >
             <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
               {openSections[section.title] ? "\u25BC" : "\u25B6"}
@@ -218,7 +272,15 @@ export default function AssetDetailPage() {
             {section.title}
           </h3>
           {openSections[section.title] && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.6rem", fontSize: "0.85rem", marginTop: "0.75rem" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                gap: "0.6rem",
+                fontSize: "0.85rem",
+                marginTop: "0.75rem",
+              }}
+            >
               {section.fields.map(([label, dbCol]) =>
                 isAdmin ? (
                   <EditableField
@@ -229,10 +291,27 @@ export default function AssetDetailPage() {
                   />
                 ) : (
                   <div key={dbCol} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
-                    <span style={{ fontSize: "0.85rem", color: asset[dbCol] ? "var(--text)" : "var(--text-secondary)" }}>{asset[dbCol] || "—"}</span>
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "var(--text-secondary)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "0.85rem",
+                        color: asset[dbCol] ? "var(--text)" : "var(--text-secondary)",
+                      }}
+                    >
+                      {asset[dbCol] || "—"}
+                    </span>
                   </div>
-                )
+                ),
               )}
             </div>
           )}
@@ -240,12 +319,22 @@ export default function AssetDetailPage() {
       ))}
 
       <div className="card">
-        <h3 style={{ margin: "0 0 1rem", fontSize: "0.95rem" }}>Clinical Trials ({trials?.total ?? "..."})</h3>
+        <h3 style={{ margin: "0 0 1rem", fontSize: "0.95rem" }}>
+          Clinical Trials ({trials?.total ?? "..."})
+        </h3>
         <div className="data-table-wrapper">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Trial ID</th><th>Indication</th><th>Phase</th><th>Arm</th><th>Primary Endpoint</th><th>Value</th><th>Result</th><th>Safety</th><th>Status</th>
+                <th>Trial ID</th>
+                <th>Indication</th>
+                <th>Phase</th>
+                <th>Arm</th>
+                <th>Primary Endpoint</th>
+                <th>Value</th>
+                <th>Result</th>
+                <th>Safety</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -253,11 +342,23 @@ export default function AssetDetailPage() {
                 <tr key={t["记录ID"]}>
                   <td>{t["试验ID"]}</td>
                   <td>{t["适应症"]?.slice(0, 35) || "-"}</td>
-                  <td><span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>{t["临床期次"] || "-"}</span></td>
+                  <td>
+                    <span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>
+                      {t["临床期次"] || "-"}
+                    </span>
+                  </td>
                   <td>{t["臂名称"] || "-"}</td>
                   <td>{t["主要终点名称"] || "-"}</td>
-                  <td>{t["主要终点结果值"] != null ? `${t["主要终点结果值"]}${t["主要终点单位"] || ""}` : "-"}</td>
-                  <td><span className={`badge ${resultBadgeClass(t["结果判定"])}`}>{t["结果判定"] || "-"}</span></td>
+                  <td>
+                    {t["主要终点结果值"] != null
+                      ? `${t["主要终点结果值"]}${t["主要终点单位"] || ""}`
+                      : "-"}
+                  </td>
+                  <td>
+                    <span className={`badge ${resultBadgeClass(t["结果判定"])}`}>
+                      {t["结果判定"] || "-"}
+                    </span>
+                  </td>
                   <td>{t["安全性标志"] || "-"}</td>
                   <td>{t["数据状态"] || "-"}</td>
                 </tr>

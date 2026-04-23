@@ -54,9 +54,7 @@ export function ContextCard({ entity, onRemove }: Props) {
           {TYPE_LABELS[entity.entityType] || entity.entityType}
         </span>
       </div>
-      {entity.subtitle && (
-        <div className="context-card-subtitle">{entity.subtitle}</div>
-      )}
+      {entity.subtitle && <div className="context-card-subtitle">{entity.subtitle}</div>}
       {entity.fields.length > 0 && (
         <div className="context-card-fields">
           {entity.fields.slice(0, 4).map((f, i) => (

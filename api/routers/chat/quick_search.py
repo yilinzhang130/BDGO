@@ -12,7 +12,6 @@ import json
 import logging
 
 import httpx
-
 from models import resolve_model
 from services.helpers.search import search_web
 
@@ -81,7 +80,10 @@ async def stream_quick_search(req):
     try:
         async with httpx.AsyncClient(timeout=120) as client:
             async for event_type, payload in stream_with_fallback(
-                client, history, model, usage_accum,
+                client,
+                history,
+                model,
+                usage_accum,
                 system_prompt=QUICK_SEARCH_SYSTEM_PROMPT,
                 tools=[],
             ):
@@ -100,7 +102,8 @@ async def stream_quick_search(req):
             # the same way regular assistant turns do.
             await asyncio.to_thread(
                 save_message,
-                session_id, "assistant",
+                session_id,
+                "assistant",
                 [{"type": "text", "text": final_text}],
                 json.dumps({"kind": "quick_search", "sources": sources}, ensure_ascii=False),
             )

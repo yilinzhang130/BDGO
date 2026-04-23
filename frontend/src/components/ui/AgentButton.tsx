@@ -11,29 +11,38 @@ interface Props {
   onComplete?: () => void;
 }
 
-export function AgentButton({ label, agent = "company_analyst", message, style, onComplete }: Props) {
+export function AgentButton({
+  label,
+  agent = "company_analyst",
+  message,
+  style,
+  onComplete,
+}: Props) {
   const [taskId, setTaskId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const pollStatus = useCallback(async (id: string) => {
-    try {
-      const result = await fetchTaskStatus(id);
-      setStatus(result.status);
-      if (result.status === "completed") {
-        if (onComplete) onComplete();
-        return;
+  const pollStatus = useCallback(
+    async (id: string) => {
+      try {
+        const result = await fetchTaskStatus(id);
+        setStatus(result.status);
+        if (result.status === "completed") {
+          if (onComplete) onComplete();
+          return;
+        }
+        if (result.status === "failed" || result.status === "timeout") {
+          setError(result.error || "Task failed");
+          return;
+        }
+        // Still running — poll again
+        setTimeout(() => pollStatus(id), 3000);
+      } catch {
+        setError("Failed to check status");
       }
-      if (result.status === "failed" || result.status === "timeout") {
-        setError(result.error || "Task failed");
-        return;
-      }
-      // Still running — poll again
-      setTimeout(() => pollStatus(id), 3000);
-    } catch {
-      setError("Failed to check status");
-    }
-  }, [onComplete]);
+    },
+    [onComplete],
+  );
 
   const handleClick = async () => {
     if (status === "running" || status === "queued") return;
@@ -51,19 +60,24 @@ export function AgentButton({ label, agent = "company_analyst", message, style, 
 
   const isRunning = status === "running" || status === "queued";
 
-  const statusLabel = {
-    idle: label,
-    queued: "Queued...",
-    running: "Analyzing...",
-    completed: "Done!",
-    failed: "Failed",
-    timeout: "Timeout",
-  }[status] || label;
+  const statusLabel =
+    {
+      idle: label,
+      queued: "Queued...",
+      running: "Analyzing...",
+      completed: "Done!",
+      failed: "Failed",
+      timeout: "Timeout",
+    }[status] || label;
 
-  const bgColor = status === "completed" ? "#10b981"
-    : status === "failed" || status === "timeout" ? "var(--red)"
-    : isRunning ? "#94a3b8"
-    : undefined;
+  const bgColor =
+    status === "completed"
+      ? "#10b981"
+      : status === "failed" || status === "timeout"
+        ? "var(--red)"
+        : isRunning
+          ? "#94a3b8"
+          : undefined;
 
   return (
     <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}>
@@ -85,7 +99,13 @@ export function AgentButton({ label, agent = "company_analyst", message, style, 
         }}
       >
         {isRunning && (
-          <span style={{ display: "inline-block", marginRight: "0.4rem", animation: "spin 1s linear infinite" }}>
+          <span
+            style={{
+              display: "inline-block",
+              marginRight: "0.4rem",
+              animation: "spin 1s linear infinite",
+            }}
+          >
             &#9696;
           </span>
         )}

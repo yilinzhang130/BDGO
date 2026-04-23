@@ -54,24 +54,67 @@ export default function SecurityPage() {
       <LandingNav />
 
       {/* Hero */}
-      <div style={{ textAlign: "center", padding: "72px 32px 44px", maxWidth: 680, margin: "0 auto" }}>
-        <div style={{ display: "inline-block", fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EEF2FF", padding: "4px 14px", borderRadius: 20, marginBottom: 20, letterSpacing: "0.05em" }}>
+      <div
+        style={{ textAlign: "center", padding: "72px 32px 44px", maxWidth: 680, margin: "0 auto" }}
+      >
+        <div
+          style={{
+            display: "inline-block",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#2563EB",
+            background: "#EEF2FF",
+            padding: "4px 14px",
+            borderRadius: 20,
+            marginBottom: 20,
+            letterSpacing: "0.05em",
+          }}
+        >
           安全与合规
         </div>
-        <h1 style={{ fontSize: 38, fontWeight: 800, color: "#0F172A", lineHeight: 1.2, margin: "0 0 16px" }}>
+        <h1
+          style={{
+            fontSize: 38,
+            fontWeight: 800,
+            color: "#0F172A",
+            lineHeight: 1.2,
+            margin: "0 0 16px",
+          }}
+        >
           审慎、透明地对待您的数据
         </h1>
         <p style={{ fontSize: 16, color: "#64748B", lineHeight: 1.7, margin: 0 }}>
-          BD Go 目前处于早期运营阶段。以下是我们实际已采取的安全措施，以及未来将持续完善的方向。我们不以营销名义夸大安全能力。
+          BD Go
+          目前处于早期运营阶段。以下是我们实际已采取的安全措施，以及未来将持续完善的方向。我们不以营销名义夸大安全能力。
         </p>
       </div>
 
       {/* Measures grid */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px 48px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 20 }}>
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+          padding: "0 32px 48px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+          gap: 20,
+        }}
+      >
         {measures.map((m) => (
-          <div key={m.title} style={{ background: "#fff", borderRadius: 16, border: "1px solid #E8EFFE", padding: "24px", boxShadow: "0 2px 12px rgba(30,58,138,0.04)" }}>
+          <div
+            key={m.title}
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              border: "1px solid #E8EFFE",
+              padding: "24px",
+              boxShadow: "0 2px 12px rgba(30,58,138,0.04)",
+            }}
+          >
             <div style={{ fontSize: 28, marginBottom: 12 }}>{m.icon}</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A", marginBottom: 8 }}>{m.title}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A", marginBottom: 8 }}>
+              {m.title}
+            </div>
             <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.6 }}>{m.desc}</div>
           </div>
         ))}
@@ -88,7 +131,8 @@ export default function SecurityPage() {
           <li>《生成式人工智能服务管理暂行办法》</li>
         </ul>
         <p style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.7, margin: "18px 0 0" }}>
-          遵循上述法律并不等同于已完成第三方认证。BD Go 尚未完成等级保护备案、ISO 27001 或 SOC 2 等外部认证，我们将随业务规模扩大及客户需要推进相关评估，并在取得后于本页面更新。
+          遵循上述法律并不等同于已完成第三方认证。BD Go 尚未完成等级保护备案、ISO 27001 或 SOC 2
+          等外部认证，我们将随业务规模扩大及客户需要推进相关评估，并在取得后于本页面更新。
         </p>
       </InfoCard>
 
@@ -100,7 +144,11 @@ export default function SecurityPage() {
 
       <InfoCard title="漏洞披露与联系" bottomPad={80}>
         <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.8, margin: "0 0 14px" }}>
-          如您在使用过程中发现潜在安全漏洞或数据异常，欢迎通过 <a href="mailto:security@bdgo.ai" style={{ color: "#2563EB", textDecoration: "none" }}>security@bdgo.ai</a> 与我们联系。我们承诺：
+          如您在使用过程中发现潜在安全漏洞或数据异常，欢迎通过{" "}
+          <a href="mailto:security@bdgo.ai" style={{ color: "#2563EB", textDecoration: "none" }}>
+            security@bdgo.ai
+          </a>{" "}
+          与我们联系。我们承诺：
         </p>
         <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: "#374151", lineHeight: 1.9 }}>
           <li>在合理期限内确认收到您的报告；</li>
@@ -116,11 +164,28 @@ export default function SecurityPage() {
   );
 }
 
-function InfoCard({ title, children, bottomPad = 24 }: { title: string; children: React.ReactNode; bottomPad?: number }) {
+function InfoCard({
+  title,
+  children,
+  bottomPad = 24,
+}: {
+  title: string;
+  children: React.ReactNode;
+  bottomPad?: number;
+}) {
   return (
     <div style={{ maxWidth: 820, margin: "0 auto", padding: `0 32px ${bottomPad}px` }}>
-      <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #E8EFFE", padding: "32px 36px" }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A", margin: "0 0 10px" }}>{title}</h2>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 20,
+          border: "1px solid #E8EFFE",
+          padding: "32px 36px",
+        }}
+      >
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A", margin: "0 0 10px" }}>
+          {title}
+        </h2>
         {children}
       </div>
     </div>

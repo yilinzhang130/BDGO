@@ -12,16 +12,14 @@
     就会通过 API 泄露给外部合作伙伴。
 """
 
-import pytest
-from field_policy import strip_hidden, can_see_internal_fields, HIDDEN_FIELDS
-
+from field_policy import HIDDEN_FIELDS, can_see_internal_fields, strip_hidden
 
 # ════════════════════════════════════════════════════════════════
 # can_see_internal_fields
 # ════════════════��═════════════════════���═════════════════════════
 
-class TestCanSeeInternalFields:
 
+class TestCanSeeInternalFields:
     def test_external_user_cannot_see(self, external_user):
         assert can_see_internal_fields(external_user) is False
 
@@ -51,8 +49,8 @@ class TestCanSeeInternalFields:
 # strip_hidden — 字段剥离核心逻辑
 # ═════════════════════════════════════════════════════════���══════
 
-class TestStripHidden:
 
+class TestStripHidden:
     # ── 单行 dict ──────────────────────────────────────────────
 
     def test_external_cannot_see_bd_priority(self, sample_company_row, external_user):

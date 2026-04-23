@@ -50,10 +50,36 @@ export default function FeaturesPage() {
       <LandingNav />
 
       {/* Hero */}
-      <div style={{ textAlign: "center", padding: "72px 32px 56px", maxWidth: 720, margin: "0 auto" }}>
-        <div style={{ display: "inline-block", fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EEF2FF", padding: "4px 14px", borderRadius: 20, marginBottom: 20, letterSpacing: "0.05em" }}>功能特性</div>
-        <h1 style={{ fontSize: 40, fontWeight: 800, color: "#0F172A", lineHeight: 1.2, margin: "0 0 16px" }}>
-          为 BD 团队打造的<br />每一项能力
+      <div
+        style={{ textAlign: "center", padding: "72px 32px 56px", maxWidth: 720, margin: "0 auto" }}
+      >
+        <div
+          style={{
+            display: "inline-block",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#2563EB",
+            background: "#EEF2FF",
+            padding: "4px 14px",
+            borderRadius: 20,
+            marginBottom: 20,
+            letterSpacing: "0.05em",
+          }}
+        >
+          功能特性
+        </div>
+        <h1
+          style={{
+            fontSize: 40,
+            fontWeight: 800,
+            color: "#0F172A",
+            lineHeight: 1.2,
+            margin: "0 0 16px",
+          }}
+        >
+          为 BD 团队打造的
+          <br />
+          每一项能力
         </h1>
         <p style={{ fontSize: 17, color: "#64748B", lineHeight: 1.7, margin: 0 }}>
           从情报获取到报告交付，BD Go 覆盖生物医药商务拓展的完整工作流。
@@ -61,11 +87,31 @@ export default function FeaturesPage() {
       </div>
 
       {/* Feature grid */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px 80px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 }}>
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+          padding: "0 32px 80px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          gap: 24,
+        }}
+      >
         {features.map((f) => (
-          <div key={f.title} style={{ background: "#fff", borderRadius: 16, border: "1px solid #E8EFFE", padding: "28px 28px 24px", boxShadow: "0 2px 12px rgba(30,58,138,0.05)" }}>
+          <div
+            key={f.title}
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              border: "1px solid #E8EFFE",
+              padding: "28px 28px 24px",
+              boxShadow: "0 2px 12px rgba(30,58,138,0.05)",
+            }}
+          >
             <div style={{ fontSize: 32, marginBottom: 16 }}>{f.icon}</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", marginBottom: 10 }}>{f.title}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", marginBottom: 10 }}>
+              {f.title}
+            </div>
             <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.7 }}>{f.desc}</div>
           </div>
         ))}
@@ -73,9 +119,26 @@ export default function FeaturesPage() {
 
       {/* CTA */}
       <div style={{ background: "#1E3A8A", textAlign: "center", padding: "56px 32px" }}>
-        <h2 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: "0 0 12px" }}>准备好开始了吗？</h2>
-        <p style={{ fontSize: 15, color: "#93C5FD", margin: "0 0 28px" }}>申请内测资格，免费体验所有功能。</p>
-        <Link href="/login" style={{ fontSize: 15, fontWeight: 700, color: "#1E3A8A", background: "#fff", padding: "14px 36px", borderRadius: 12, textDecoration: "none" }}>申请试用 →</Link>
+        <h2 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: "0 0 12px" }}>
+          准备好开始了吗？
+        </h2>
+        <p style={{ fontSize: 15, color: "#93C5FD", margin: "0 0 28px" }}>
+          申请内测资格，免费体验所有功能。
+        </p>
+        <Link
+          href="/login"
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: "#1E3A8A",
+            background: "#fff",
+            padding: "14px 36px",
+            borderRadius: 12,
+            textDecoration: "none",
+          }}
+        >
+          申请试用 →
+        </Link>
       </div>
     </div>
   );

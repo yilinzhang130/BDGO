@@ -133,7 +133,8 @@ def search_web(
                 # Ban this key for the rest of the process and try the next one
                 logger.warning(
                     "Tavily key banned (status=%d, key=...%s) — advancing",
-                    resp.status_code, key[-6:],
+                    resp.status_code,
+                    key[-6:],
                 )
                 with _lock:
                     _banned.add(key)

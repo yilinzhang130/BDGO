@@ -58,7 +58,9 @@ def _make_report_tool(_svc):
         # Async: spawn thread, return immediately. execute_task writes its
         # own state transitions to the DB.
         threading.Thread(
-            target=execute_task, args=(task_id, _svc, kwargs), daemon=True,
+            target=execute_task,
+            args=(task_id, _svc, kwargs),
+            daemon=True,
         ).start()
         return {
             "task_id": task_id,
@@ -88,11 +90,13 @@ try:
     from services import REPORT_SERVICES
 
     for _svc in REPORT_SERVICES.values():
-        SCHEMAS.append({
-            "name": _svc.chat_tool_name,
-            "description": _svc.chat_tool_description,
-            "input_schema": _svc.chat_tool_input_schema,
-        })
+        SCHEMAS.append(
+            {
+                "name": _svc.chat_tool_name,
+                "description": _svc.chat_tool_description,
+                "input_schema": _svc.chat_tool_input_schema,
+            }
+        )
         IMPLS[_svc.chat_tool_name] = _make_report_tool(_svc)
         TOOL_NAME_TO_SLUG[_svc.chat_tool_name] = _svc.slug
 

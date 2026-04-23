@@ -27,7 +27,9 @@ export default function BuyersPage() {
     fetchBuyers({ q, sort, order, page, page_size: 50 }).then(setData);
   }, [q, sort, order, page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSort = (col: string) => {
     if (sort === col) {
@@ -49,7 +51,10 @@ export default function BuyersPage() {
         <input
           placeholder="Search buyer company..."
           value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
           style={{ width: 260 }}
         />
       </div>
@@ -89,9 +94,15 @@ export default function BuyersPage() {
 
         {data && data.total_pages > 1 && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-            <span>Page {data.page} of {data.total_pages}</span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Prev
+            </button>
+            <span>
+              Page {data.page} of {data.total_pages}
+            </span>
+            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
+              Next
+            </button>
           </div>
         )}
       </div>

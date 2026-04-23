@@ -33,7 +33,10 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
   };
 
   const handleUpload = async () => {
-    if (!file) { setError("No file selected"); return; }
+    if (!file) {
+      setError("No file selected");
+      return;
+    }
     setUploading(true);
     setUploadPct(0);
     setError("");
@@ -85,12 +88,27 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.4)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: "var(--bg-card)", borderRadius: 12, padding: "1.5rem", maxWidth: 480, width: "90%", boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}
+        style={{
+          background: "var(--bg-card)",
+          borderRadius: 12,
+          padding: "1.5rem",
+          maxWidth: 480,
+          width: "90%",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+        }}
       >
         <h3 style={{ margin: "0 0 1rem", fontSize: "1rem" }}>
           Upload Business Plan {company ? `for ${company}` : "(New Company)"}
@@ -99,7 +117,10 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
         {stage === "upload" && (
           <>
             <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
               onDragLeave={() => setDragOver(false)}
               onDrop={(e) => {
                 e.preventDefault();
@@ -108,26 +129,48 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
               }}
               style={{
                 border: `2px dashed ${dragOver ? "var(--accent)" : "var(--border)"}`,
-                borderRadius: 8, padding: "2rem", textAlign: "center",
-                background: dragOver ? "var(--accent-light)" : "var(--bg)", marginBottom: "1rem", transition: "all 0.2s",
+                borderRadius: 8,
+                padding: "2rem",
+                textAlign: "center",
+                background: dragOver ? "var(--accent-light)" : "var(--bg)",
+                marginBottom: "1rem",
+                transition: "all 0.2s",
               }}
             >
               {file ? (
                 <div>
                   <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>{file.name}</div>
-                  <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "var(--text-secondary)",
+                      marginTop: "0.25rem",
+                    }}
+                  >
                     {(file.size / 1024 / 1024).toFixed(1)} MB
                   </div>
                 </div>
               ) : (
-                <div style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "0.75rem" }}>
+                <div
+                  style={{
+                    color: "var(--text-secondary)",
+                    fontSize: "0.9rem",
+                    marginBottom: "0.75rem",
+                  }}
+                >
                   Drop a file here, or choose below
                 </div>
               )}
               <label
                 style={{
-                  display: "inline-block", padding: "0.5rem 1.2rem", background: "var(--accent)",
-                  color: "white", borderRadius: 6, cursor: "pointer", fontSize: "0.85rem", fontWeight: 600,
+                  display: "inline-block",
+                  padding: "0.5rem 1.2rem",
+                  background: "var(--accent)",
+                  color: "white",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
                 }}
               >
                 {file ? "Change File" : "Choose File"}
@@ -136,33 +179,64 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
                   type="file"
                   accept=".pdf,.pptx,.ppt,.docx,.doc"
                   style={{ display: "none" }}
-                  onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleFile(e.target.files[0]);
+                  }}
                 />
               </label>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>
+              <div
+                style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}
+              >
                 PDF, PPTX, DOCX supported
               </div>
             </div>
 
-            {error && <div style={{ color: "var(--red)", fontSize: "0.85rem", marginBottom: "0.75rem" }}>{error}</div>}
+            {error && (
+              <div style={{ color: "var(--red)", fontSize: "0.85rem", marginBottom: "0.75rem" }}>
+                {error}
+              </div>
+            )}
 
             {uploading && (
               <div style={{ marginBottom: "0.75rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", color: "var(--text-secondary)", marginBottom: "0.3rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.78rem",
+                    color: "var(--text-secondary)",
+                    marginBottom: "0.3rem",
+                  }}
+                >
                   <span>上传中…</span>
                   <span>{uploadPct}%</span>
                 </div>
-                <div style={{ height: 6, background: "var(--border)", borderRadius: 99, overflow: "hidden" }}>
-                  <div style={{
-                    height: "100%",
-                    width: `${uploadPct}%`,
-                    background: "var(--accent)",
+                <div
+                  style={{
+                    height: 6,
+                    background: "var(--border)",
                     borderRadius: 99,
-                    transition: "width 0.2s ease",
-                  }} />
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${uploadPct}%`,
+                      background: "var(--accent)",
+                      borderRadius: 99,
+                      transition: "width 0.2s ease",
+                    }}
+                  />
                 </div>
                 {file && (
-                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+                  <div
+                    style={{
+                      fontSize: "0.72rem",
+                      color: "var(--text-muted)",
+                      marginTop: "0.25rem",
+                    }}
+                  >
                     {(file.size / 1024 / 1024).toFixed(1)} MB — {file.name}
                   </div>
                 )}
@@ -170,13 +244,34 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
             )}
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-              <button onClick={onClose} disabled={uploading} style={{ padding: "0.45rem 1rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg-card)", cursor: uploading ? "not-allowed" : "pointer", fontSize: "0.85rem", opacity: uploading ? 0.5 : 1 }}>
+              <button
+                onClick={onClose}
+                disabled={uploading}
+                style={{
+                  padding: "0.45rem 1rem",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  background: "var(--bg-card)",
+                  cursor: uploading ? "not-allowed" : "pointer",
+                  fontSize: "0.85rem",
+                  opacity: uploading ? 0.5 : 1,
+                }}
+              >
                 Cancel
               </button>
               <button
                 onClick={handleUpload}
                 disabled={!file || uploading}
-                style={{ padding: "0.45rem 1rem", border: "none", borderRadius: 6, background: file && !uploading ? "var(--accent)" : "#94a3b8", color: "white", cursor: file && !uploading ? "pointer" : "not-allowed", fontSize: "0.85rem", fontWeight: 600 }}
+                style={{
+                  padding: "0.45rem 1rem",
+                  border: "none",
+                  borderRadius: 6,
+                  background: file && !uploading ? "var(--accent)" : "#94a3b8",
+                  color: "white",
+                  cursor: file && !uploading ? "pointer" : "not-allowed",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                }}
               >
                 {uploading ? `${uploadPct}%` : "Upload"}
               </button>
@@ -186,17 +281,46 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
 
         {stage === "uploaded" && (
           <div style={{ textAlign: "center", padding: "1rem 0" }}>
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#10b981" }}>&#10003;</div>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#10b981" }}>
+              &#10003;
+            </div>
             <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Upload Successful</div>
-            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }}>{result.filename}</div>
+            <div
+              style={{
+                fontSize: "0.85rem",
+                color: "var(--text-secondary)",
+                marginBottom: "1.5rem",
+              }}
+            >
+              {result.filename}
+            </div>
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
               <button
                 onClick={handleAnalyze}
-                style={{ padding: "0.5rem 1.2rem", border: "none", borderRadius: 6, background: "#8b5cf6", color: "white", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}
+                style={{
+                  padding: "0.5rem 1.2rem",
+                  border: "none",
+                  borderRadius: 6,
+                  background: "#8b5cf6",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                }}
               >
                 Run AI Analysis
               </button>
-              <button onClick={onClose} style={{ padding: "0.45rem 1rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg-card)", cursor: "pointer", fontSize: "0.85rem" }}>
+              <button
+                onClick={onClose}
+                style={{
+                  padding: "0.45rem 1rem",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  background: "var(--bg-card)",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                }}
+              >
                 Skip
               </button>
             </div>
@@ -205,15 +329,37 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
 
         {stage === "analyzing" && (
           <div style={{ textAlign: "center", padding: "2rem 0" }}>
-            <div style={{ fontSize: "1.5rem", marginBottom: "0.75rem", animation: "spin 2s linear infinite" }}>&#9696;</div>
+            <div
+              style={{
+                fontSize: "1.5rem",
+                marginBottom: "0.75rem",
+                animation: "spin 2s linear infinite",
+              }}
+            >
+              &#9696;
+            </div>
             <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>AI Analysis Running</div>
             <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
               Status: {analysisStatus}
             </div>
-            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>
-              This may take 10-20 minutes. You can close this dialog — analysis will continue in the background.
+            <div
+              style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}
+            >
+              This may take 10-20 minutes. You can close this dialog — analysis will continue in the
+              background.
             </div>
-            <button onClick={onClose} style={{ marginTop: "1rem", padding: "0.45rem 1rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg-card)", cursor: "pointer", fontSize: "0.85rem" }}>
+            <button
+              onClick={onClose}
+              style={{
+                marginTop: "1rem",
+                padding: "0.45rem 1rem",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                background: "var(--bg-card)",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+              }}
+            >
               Close (runs in background)
             </button>
           </div>
@@ -221,12 +367,28 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
 
         {stage === "done" && (
           <div style={{ textAlign: "center", padding: "2rem 0" }}>
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#10b981" }}>&#10003;</div>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#10b981" }}>
+              &#10003;
+            </div>
             <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>Analysis Complete</div>
-            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
+            <div
+              style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "1rem" }}
+            >
               分析完成，数据已成功入库。
             </div>
-            <button onClick={onClose} style={{ padding: "0.45rem 1rem", border: "none", borderRadius: 6, background: "var(--accent)", color: "white", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}>
+            <button
+              onClick={onClose}
+              style={{
+                padding: "0.45rem 1rem",
+                border: "none",
+                borderRadius: 6,
+                background: "var(--accent)",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+              }}
+            >
               Done
             </button>
           </div>
@@ -234,14 +396,42 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
 
         {stage === "failed" && (
           <div style={{ textAlign: "center", padding: "1rem 0" }}>
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "var(--red)" }}>&#10007;</div>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "var(--red)" }}>
+              &#10007;
+            </div>
             <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Analysis Failed</div>
-            {error && <div style={{ fontSize: "0.85rem", color: "var(--red)", marginBottom: "1rem" }}>{error}</div>}
+            {error && (
+              <div style={{ fontSize: "0.85rem", color: "var(--red)", marginBottom: "1rem" }}>
+                {error}
+              </div>
+            )}
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
-              <button onClick={handleAnalyze} style={{ padding: "0.45rem 1rem", border: "none", borderRadius: 6, background: "#8b5cf6", color: "white", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}>
+              <button
+                onClick={handleAnalyze}
+                style={{
+                  padding: "0.45rem 1rem",
+                  border: "none",
+                  borderRadius: 6,
+                  background: "#8b5cf6",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                }}
+              >
                 Retry
               </button>
-              <button onClick={onClose} style={{ padding: "0.45rem 1rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg-card)", cursor: "pointer", fontSize: "0.85rem" }}>
+              <button
+                onClick={onClose}
+                style={{
+                  padding: "0.45rem 1rem",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  background: "var(--bg-card)",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                }}
+              >
                 Close
               </button>
             </div>

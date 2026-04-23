@@ -130,20 +130,23 @@ def edgar_find_filings(company: str = "", form_type: str = "10-K", limit: int = 
         accession_nd = accession_no.replace("-", "")
         doc = primary_docs[i] if i < len(primary_docs) else ""
         filing_date = dates[i] if i < len(dates) else ""
-        results.append({
-            "form": f,
-            "filing_date": filing_date,
-            "accession_number": accession_no,
-            "primary_document": doc,
-            "html_url": (
-                f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/"
-                f"{accession_nd}/{doc}"
-            ) if doc and accession_nd else "",
-            "index_url": (
-                f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany"
-                f"&CIK={cik}&type={wanted}&dateb=&owner=include&count=40"
-            ),
-        })
+        results.append(
+            {
+                "form": f,
+                "filing_date": filing_date,
+                "accession_number": accession_no,
+                "primary_document": doc,
+                "html_url": (
+                    f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession_nd}/{doc}"
+                )
+                if doc and accession_nd
+                else "",
+                "index_url": (
+                    f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany"
+                    f"&CIK={cik}&type={wanted}&dateb=&owner=include&count=40"
+                ),
+            }
+        )
         if len(results) >= min(limit, 20):
             break
 
@@ -159,8 +162,7 @@ def edgar_find_filings(company: str = "", form_type: str = "10-K", limit: int = 
     }
 
 
-def edgar_fetch_section(filing_url: str = "", keywords: str = "",
-                         max_excerpt_chars: int = 4000):
+def edgar_fetch_section(filing_url: str = "", keywords: str = "", max_excerpt_chars: int = 4000):
     """Fetch a filing's primary HTML/text and return keyword-filtered excerpts.
 
     Not a full RAG — just grep-like windowing to pull the most relevant
@@ -176,7 +178,9 @@ def edgar_fetch_section(filing_url: str = "", keywords: str = "",
 
     # 10-K exhibits can be tens of MB; refuse rather than OOM the worker.
     if len(r.text) > 25_000_000:
-        return {"error": f"Filing too large ({len(r.text) // 1_000_000} MB). Try a specific exhibit URL or upload the PDF."}
+        return {
+            "error": f"Filing too large ({len(r.text) // 1_000_000} MB). Try a specific exhibit URL or upload the PDF."
+        }
 
     text = re.sub(r"<[^>]+>", " ", r.text)
     text = re.sub(r"&nbsp;", " ", text)
@@ -187,7 +191,7 @@ def edgar_fetch_section(filing_url: str = "", keywords: str = "",
         return {
             "filing_url": filing_url,
             "total_chars": len(text),
-            "head": text[: max_excerpt_chars],
+            "head": text[:max_excerpt_chars],
             "note": "No keywords provided — returning document head only.",
         }
 
@@ -204,10 +208,12 @@ def edgar_fetch_section(filing_url: str = "", keywords: str = "",
                 break
             start = max(0, idx - window)
             end = min(len(text), idx + window)
-            excerpts.append({
-                "keyword": kw,
-                "snippet": text[start:end].strip(),
-            })
+            excerpts.append(
+                {
+                    "keyword": kw,
+                    "snippet": text[start:end].strip(),
+                }
+            )
             pos = end
             hits += 1
 
@@ -245,9 +251,20 @@ SCHEMAS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "company": {"type": "string", "description": "Company ticker (e.g. 'PFE', 'BMY') or full name (e.g. 'Pfizer Inc', 'Vertex Pharmaceuticals')."},
-                "form_type": {"type": "string", "description": "SEC form type, default '10-K'. Common: 10-K, 10-Q, 8-K, S-1, 20-F.", "default": "10-K"},
-                "limit": {"type": "integer", "description": "Max filings to return (default 5, cap 20).", "default": 5},
+                "company": {
+                    "type": "string",
+                    "description": "Company ticker (e.g. 'PFE', 'BMY') or full name (e.g. 'Pfizer Inc', 'Vertex Pharmaceuticals').",
+                },
+                "form_type": {
+                    "type": "string",
+                    "description": "SEC form type, default '10-K'. Common: 10-K, 10-Q, 8-K, S-1, 20-F.",
+                    "default": "10-K",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max filings to return (default 5, cap 20).",
+                    "default": 5,
+                },
             },
             "required": ["company"],
         },
@@ -263,9 +280,19 @@ SCHEMAS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "filing_url": {"type": "string", "description": "The html_url from edgar_find_filings output."},
-                "keywords": {"type": "string", "description": "Comma-separated keywords, e.g. 'pipeline, tivdak, strategic priorities'. Omit for document head only."},
-                "max_excerpt_chars": {"type": "integer", "description": "Cap on total excerpt length (default 4000).", "default": 4000},
+                "filing_url": {
+                    "type": "string",
+                    "description": "The html_url from edgar_find_filings output.",
+                },
+                "keywords": {
+                    "type": "string",
+                    "description": "Comma-separated keywords, e.g. 'pipeline, tivdak, strategic priorities'. Omit for document head only.",
+                },
+                "max_excerpt_chars": {
+                    "type": "integer",
+                    "description": "Cap on total excerpt length (default 4000).",
+                    "default": 4000,
+                },
             },
             "required": ["filing_url"],
         },

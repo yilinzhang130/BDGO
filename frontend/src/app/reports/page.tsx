@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { fetchReportServices, reportDownloadUrl, createShareLink, fetchReportTasks } from "@/lib/api";
+import {
+  fetchReportServices,
+  reportDownloadUrl,
+  createShareLink,
+  fetchReportTasks,
+} from "@/lib/api";
 import { downloadWithAuth } from "@/lib/download";
-import { useReportsStore, removeCompletedReport, addCompletedReport, type CompletedReport } from "@/lib/reports";
+import {
+  useReportsStore,
+  removeCompletedReport,
+  addCompletedReport,
+  type CompletedReport,
+} from "@/lib/reports";
 import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
 import { useAuth } from "@/components/AuthProvider";
 import { parsePreferences } from "@/lib/auth";
@@ -56,13 +66,17 @@ export default function ReportsPage() {
       try {
         const { tasks } = await fetchReportTasks();
         const active = tasks.filter((t) => t.status === "queued" || t.status === "running");
-        const nextIds = active.map((t) => t.task_id).sort().join(",");
+        const nextIds = active
+          .map((t) => t.task_id)
+          .sort()
+          .join(",");
         if (nextIds !== lastActiveIdsRef.current) {
           lastActiveIdsRef.current = nextIds;
           setRunningTasks(active);
         }
-        const newlyCompleted = tasks
-          .filter((t) => t.status === "completed" && !seenCompletedRef.current.has(t.task_id));
+        const newlyCompleted = tasks.filter(
+          (t) => t.status === "completed" && !seenCompletedRef.current.has(t.task_id),
+        );
         newlyCompleted.forEach((t) => seenCompletedRef.current.add(t.task_id));
         if (newlyCompleted.length > 0) addCompletedReport(newlyCompleted[0]);
       } catch {
@@ -116,11 +130,7 @@ export default function ReportsPage() {
               }}
             >
               {services.map((svc) => (
-                <ServiceCard
-                  key={svc.slug}
-                  service={svc}
-                  onClick={() => setSelected(svc)}
-                />
+                <ServiceCard key={svc.slug} service={svc} onClick={() => setSelected(svc)} />
               ))}
             </div>
           )}
@@ -138,7 +148,18 @@ export default function ReportsPage() {
           }}
         >
           <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-            报告功能已简化为 chat 内的 slash command。在对话框输入 <code style={{ background: "var(--bg-subtle)", padding: "1px 6px", borderRadius: 4, fontSize: "0.78rem" }}>/</code> 查看可用命令，或直接用自然语言描述需求。
+            报告功能已简化为 chat 内的 slash command。在对话框输入{" "}
+            <code
+              style={{
+                background: "var(--bg-subtle)",
+                padding: "1px 6px",
+                borderRadius: 4,
+                fontSize: "0.78rem",
+              }}
+            >
+              /
+            </code>{" "}
+            查看可用命令，或直接用自然语言描述需求。
           </div>
           <Link
             href="/profile"
@@ -158,28 +179,66 @@ export default function ReportsPage() {
       {/* Running tasks */}
       {runningTasks.length > 0 && (
         <section style={{ marginBottom: "2rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.75rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: "0.75rem",
+            }}
+          >
             <h2 style={{ fontSize: "0.95rem", margin: 0, fontWeight: 700 }}>进行中</h2>
-            <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{runningTasks.length} 个任务</span>
+            <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+              {runningTasks.length} 个任务
+            </span>
           </div>
           {runningTasks.map((task) => (
-            <div key={task.task_id} className="card" style={{ padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.85rem", marginBottom: "0.5rem" }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "tool-spin 0.7s linear infinite", width: 18, height: 18, flexShrink: 0 }}>
+            <div
+              key={task.task_id}
+              className="card"
+              style={{
+                padding: "0.75rem 1rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.85rem",
+                marginBottom: "0.5rem",
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                style={{
+                  animation: "tool-spin 0.7s linear infinite",
+                  width: 18,
+                  height: 18,
+                  flexShrink: 0,
+                }}
+              >
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
               </svg>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "0.87rem", fontWeight: 600, color: "var(--text)" }}>
                   {services.find((s) => s.slug === task.slug)?.display_name || task.slug}
                 </div>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.1rem" }}>
+                <div
+                  style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.1rem" }}
+                >
                   {task.status === "queued" ? "排队中…" : "生成中…"} · {task.task_id}
                 </div>
               </div>
-              <span style={{
-                fontSize: "0.68rem", fontWeight: 600, padding: "0.2rem 0.55rem",
-                borderRadius: 20, background: task.status === "running" ? "#dbeafe" : "#f1f5f9",
-                color: task.status === "running" ? "#1d4ed8" : "#64748b",
-              }}>
+              <span
+                style={{
+                  fontSize: "0.68rem",
+                  fontWeight: 600,
+                  padding: "0.2rem 0.55rem",
+                  borderRadius: 20,
+                  background: task.status === "running" ? "#dbeafe" : "#f1f5f9",
+                  color: task.status === "running" ? "#1d4ed8" : "#64748b",
+                }}
+              >
                 {task.status === "running" ? "运行中" : "排队中"}
               </span>
             </div>
@@ -205,9 +264,7 @@ export default function ReportsPage() {
 
         {reports.length === 0 ? (
           <div className="card" style={{ textAlign: "center", padding: "2rem 1rem" }}>
-            <div style={{ fontSize: "1.8rem", marginBottom: "0.5rem", opacity: 0.4 }}>
-              ▤
-            </div>
+            <div style={{ fontSize: "1.8rem", marginBottom: "0.5rem", opacity: 0.4 }}>▤</div>
             <p
               style={{
                 margin: 0,
@@ -227,12 +284,7 @@ export default function ReportsPage() {
         )}
       </section>
 
-      {selected && (
-        <ReportGenerateDialog
-          service={selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
+      {selected && <ReportGenerateDialog service={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }
@@ -241,13 +293,7 @@ export default function ReportsPage() {
 // Service card
 // ═══════════════════════════════════════════════════════════
 
-function ServiceCard({
-  service,
-  onClick,
-}: {
-  service: ReportService;
-  onClick: () => void;
-}) {
+function ServiceCard({ service, onClick }: { service: ReportService; onClick: () => void }) {
   const categoryIcons: Record<string, string> = {
     research: "📖",
     report: "📊",
@@ -315,9 +361,7 @@ function ServiceCard({
       >
         <span>⏱ ~{service.estimated_seconds}s</span>
         <span>·</span>
-        <span>
-          {service.output_formats.map((f) => `.${f}`).join(" ")}
-        </span>
+        <span>{service.output_formats.map((f) => `.${f}`).join(" ")}</span>
         <span>·</span>
         <span>{service.mode}</span>
       </div>
@@ -328,7 +372,6 @@ function ServiceCard({
 // ═══════════════════════════════════════════════════════════
 // History row
 // ═══════════════════════════════════════════════════════════
-
 
 function HistoryRow({ report }: { report: CompletedReport }) {
   const age = formatAge(report.createdAt);
@@ -398,7 +441,10 @@ function HistoryRow({ report }: { report: CompletedReport }) {
             {report.meta?.paper_count && ` · ${report.meta.paper_count} papers`}
           </div>
         </div>
-        <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
           {report.files.map((f) => {
             const state = dlState[f.format] || "idle";
             return (
@@ -479,7 +525,14 @@ function HistoryRow({ report }: { report: CompletedReport }) {
         >
           <Markdown remarkPlugins={[remarkGfm]}>{report.markdownPreview}</Markdown>
           {report.markdownPreview.length >= 2000 && (
-            <div style={{ marginTop: "0.75rem", fontSize: "0.72rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+            <div
+              style={{
+                marginTop: "0.75rem",
+                fontSize: "0.72rem",
+                color: "var(--text-muted)",
+                fontStyle: "italic",
+              }}
+            >
               — 预览截断（前2000字），完整内容请下载报告文件 —
             </div>
           )}

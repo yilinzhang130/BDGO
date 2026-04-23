@@ -14,11 +14,9 @@ from __future__ import annotations
 import json
 import logging
 from functools import lru_cache
-from pathlib import Path
-
-from fastapi import APIRouter, HTTPException, Query
 
 from config import CONFERENCES_DIR
+from fastapi import APIRouter, HTTPException, Query
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -69,13 +67,14 @@ def _get_session_data(session_id: str) -> dict:
     try:
         raw = _load_report_data(session_id)
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     return raw
 
 
 # ─────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────
+
 
 def _match(value: str | None, q: str) -> bool:
     if not q:
@@ -86,6 +85,7 @@ def _match(value: str | None, q: str) -> bool:
 # ─────────────────────────────────────────────────────────────
 # Endpoints
 # ─────────────────────────────────────────────────────────────
+
 
 @router.get("/sessions")
 def list_sessions():
@@ -98,15 +98,18 @@ def list_sessions():
         # Only include sessions that have report_data.json
         if not (dir_path / "report_data.json").exists():
             continue
-        meta = _SESSION_META.get(sid, {
-            "id": sid,
-            "name": sid,
-            "full_name": sid,
-            "date": "",
-            "location": "",
-            "type": "conference",
-            "data_format": "report_data",
-        })
+        meta = _SESSION_META.get(
+            sid,
+            {
+                "id": sid,
+                "name": sid,
+                "full_name": sid,
+                "date": "",
+                "location": "",
+                "type": "conference",
+                "data_format": "report_data",
+            },
+        )
         # Attach live stats
         try:
             raw = _load_report_data(sid)
@@ -174,7 +177,7 @@ def list_companies(
 
     total = len(filtered)
     start = (page - 1) * page_size
-    page_items = filtered[start: start + page_size]
+    page_items = filtered[start : start + page_size]
 
     # Return summary cards (omit full abstract bodies to keep response small)
     cards = []
@@ -191,17 +194,19 @@ def list_companies(
             }
             for a in abstracts[:3]
         ]
-        cards.append({
-            "company": c.get("company"),
-            "客户类型": c.get("客户类型"),
-            "所处国家": c.get("所处国家"),
-            "Ticker": c.get("Ticker"),
-            "市值/估值": c.get("市值/估值"),
-            "CT_count": c.get("CT_count", 0),
-            "LB_count": c.get("LB_count", 0),
-            "abstract_count": len(abstracts),
-            "top_abstracts": top_abstracts,
-        })
+        cards.append(
+            {
+                "company": c.get("company"),
+                "客户类型": c.get("客户类型"),
+                "所处国家": c.get("所处国家"),
+                "Ticker": c.get("Ticker"),
+                "市值/估值": c.get("市值/估值"),
+                "CT_count": c.get("CT_count", 0),
+                "LB_count": c.get("LB_count", 0),
+                "abstract_count": len(abstracts),
+                "top_abstracts": top_abstracts,
+            }
+        )
 
     # Facet counts for filter dropdowns
     all_types = sorted({c.get("客户类型") or "" for c in filtered if c.get("客户类型")})
@@ -231,7 +236,9 @@ def get_company(session_id: str, company_name: str):
         None,
     )
     if match is None:
-        raise HTTPException(status_code=404, detail=f"Company '{company_name}' not found in {session_id}")
+        raise HTTPException(
+            status_code=404, detail=f"Company '{company_name}' not found in {session_id}"
+        )
     return match
 
 
@@ -269,29 +276,35 @@ def list_abstracts(
             if kind and ab.get("kind") != kind:
                 continue
             if q_lower:
-                searchable = " ".join([
-                    ab.get("title") or "",
-                    " ".join(ab.get("targets") or []),
-                    comp_name,
-                    ab.get("conclusion") or "",
-                ]).lower()
+                searchable = " ".join(
+                    [
+                        ab.get("title") or "",
+                        " ".join(ab.get("targets") or []),
+                        comp_name,
+                        ab.get("conclusion") or "",
+                    ]
+                ).lower()
                 if q_lower not in searchable:
                     continue
-            all_abstracts.append({
-                **ab,
-                "company": comp_name,
-                "客户类型": comp_type,
-                "所处国家": comp_country,
-                "Ticker": c.get("Ticker"),
-            })
+            all_abstracts.append(
+                {
+                    **ab,
+                    "company": comp_name,
+                    "客户类型": comp_type,
+                    "所处国家": comp_country,
+                    "Ticker": c.get("Ticker"),
+                }
+            )
 
     # Sort: CT first, then LB, then regular; within each group by company name
     _KIND_ORDER = {"CT": 0, "LB": 1, "regular": 2}
-    all_abstracts.sort(key=lambda a: (_KIND_ORDER.get(a.get("kind", "regular"), 2), a.get("company", "")))
+    all_abstracts.sort(
+        key=lambda a: (_KIND_ORDER.get(a.get("kind", "regular"), 2), a.get("company", ""))
+    )
 
     total = len(all_abstracts)
     start = (page - 1) * page_size
-    page_items = all_abstracts[start: start + page_size]
+    page_items = all_abstracts[start : start + page_size]
 
     # Facets from the unfiltered (company/country/type) flattened set
     all_companies = sorted({c.get("company") or "" for c in companies if c.get("company")})

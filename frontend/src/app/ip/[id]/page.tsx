@@ -37,7 +37,9 @@ export default function PatentDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
 
   useEffect(() => {
-    fetchPatent(id).then(setPatent).catch(() => setNotFound(true));
+    fetchPatent(id)
+      .then(setPatent)
+      .catch(() => setNotFound(true));
   }, [id]);
 
   if (notFound) return <div className="loading">Patent not found</div>;
@@ -63,13 +65,17 @@ export default function PatentDetailPage() {
               {patent["关联公司"] && (
                 <span
                   style={{ cursor: "pointer", textDecoration: "underline" }}
-                  onClick={() => router.push(`/companies/${encodeURIComponent(patent["关联公司"])}`)}
+                  onClick={() =>
+                    router.push(`/companies/${encodeURIComponent(patent["关联公司"])}`)
+                  }
                 >
                   {patent["关联公司"]}
                 </span>
               )}
               {patent["状态"] && (
-                <span className={`badge ${statusBadgeClass(patent["状态"])}`}>{patent["状态"]}</span>
+                <span className={`badge ${statusBadgeClass(patent["状态"])}`}>
+                  {patent["状态"]}
+                </span>
               )}
               {patent["管辖区"] && <span>{patent["管辖区"]}</span>}
               {patent["专利类型"] && <span>{patent["专利类型"]}</span>}
@@ -78,7 +84,15 @@ export default function PatentDetailPage() {
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
               onClick={() => setShowDelete(true)}
-              style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
+              style={{
+                padding: "0.4rem 0.9rem",
+                background: "white",
+                color: "var(--red)",
+                border: "1px solid var(--red)",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
             >
               Delete
             </button>
@@ -88,7 +102,10 @@ export default function PatentDetailPage() {
 
       {/* Date summary card */}
       {(patent["申请日"] || patent["到期日"]) && (
-        <div className="card" style={{ marginBottom: "1rem", display: "flex", gap: "2rem", fontSize: "0.9rem" }}>
+        <div
+          className="card"
+          style={{ marginBottom: "1rem", display: "flex", gap: "2rem", fontSize: "0.9rem" }}
+        >
           {patent["申请日"] && (
             <div>
               <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Filing Date</div>
@@ -104,12 +121,16 @@ export default function PatentDetailPage() {
           {patent["到期日"] && (
             <div>
               <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Expiry Date</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--red)" }}>{patent["到期日"]}</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--red)" }}>
+                {patent["到期日"]}
+              </div>
             </div>
           )}
           {patent["PTE延期到期日"] && (
             <div>
-              <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>PTE Extended Expiry</div>
+              <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+                PTE Extended Expiry
+              </div>
               <div style={{ fontSize: "1.1rem", fontWeight: 600 }}>{patent["PTE延期到期日"]}</div>
             </div>
           )}
@@ -120,7 +141,14 @@ export default function PatentDetailPage() {
       {patent["权利要求摘要"] && (
         <div className="card" style={{ marginBottom: "1rem" }}>
           <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.95rem" }}>Claims Summary</h3>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.85rem",
+              color: "var(--text-secondary)",
+              lineHeight: 1.6,
+            }}
+          >
             {patent["权利要求摘要"]}
           </p>
         </div>
@@ -128,7 +156,14 @@ export default function PatentDetailPage() {
 
       <div className="card">
         <h3 style={{ margin: "0 0 1rem", fontSize: "0.95rem" }}>Patent Details</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.6rem", fontSize: "0.85rem" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: "0.6rem",
+            fontSize: "0.85rem",
+          }}
+        >
           {INFO_FIELDS.map(([label, dbCol]) => (
             <EditableField
               key={dbCol}

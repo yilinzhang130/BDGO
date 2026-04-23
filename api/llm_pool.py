@@ -26,9 +26,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncIterator
 
 import httpx
 
@@ -44,7 +44,7 @@ class KeySlot:
     key: str
     in_flight: int = 0
     fail_count: int = 0
-    muted_until: float = 0.0       # monotonic ts; 0 = active
+    muted_until: float = 0.0  # monotonic ts; 0 = active
     total_requests: int = 0
     total_failures: int = 0
 
@@ -72,7 +72,8 @@ class LLMPool:
 
     @asynccontextmanager
     async def acquire(
-        self, timeout: float = DEFAULT_ACQUIRE_TIMEOUT,
+        self,
+        timeout: float = DEFAULT_ACQUIRE_TIMEOUT,
     ) -> AsyncIterator[str]:
         """Yield an API key, blocking up to `timeout` seconds if saturated.
 
@@ -81,10 +82,9 @@ class LLMPool:
         """
         try:
             await asyncio.wait_for(self._global_sem.acquire(), timeout=timeout)
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise PoolSaturatedError(
-                f"{self.provider} pool saturated for {timeout}s "
-                f"(capacity={self.total_capacity})"
+                f"{self.provider} pool saturated for {timeout}s (capacity={self.total_capacity})"
             ) from e
 
         chosen: KeySlot | None = None
@@ -106,7 +106,9 @@ class LLMPool:
             self._global_sem.release()
 
     def mark_failure(
-        self, key: str, mute_seconds: float = DEFAULT_MUTE_SECONDS,
+        self,
+        key: str,
+        mute_seconds: float = DEFAULT_MUTE_SECONDS,
     ) -> None:
         """Record a failure. After FAIL_STREAK_THRESHOLD in a row, temporarily mute the key."""
         slot = self._by_key.get(key)
@@ -118,7 +120,10 @@ class LLMPool:
             slot.muted_until = time.monotonic() + mute_seconds
             logger.warning(
                 "%s key …%s muted for %.0fs after %d failures",
-                self.provider, _key_suffix(key), mute_seconds, slot.fail_count,
+                self.provider,
+                _key_suffix(key),
+                mute_seconds,
+                slot.fail_count,
             )
 
     def mute(self, key: str, seconds: float = DEFAULT_MUTE_SECONDS) -> None:
@@ -132,7 +137,9 @@ class LLMPool:
         slot.muted_until = time.monotonic() + seconds
         logger.warning(
             "%s key …%s force-muted for %.0fs",
-            self.provider, _key_suffix(key), seconds,
+            self.provider,
+            _key_suffix(key),
+            seconds,
         )
 
     def mark_success(self, key: str) -> None:
@@ -143,7 +150,9 @@ class LLMPool:
         if slot.fail_count:
             logger.info(
                 "%s key …%s recovered after %d failures",
-                self.provider, _key_suffix(key), slot.fail_count,
+                self.provider,
+                _key_suffix(key),
+                slot.fail_count,
             )
         slot.fail_count = 0
         slot.muted_until = 0.0
@@ -216,7 +225,9 @@ def init_pool() -> None:
 
     logger.info(
         "LLM pool: provider=minimax keys=%d per_key=%d total_capacity=%d",
-        len(MINIMAX_KEYS), MINIMAX_PER_KEY_CONCURRENCY, cap,
+        len(MINIMAX_KEYS),
+        MINIMAX_PER_KEY_CONCURRENCY,
+        cap,
     )
 
 
@@ -244,9 +255,7 @@ def get_pool() -> LLMPool:
 def get_client() -> httpx.AsyncClient:
     """Return the shared httpx client. Raises if init_pool() hasn't run."""
     if _http_client is None:
-        raise RuntimeError(
-            "Shared httpx client not initialized — init_pool() must run on startup"
-        )
+        raise RuntimeError("Shared httpx client not initialized — init_pool() must run on startup")
     return _http_client
 
 
@@ -256,7 +265,7 @@ def pool_available() -> bool:
 
 
 @asynccontextmanager
-async def acquire_for(model) -> AsyncIterator[tuple[str, "LLMPool | None"]]:
+async def acquire_for(model) -> AsyncIterator[tuple[str, LLMPool | None]]:
     """Yield (api_key, pool_or_None) for the given model.
 
     MiniMax goes through the shared pool (fair multi-key scheduling).

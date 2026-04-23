@@ -73,7 +73,9 @@ export default function DealDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
 
   useEffect(() => {
-    fetchDeal(name).then(setDeal).catch(() => setNotFound(true));
+    fetchDeal(name)
+      .then(setDeal)
+      .catch(() => setNotFound(true));
   }, [name]);
 
   if (notFound) return <div className="loading">Deal not found</div>;
@@ -111,21 +113,33 @@ export default function DealDetailPage() {
               {deal["卖方/合作方"] && (
                 <span
                   style={{ cursor: "pointer", textDecoration: "underline" }}
-                  onClick={() => router.push(`/companies/${encodeURIComponent(deal["卖方/合作方"])}`)}
+                  onClick={() =>
+                    router.push(`/companies/${encodeURIComponent(deal["卖方/合作方"])}`)
+                  }
                 >
                   Seller: {deal["卖方/合作方"]}
                 </span>
               )}
               {deal["宣布日期"] && <span>{deal["宣布日期"]}</span>}
               {deal["临床阶段"] && (
-                <span className={`badge ${phaseBadgeClass(deal["临床阶段"])}`}>{deal["临床阶段"]}</span>
+                <span className={`badge ${phaseBadgeClass(deal["临床阶段"])}`}>
+                  {deal["临床阶段"]}
+                </span>
               )}
             </div>
           </div>
           {isAdmin && (
             <button
               onClick={() => setShowDelete(true)}
-              style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
+              style={{
+                padding: "0.4rem 0.9rem",
+                background: "white",
+                color: "var(--red)",
+                border: "1px solid var(--red)",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
             >
               Delete
             </button>
@@ -135,7 +149,10 @@ export default function DealDetailPage() {
 
       {/* Financial summary card */}
       {(deal["首付款($M)"] || deal["交易总额($M)"]) && (
-        <div className="card" style={{ marginBottom: "1rem", display: "flex", gap: "2rem", fontSize: "0.9rem" }}>
+        <div
+          className="card"
+          style={{ marginBottom: "1rem", display: "flex", gap: "2rem", fontSize: "0.9rem" }}
+        >
           {deal["首付款($M)"] && (
             <div>
               <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Upfront</div>
@@ -150,13 +167,19 @@ export default function DealDetailPage() {
           )}
           {deal["交易总额($M)"] && (
             <div>
-              <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Total Deal Value</div>
-              <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--accent)" }}>${deal["交易总额($M)"]}M</div>
+              <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+                Total Deal Value
+              </div>
+              <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--accent)" }}>
+                ${deal["交易总额($M)"]}M
+              </div>
             </div>
           )}
           {deal["战略评分"] && (
             <div>
-              <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Strategic Score</div>
+              <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+                Strategic Score
+              </div>
               <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{deal["战略评分"]}</div>
             </div>
           )}
@@ -167,7 +190,14 @@ export default function DealDetailPage() {
       {deal["战略解读"] && (
         <div className="card" style={{ marginBottom: "1rem" }}>
           <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.95rem" }}>Strategic Analysis</h3>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.85rem",
+              color: "var(--text-secondary)",
+              lineHeight: 1.6,
+            }}
+          >
             {deal["战略解读"]}
           </p>
         </div>
@@ -176,7 +206,14 @@ export default function DealDetailPage() {
       {SECTIONS.map((section) => (
         <div key={section.title} className="card" style={{ marginBottom: "0.75rem" }}>
           <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.95rem" }}>{section.title}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.6rem", fontSize: "0.85rem" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+              gap: "0.6rem",
+              fontSize: "0.85rem",
+            }}
+          >
             {section.fields.map(([label, dbCol]) =>
               isAdmin ? (
                 <EditableField
@@ -187,10 +224,27 @@ export default function DealDetailPage() {
                 />
               ) : (
                 <div key={dbCol} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
-                  <span style={{ fontSize: "0.85rem", color: deal[dbCol] ? "var(--text)" : "var(--text-secondary)" }}>{deal[dbCol] || "\u2014"}</span>
+                  <span
+                    style={{
+                      fontSize: "0.7rem",
+                      color: "var(--text-secondary)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      color: deal[dbCol] ? "var(--text)" : "var(--text-secondary)",
+                    }}
+                  >
+                    {deal[dbCol] || "\u2014"}
+                  </span>
                 </div>
-              )
+              ),
             )}
           </div>
         </div>

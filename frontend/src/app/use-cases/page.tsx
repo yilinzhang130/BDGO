@@ -61,34 +61,136 @@ export default function UseCasesPage() {
       <LandingNav />
 
       {/* Hero */}
-      <div style={{ textAlign: "center", padding: "72px 32px 56px", maxWidth: 680, margin: "0 auto" }}>
-        <div style={{ display: "inline-block", fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EEF2FF", padding: "4px 14px", borderRadius: 20, marginBottom: 20, letterSpacing: "0.05em" }}>使用案例</div>
-        <h1 style={{ fontSize: 40, fontWeight: 800, color: "#0F172A", lineHeight: 1.2, margin: "0 0 16px" }}>BD 团队如何用<br />BD Go 赢得先机</h1>
+      <div
+        style={{ textAlign: "center", padding: "72px 32px 56px", maxWidth: 680, margin: "0 auto" }}
+      >
+        <div
+          style={{
+            display: "inline-block",
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#2563EB",
+            background: "#EEF2FF",
+            padding: "4px 14px",
+            borderRadius: 20,
+            marginBottom: 20,
+            letterSpacing: "0.05em",
+          }}
+        >
+          使用案例
+        </div>
+        <h1
+          style={{
+            fontSize: 40,
+            fontWeight: 800,
+            color: "#0F172A",
+            lineHeight: 1.2,
+            margin: "0 0 16px",
+          }}
+        >
+          BD 团队如何用
+          <br />
+          BD Go 赢得先机
+        </h1>
         <p style={{ fontSize: 17, color: "#64748B", lineHeight: 1.7, margin: 0 }}>
           从情报获取到报告交付，看看同行怎么用 BD Go 缩短交易周期。
         </p>
       </div>
 
       {/* Scenarios */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 32px 64px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 }}>
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+          padding: "0 32px 64px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          gap: 24,
+        }}
+      >
         {scenarios.map((s) => (
-          <div key={s.title} style={{ background: "#fff", borderRadius: 16, border: "1px solid #E8EFFE", padding: "28px 28px 24px", boxShadow: "0 2px 12px rgba(30,58,138,0.05)" }}>
+          <div
+            key={s.title}
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              border: "1px solid #E8EFFE",
+              padding: "28px 28px 24px",
+              boxShadow: "0 2px 12px rgba(30,58,138,0.05)",
+            }}
+          >
             <div style={{ fontSize: 32, marginBottom: 16 }}>{s.icon}</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", marginBottom: 10 }}>{s.title}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", marginBottom: 10 }}>
+              {s.title}
+            </div>
             <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.7 }}>{s.desc}</div>
           </div>
         ))}
       </div>
 
       {/* Testimonials */}
-      <div style={{ background: "#fff", borderTop: "1px solid #E8EFFE", borderBottom: "1px solid #E8EFFE", padding: "64px 32px" }}>
+      <div
+        style={{
+          background: "#fff",
+          borderTop: "1px solid #E8EFFE",
+          borderBottom: "1px solid #E8EFFE",
+          padding: "64px 32px",
+        }}
+      >
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <h2 style={{ fontSize: 28, fontWeight: 800, color: "#0F172A", textAlign: "center", marginBottom: 40 }}>用户怎么说</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 }}>
+          <h2
+            style={{
+              fontSize: 28,
+              fontWeight: 800,
+              color: "#0F172A",
+              textAlign: "center",
+              marginBottom: 40,
+            }}
+          >
+            用户怎么说
+          </h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+              gap: 24,
+            }}
+          >
             {cases.map((c) => (
-              <div key={c.role} style={{ background: "#F8FAFF", borderRadius: 16, border: "1px solid #E8EFFE", padding: "28px" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EEF2FF", display: "inline-block", padding: "2px 10px", borderRadius: 12, marginBottom: 16 }}>{c.tag}</div>
-                <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7, margin: "0 0 20px", fontStyle: "italic" }}>"{c.quote}"</p>
+              <div
+                key={c.role}
+                style={{
+                  background: "#F8FAFF",
+                  borderRadius: 16,
+                  border: "1px solid #E8EFFE",
+                  padding: "28px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#2563EB",
+                    background: "#EEF2FF",
+                    display: "inline-block",
+                    padding: "2px 10px",
+                    borderRadius: 12,
+                    marginBottom: 16,
+                  }}
+                >
+                  {c.tag}
+                </div>
+                <p
+                  style={{
+                    fontSize: 14,
+                    color: "#374151",
+                    lineHeight: 1.7,
+                    margin: "0 0 20px",
+                    fontStyle: "italic",
+                  }}
+                >
+                  "{c.quote}"
+                </p>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A" }}>{c.role}</div>
                 <div style={{ fontSize: 12, color: "#94A3B8" }}>{c.company}</div>
               </div>
@@ -99,9 +201,26 @@ export default function UseCasesPage() {
 
       {/* CTA */}
       <div style={{ background: "#1E3A8A", textAlign: "center", padding: "56px 32px" }}>
-        <h2 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: "0 0 12px" }}>准备好开始了吗？</h2>
-        <p style={{ fontSize: 15, color: "#93C5FD", margin: "0 0 28px" }}>申请内测资格，免费体验所有功能。</p>
-        <Link href="/login" style={{ fontSize: 15, fontWeight: 700, color: "#1E3A8A", background: "#fff", padding: "14px 36px", borderRadius: 12, textDecoration: "none" }}>申请试用 →</Link>
+        <h2 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: "0 0 12px" }}>
+          准备好开始了吗？
+        </h2>
+        <p style={{ fontSize: 15, color: "#93C5FD", margin: "0 0 28px" }}>
+          申请内测资格，免费体验所有功能。
+        </p>
+        <Link
+          href="/login"
+          style={{
+            fontSize: 15,
+            fontWeight: 700,
+            color: "#1E3A8A",
+            background: "#fff",
+            padding: "14px 36px",
+            borderRadius: 12,
+            textDecoration: "none",
+          }}
+        >
+          申请试用 →
+        </Link>
       </div>
     </div>
   );

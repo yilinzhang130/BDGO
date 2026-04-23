@@ -30,12 +30,12 @@ from config import (
 
 @dataclass(frozen=True)
 class ModelSpec:
-    id: str                 # stable identifier used in API/DB
-    display_name: str       # shown in the model picker
-    provider: str           # "minimax", "deepseek", ...
+    id: str  # stable identifier used in API/DB
+    display_name: str  # shown in the model picker
+    provider: str  # "minimax", "deepseek", ...
     api_url: str
     api_key: str
-    api_model: str          # the exact model name for the provider
+    api_model: str  # the exact model name for the provider
     anthropic_version: str | None
     # credit weights — per 1 token
     input_weight: float
@@ -110,9 +110,7 @@ def fallback_chain(model_id: str) -> list[ModelSpec]:
     """Return available fallback models excluding model_id, cheapest first."""
     priority = ["deepseek-v3", "minimax-m1", "claude-sonnet"]
     return [
-        MODELS[mid]
-        for mid in priority
-        if mid != model_id and mid in MODELS and MODELS[mid].api_key
+        MODELS[mid] for mid in priority if mid != model_id and mid in MODELS and MODELS[mid].api_key
     ]
 
 

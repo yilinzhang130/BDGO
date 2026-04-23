@@ -23,6 +23,12 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Only imported at type-check time — avoids a runtime dependency on
+    # the report_builder module (which pulls in heavy dependencies).
+    from services.report_builder import ReportContext
 
 logger = logging.getLogger(__name__)
 
@@ -69,21 +75,22 @@ _QC_SUMMARY_PROMPT = """你是医疗BD情报审核员。根据以下核查结果
 
 # ─── Data types ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class QCClaim:
     text: str
     entity: str
-    source_hint: str        # "crm" | "web" | "model"
-    priority: str           # "high" | "medium"
+    source_hint: str  # "crm" | "web" | "model"
+    priority: str  # "high" | "medium"
     tier: str = "unverified"  # "verified" | "sourced" | "unverified" | "suspicious"
-    evidence: str = ""      # brief reason / found URL
+    evidence: str = ""  # brief reason / found URL
 
 
 @dataclass
 class QCResult:
     claims: list[QCClaim] = field(default_factory=list)
     summary: str = ""
-    badge_md: str = ""      # full markdown block to append to report
+    badge_md: str = ""  # full markdown block to append to report
 
     @property
     def verified_count(self) -> int:
@@ -105,15 +112,15 @@ class QCResult:
 # ─── Tier icons ─────────────────────────────────────────────────────────────
 
 _TIER_ICON = {
-    "verified":   "✅",
-    "sourced":    "🔍",
+    "verified": "✅",
+    "sourced": "🔍",
     "unverified": "⚠️",
     "suspicious": "❌",
 }
 
 _TIER_LABEL = {
-    "verified":   "已核实（CRM）",
-    "sourced":    "有引用来源",
+    "verified": "已核实（CRM）",
+    "sourced": "有引用来源",
     "unverified": "待核实",
     "suspicious": "疑似幻觉",
 }
@@ -121,7 +128,8 @@ _TIER_LABEL = {
 
 # ─── Main entry point ────────────────────────────────────────────────────────
 
-def run_qc(markdown: str, ctx: "ReportContext") -> QCResult:  # noqa: F821
+
+def run_qc(markdown: str, ctx: ReportContext) -> QCResult:  # noqa: F821
     """Run QC on a report markdown. Returns QCResult with badge_md appended."""
     result = QCResult()
 
@@ -154,7 +162,8 @@ def run_qc(markdown: str, ctx: "ReportContext") -> QCResult:  # noqa: F821
 
 # ─── Internal helpers ────────────────────────────────────────────────────────
 
-def _extract_claims(markdown: str, ctx: "ReportContext") -> list[QCClaim]:  # noqa: F821
+
+def _extract_claims(markdown: str, ctx: ReportContext) -> list[QCClaim]:  # noqa: F821
     # Truncate to 6000 chars to keep token cost low
     text = markdown[:6000]
     raw = ctx.llm(
@@ -171,19 +180,21 @@ def _extract_claims(markdown: str, ctx: "ReportContext") -> list[QCClaim]:  # no
         for item in data.get("claims", []):
             if not isinstance(item, dict) or not item.get("text"):
                 continue
-            claims.append(QCClaim(
-                text=str(item["text"])[:120],
-                entity=str(item.get("entity", "")),
-                source_hint=str(item.get("source_hint", "model")),
-                priority=str(item.get("priority", "medium")),
-            ))
+            claims.append(
+                QCClaim(
+                    text=str(item["text"])[:120],
+                    entity=str(item.get("entity", "")),
+                    source_hint=str(item.get("source_hint", "model")),
+                    priority=str(item.get("priority", "medium")),
+                )
+            )
         return claims
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning("QC claim extraction failed: %s | raw: %s", e, raw[:300])
         return []
 
 
-def _verify_claim(claim: QCClaim, ctx: "ReportContext") -> None:  # noqa: F821
+def _verify_claim(claim: QCClaim, ctx: ReportContext) -> None:  # noqa: F821
     # Web-cited claims: trust the citation, mark as sourced
     if claim.source_hint == "web":
         claim.tier = "sourced"
@@ -215,12 +226,13 @@ def _verify_claim(claim: QCClaim, ctx: "ReportContext") -> None:  # noqa: F821
         claim.evidence = "模型生成，未检索核实"
 
 
-def _crm_lookup(entity: str, ctx: "ReportContext") -> str:
+def _crm_lookup(entity: str, ctx: ReportContext) -> str:
     """Return a short description if entity is found in CRM, else empty string."""
     if not entity.strip():
         return ""
     try:
         from crm_store import like_contains
+
         pat = like_contains(entity)
         row = ctx.crm_query_one(
             r"""SELECT name_cn, name_en, type FROM companies
@@ -248,6 +260,7 @@ def _tavily_check(claim_text: str, entity: str) -> str:
     """Return snippet if Tavily finds relevant results, else empty string."""
     try:
         from services.helpers.search import search_web
+
         query = f"{entity} {claim_text[:80]}" if entity else claim_text[:100]
         results = search_web(query, max_results=2)
         if results:
@@ -257,7 +270,7 @@ def _tavily_check(claim_text: str, entity: str) -> str:
     return ""
 
 
-def _build_summary(claims: list[QCClaim], ctx: "ReportContext") -> str:
+def _build_summary(claims: list[QCClaim], ctx: ReportContext) -> str:
     """Ask LLM to write a concise QC summary paragraph."""
     lines = []
     for c in claims:
@@ -284,8 +297,8 @@ def _build_badge(result: QCResult, summary: str) -> str:
         "",
         f"> {summary}",
         "",
-        f"| 状态 | 数量 |",
-        f"|------|------|",
+        "| 状态 | 数量 |",
+        "|------|------|",
         f"| ✅ 已核实（CRM） | {result.verified_count} |",
         f"| 🔍 有引用来源 | {result.sourced_count} |",
         f"| ⚠️ 待核实 | {result.warned_count} |",

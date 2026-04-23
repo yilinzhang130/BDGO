@@ -1,12 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  chatStream,
-  type PlanConfirmPayload,
-  type PlanMode,
-  type SearchMode,
-} from "@/lib/api";
+import { chatStream, type PlanConfirmPayload, type PlanMode, type SearchMode } from "@/lib/api";
 import { applyCreditsUsage, getSelectedModel, refreshCredits } from "@/lib/credits";
 import {
   autoTitleFromFirstMessage,
@@ -68,9 +63,15 @@ export function useChatStream() {
         if (data.type === "chunk") {
           appendAssistantChunk(targetSessionId, assistantMsgId, data.content as string);
         } else if (data.type === "tool_call") {
-          addToolEvent(targetSessionId, assistantMsgId, { type: "tool_call", name: data.name as string });
+          addToolEvent(targetSessionId, assistantMsgId, {
+            type: "tool_call",
+            name: data.name as string,
+          });
         } else if (data.type === "tool_result") {
-          addToolEvent(targetSessionId, assistantMsgId, { type: "tool_result", name: data.name as string });
+          addToolEvent(targetSessionId, assistantMsgId, {
+            type: "tool_result",
+            name: data.name as string,
+          });
         } else if (data.type === "report_task") {
           addReportTask(targetSessionId, assistantMsgId, {
             task_id: data.task_id as string,

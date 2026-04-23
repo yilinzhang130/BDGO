@@ -33,9 +33,10 @@ if not _jwt_secret_env:
             "Running in production without a JWT secret would allow anyone to forge\n"
             "authentication tokens and take over any account.\n\n"
             "Generate a secret and add it to your .env:\n"
-            "  python3 -c \"import secrets; print(secrets.token_hex(32))\"\n"
+            '  python3 -c "import secrets; print(secrets.token_hex(32))"\n'
         )
     import secrets as _secrets
+
     _jwt_secret_env = _secrets.token_hex(32)
     _logger.warning(
         "JWT_SECRET not set — generated a random secret for this dev session. "
@@ -67,6 +68,7 @@ def is_internal_email(email: str) -> bool:
     if not email or "@" not in email:
         return False
     return email.rsplit("@", 1)[1].strip().lower() in INTERNAL_EMAIL_DOMAINS
+
 
 # ─────────────────────────────────────────────────────────────
 # LLM endpoints
@@ -117,25 +119,32 @@ GUIDELINES_DB_PATH = os.environ.get(
     "GUIDELINES_DB_PATH",
     os.path.expanduser("~/.openclaw/workspace/guidelines/guidelines.db"),
 )
-BP_DIR = Path(os.environ.get(
-    "BP_DIR",
-    os.path.expanduser("~/.openclaw/workspace/BP"),
-))
-CONFERENCES_DIR = Path(os.environ.get(
-    "CONFERENCES_DIR",
-    # Default: conferences/ folder next to this config file (gets rsynced with api/)
-    # Override via env var to point at a richer local workspace directory
-    str(Path(__file__).parent / "conferences"),
-))
-REPORTS_DIR = Path(os.environ.get(
-    "REPORTS_DIR",
-    os.path.expanduser("~/.openclaw/workspace/Reports"),
-))
+BP_DIR = Path(
+    os.environ.get(
+        "BP_DIR",
+        os.path.expanduser("~/.openclaw/workspace/BP"),
+    )
+)
+CONFERENCES_DIR = Path(
+    os.environ.get(
+        "CONFERENCES_DIR",
+        # Default: conferences/ folder next to this config file (gets rsynced with api/)
+        # Override via env var to point at a richer local workspace directory
+        str(Path(__file__).parent / "conferences"),
+    )
+)
+REPORTS_DIR = Path(
+    os.environ.get(
+        "REPORTS_DIR",
+        os.path.expanduser("~/.openclaw/workspace/Reports"),
+    )
+)
 
 
 # ─────────────────────────────────────────────────────────────
 # Shared helpers
 # ─────────────────────────────────────────────────────────────
+
 
 def safe_path_within(base: Path, filename: str) -> Path:
     """Resolve filename strictly inside base dir, rejecting path traversal.

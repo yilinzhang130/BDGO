@@ -1,12 +1,6 @@
 "use client";
 
-export function ReportDoneStage({
-  result,
-  onClose,
-}: {
-  result: any;
-  onClose: () => void;
-}) {
+export function ReportDoneStage({ result, onClose }: { result: any; onClose: () => void }) {
   const files = result.files || [];
   const markdownPreview = (result.markdown || "").slice(0, 400);
 
@@ -67,7 +61,8 @@ export function ReportDoneStage({
               fontWeight: 600,
             }}
           >
-            {"\u2B07 Download ."}{f.format}
+            {"\u2B07 Download ."}
+            {f.format}
           </a>
         ))}
         <button

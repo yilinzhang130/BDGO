@@ -1,0 +1,40 @@
+# dependabot.yml — 自动扫依赖漏洞 + 自动提 PR 升版本
+#
+# 每周一次检查三个生态系统:
+#   1. pip        —— api/requirements.txt 里的 Python 包
+#   2. npm        —— frontend/package.json 里的前端包
+#   3. github-actions —— .github/workflows/*.yml 里引用的 action 版本
+#
+# 发现漏洞或新版本时,Dependabot 会自动开 PR,CI 会自动跑所有检查。
+# 你只需要 review + merge。
+
+version: 2
+updates:
+  # Python 后端依赖
+  - package-ecosystem: "pip"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(api)"
+    labels: ["dependencies", "python"]
+
+  # 前端 npm 依赖
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(frontend)"
+    labels: ["dependencies", "frontend"]
+
+  # GitHub Actions 本身(actions/checkout 等)的版本更新
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels: ["dependencies", "ci"]

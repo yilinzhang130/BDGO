@@ -8,9 +8,22 @@ contains the cheap keyword/length heuristic.
 from __future__ import annotations
 
 _PLAN_KEYWORDS = (
-    "分析", "深度", "画像", "scout", "找出", "筛选",
-    "BD机会", "BD 机会", "机会分析", "对比", "评估",
-    "深入", "盘点", "梳理", "报告", "全面",
+    "分析",
+    "深度",
+    "画像",
+    "scout",
+    "找出",
+    "筛选",
+    "BD机会",
+    "BD 机会",
+    "机会分析",
+    "对比",
+    "评估",
+    "深入",
+    "盘点",
+    "梳理",
+    "报告",
+    "全面",
 )
 
 

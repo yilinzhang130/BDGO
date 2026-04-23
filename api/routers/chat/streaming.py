@@ -15,7 +15,6 @@ import json
 import logging
 
 import httpx
-
 import planner as planner_mod
 from models import resolve_model
 
@@ -59,10 +58,7 @@ async def _strip_trailing_empty_assistant(history: list) -> None:
             or (isinstance(c, str) and not c.strip())
             or (
                 isinstance(c, list)
-                and not any(
-                    isinstance(b, dict) and b.get("text", "").strip()
-                    for b in c
-                )
+                and not any(isinstance(b, dict) and b.get("text", "").strip() for b in c)
             )
         )
         if empty:
@@ -101,14 +97,15 @@ async def stream_chat(req):
     if is_executing_plan:
         await _strip_trailing_empty_assistant(history)
 
-    user_text, attachments_json = await prepare_message_with_attachments(
-        req.message, req.file_ids
-    )
+    user_text, attachments_json = await prepare_message_with_attachments(req.message, req.file_ids)
 
     if not is_executing_plan:
         history.append({"role": "user", "content": user_text})
         await asyncio.to_thread(
-            save_message, session_id, "user", user_text,
+            save_message,
+            session_id,
+            "user",
+            user_text,
             attachments_json=attachments_json,
         )
 
@@ -127,7 +124,9 @@ async def stream_chat(req):
             final_stop_reason = None
 
             async for event_type, payload in stream_with_fallback(
-                history, model, usage_accum,
+                history,
+                model,
+                usage_accum,
                 system_prompt=active_system_prompt,
             ):
                 if event_type == "chunk":
@@ -165,10 +164,17 @@ async def stream_chat(req):
 
                 tools_json = json.dumps(tool_events, ensure_ascii=False, default=str)
                 await asyncio.to_thread(
-                    save_message, session_id, "assistant", final_content, tools_json,
+                    save_message,
+                    session_id,
+                    "assistant",
+                    final_content,
+                    tools_json,
                 )
                 await asyncio.to_thread(
-                    save_message, session_id, "user", tool_results_msg,
+                    save_message,
+                    session_id,
+                    "user",
+                    tool_results_msg,
                 )
 
                 history.append({"role": "user", "content": tool_results_msg})
@@ -183,19 +189,21 @@ async def stream_chat(req):
             # was still calling tools on the last iteration and never produced
             # a text response. Inject a system hint and force one final synthesis
             # call with tools disabled so the user always gets an answer.
-            logger.warning(
-                "Tool round limit reached for session %s; forcing synthesis", session_id
-            )
-            synthesis_hint = [{
-                "role": "user",
-                "content": (
-                    f"[系统：已达最大工具调用轮次（{MAX_TOOL_ROUNDS}轮）。"
-                    "请直接用中文总结以上所有工具调用结果，回答用户的问题，不要再调用任何工具。]"
-                ),
-            }]
+            logger.warning("Tool round limit reached for session %s; forcing synthesis", session_id)
+            synthesis_hint = [
+                {
+                    "role": "user",
+                    "content": (
+                        f"[系统：已达最大工具调用轮次（{MAX_TOOL_ROUNDS}轮）。"
+                        "请直接用中文总结以上所有工具调用结果，回答用户的问题，不要再调用任何工具。]"
+                    ),
+                }
+            ]
             synthesis_content = None
             async for event_type, payload in stream_with_fallback(
-                history + synthesis_hint, model, usage_accum,
+                history + synthesis_hint,
+                model,
+                usage_accum,
                 system_prompt=active_system_prompt,
                 tools=[],  # disable tools — text-only response
             ):
@@ -208,9 +216,7 @@ async def stream_chat(req):
                 elif event_type == "_end":
                     synthesis_content = payload.get("content")
             if synthesis_content:
-                await asyncio.to_thread(
-                    save_message, session_id, "assistant", synthesis_content
-                )
+                await asyncio.to_thread(save_message, session_id, "assistant", synthesis_content)
 
         # Persist extracted entities fire-and-forget — don't block the response.
         if all_entities:
@@ -253,6 +259,7 @@ async def stream_chat(req):
 # ─────────────────────────────────────────────────────────────
 # Plan-only phase
 # ─────────────────────────────────────────────────────────────
+
 
 async def stream_plan_only(req):
     """Phase 1 stream: generate a plan proposal, emit one SSE event, done.

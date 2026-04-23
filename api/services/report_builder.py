@@ -25,9 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel
-
 from config import REPORTS_DIR
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -50,17 +49,19 @@ STATUS_FAILED = "failed"
 # Result + Context types
 # ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class GeneratedFile:
     filename: str  # basename only, e.g. "paper_analysis_abc123.md"
-    format: str    # "md" | "docx" | "xlsx" | "pdf"
-    size: int      # bytes
+    format: str  # "md" | "docx" | "xlsx" | "pdf"
+    size: int  # bytes
     download_url: str  # e.g. "/api/reports/download/{task_id}/md"
 
 
 @dataclass
 class ReportResult:
     """What a ReportService.run() returns on success."""
+
     markdown: str = ""  # Primary output for inline display
     files: list[GeneratedFile] = field(default_factory=list)
     meta: dict = field(default_factory=dict)  # Free-form metadata (pmid, paper count, etc)
@@ -100,12 +101,14 @@ class ReportContext:
     ) -> str:
         """Call LLM and return final assistant text (non-streaming)."""
         from services.helpers.llm import call_llm_sync
+
         return call_llm_sync(system=system, messages=messages, max_tokens=max_tokens)
 
     # ── QC ──────────────────────────────────────────────────
-    def qc(self, markdown: str) -> "QCResult":  # noqa: F821
+    def qc(self, markdown: str) -> QCResult:  # noqa: F821
         """Run QC on a markdown string and return QCResult (with .badge_md)."""
         from services.helpers.qc import QCResult, run_qc
+
         try:
             return run_qc(markdown, self)
         except Exception as e:
@@ -117,14 +120,17 @@ class ReportContext:
     # ── CRM ─────────────────────────────────────────────────
     def crm_query(self, sql: str, params: tuple = ()) -> list[dict]:
         from crm_store import query as _q
+
         return _q(sql, params)
 
     def crm_query_one(self, sql: str, params: tuple = ()) -> dict | None:
         from crm_store import query_one as _q
+
         return _q(sql, params)
 
     def crm_count(self, sql: str, params: tuple = ()) -> int:
         from crm_store import count as _c
+
         return _c(sql, params)
 
     # ── File I/O ────────────────────────────────────────────
@@ -175,6 +181,7 @@ class ReportContext:
 # Base class
 # ─────────────────────────────────────────────────────────────
 
+
 class ReportService(ABC):
     """Base class for all report-generating services."""
 
@@ -190,7 +197,7 @@ class ReportService(ABC):
     output_formats: list[str] = ["md"]
     estimated_seconds: int = 30
     category: str = "report"  # "report" | "analysis" | "research"
-    enable_qc: bool = False    # set True to append QC badge after run()
+    enable_qc: bool = False  # set True to append QC badge after run()
 
     # Optional conditional visibility rules consumed by the frontend form.
     # Format: { field_name: { "visible_when": { discriminator_field: value_or_list } } }
@@ -234,7 +241,9 @@ class ReportService(ABC):
 import json as _json
 from datetime import datetime
 
-_task_cache: dict[str, dict] = {}   # task_id → {"progress_log": list[str], "user_id": ..., "slug": ...}
+_task_cache: dict[
+    str, dict
+] = {}  # task_id → {"progress_log": list[str], "user_id": ..., "slug": ...}
 
 
 def _cache_put(task_id: str, user_id: str | None, slug: str) -> list[str]:
@@ -296,7 +305,9 @@ def _row_to_task(row: dict, progress_log: list[str] | None = None) -> dict:
             "markdown": row.get("markdown_preview") or "",
             "files": files,
             "meta": meta,
-        } if row.get("status") == STATUS_COMPLETED else None,
+        }
+        if row.get("status") == STATUS_COMPLETED
+        else None,
         "error": row.get("error"),
     }
 
@@ -451,9 +462,8 @@ def execute_task(task_id: str, service: ReportService, params: dict) -> None:
     except Exception as e:
         logger.exception("Report task %s failed", task_id)
         tail = "\n".join(progress_log[-6:]) if progress_log else ""
-        error_msg = (
-            f"{type(e).__name__}: {str(e)[:400]}"
-            + (f"\n\n最近进度：\n{tail}" if tail else "")
+        error_msg = f"{type(e).__name__}: {str(e)[:400]}" + (
+            f"\n\n最近进度：\n{tail}" if tail else ""
         )
         _update_state(
             task_id,

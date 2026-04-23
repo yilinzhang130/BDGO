@@ -12,10 +12,9 @@ import os
 import time
 import urllib.parse
 
+from auth import get_current_user
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-
-from auth import get_current_user
 
 router = APIRouter()
 
@@ -46,10 +45,12 @@ def get_aidd_sso_url(
     payload = f"{email}|{ts}".encode()
     sig = hmac.new(_SECRET.encode(), payload, hashlib.sha256).hexdigest()
 
-    qs = urllib.parse.urlencode({
-        "email": email,
-        "ts": ts,
-        "sig": sig,
-        "redirect": redirect,
-    })
+    qs = urllib.parse.urlencode(
+        {
+            "email": email,
+            "ts": ts,
+            "sig": sig,
+            "redirect": redirect,
+        }
+    )
     return SsoUrlResponse(url=f"{_BASE_URL}/auth/bdgo-sso?{qs}")

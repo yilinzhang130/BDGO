@@ -41,7 +41,7 @@ def extract_pdf_text(filepath: Path) -> str:
     try:
         page_texts: list[str] = []
         MAX_PAGES = 20
-        ocr_available: bool | None = None   # lazily detected
+        ocr_available: bool | None = None  # lazily detected
 
         for page_num, page in enumerate(doc):
             if page_num >= MAX_PAGES:
@@ -49,7 +49,7 @@ def extract_pdf_text(filepath: Path) -> str:
 
             text = page.get_text("text").strip()
 
-            if len(text) < 50:          # sparse / image-only page — try OCR
+            if len(text) < 50:  # sparse / image-only page — try OCR
                 if ocr_available is False:
                     pass  # already know tesseract is absent — skip silently
                 else:
@@ -67,8 +67,9 @@ def extract_pdf_text(filepath: Path) -> str:
                                 )
                             ocr_available = False
                         else:
-                            logger.debug("OCR failed p%d of %s: %s",
-                                         page_num + 1, filepath.name, ocr_err)
+                            logger.debug(
+                                "OCR failed p%d of %s: %s", page_num + 1, filepath.name, ocr_err
+                            )
 
             if text:
                 page_texts.append(f"[Page {page_num + 1}]\n{text}")
@@ -77,12 +78,16 @@ def extract_pdf_text(filepath: Path) -> str:
         if not combined.strip():
             logger.warning(
                 "PDF extraction yielded no text for %s (pages=%d, ocr_available=%s)",
-                filepath.name, len(doc), ocr_available,
+                filepath.name,
+                len(doc),
+                ocr_available,
             )
         else:
             logger.info(
                 "PDF extracted %d chars from %s (ocr_available=%s)",
-                len(combined), filepath.name, ocr_available,
+                len(combined),
+                filepath.name,
+                ocr_available,
             )
         return combined[:30_000]
     finally:
@@ -105,6 +110,7 @@ def extract_text(filename: str) -> str:
             return extract_pdf_text(filepath)
         if ext in (".pptx", ".ppt"):
             from pptx import Presentation
+
             prs = Presentation(str(filepath))
             parts = []
             for slide in prs.slides:
@@ -114,6 +120,7 @@ def extract_text(filename: str) -> str:
             return "\n".join(parts)[:20_000]
         if ext in (".docx", ".doc"):
             from docx import Document
+
             doc = Document(str(filepath))
             return "\n".join(p.text for p in doc.paragraphs)[:20_000]
     except Exception as e:

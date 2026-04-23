@@ -42,10 +42,22 @@ export function EditableField({ label, value, onSave }: Props) {
           ref={inputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") {
+              setDraft(value);
+              setEditing(false);
+            }
+          }}
           onBlur={save}
           disabled={saving}
-          style={{ flex: 1, padding: "0.2rem 0.4rem", border: "1px solid var(--accent)", borderRadius: 4, fontSize: "0.85rem" }}
+          style={{
+            flex: 1,
+            padding: "0.2rem 0.4rem",
+            border: "1px solid var(--accent)",
+            borderRadius: 4,
+            fontSize: "0.85rem",
+          }}
         />
       </div>
     );
@@ -53,13 +65,18 @@ export function EditableField({ label, value, onSave }: Props) {
 
   return (
     <div
-      onClick={() => { setDraft(value); setEditing(true); }}
+      onClick={() => {
+        setDraft(value);
+        setEditing(true);
+      }}
       style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}
       title="Click to edit"
     >
       <span style={{ color: "var(--text-secondary)" }}>{label}:</span>
       <strong>{value || "-"}</strong>
-      <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", opacity: 0.5 }}>&#9998;</span>
+      <span style={{ color: "var(--text-secondary)", fontSize: "0.7rem", opacity: 0.5 }}>
+        &#9998;
+      </span>
     </div>
   );
 }

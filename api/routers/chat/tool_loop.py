@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from .entities import extract_context_entities
 from .sse import sse, sse_raw
@@ -43,7 +43,10 @@ async def execute_tool_call(
     # execute_tool runs synchronous CRM/DB queries — offload to a thread
     # so the event loop stays free for other concurrent SSE streams.
     result_str = await asyncio.to_thread(
-        execute_tool, TOOL_IMPL, name, inp,
+        execute_tool,
+        TOOL_IMPL,
+        name,
+        inp,
         user_id=user_id,
         can_see_internal=can_see_internal,
     )
@@ -59,13 +62,16 @@ async def execute_tool_call(
     if isinstance(result_obj, dict) and result_obj.get(TOOL_FAILED_KEY):
         tool_error_counts[name] = tool_error_counts.get(name, 0) + 1
         if tool_error_counts[name] >= 2:
-            result_str = json.dumps({
-                "error": result_obj.get("error", "工具执行失败"),
-                "instruction": (
-                    "此工具已连续失败，请停止调用它，"
-                    "直接用中文告知用户遇到了技术问题并结束本次任务。"
-                ),
-            }, ensure_ascii=False)
+            result_str = json.dumps(
+                {
+                    "error": result_obj.get("error", "工具执行失败"),
+                    "instruction": (
+                        "此工具已连续失败，请停止调用它，"
+                        "直接用中文告知用户遇到了技术问题并结束本次任务。"
+                    ),
+                },
+                ensure_ascii=False,
+            )
             result_obj = json.loads(result_str)
     else:
         tool_error_counts.pop(name, None)
@@ -85,19 +91,23 @@ async def execute_tool_call(
             estimated_seconds=result_obj.get("estimated_seconds", 60),
         )
 
-    tool_events.append({
-        "name": name,
-        "input": inp,
-        "result_preview": result_str[:500],
-    })
+    tool_events.append(
+        {
+            "name": name,
+            "input": inp,
+            "result_preview": result_str[:500],
+        }
+    )
 
     for entity in extract_context_entities(name, result_str):
         # ``entity`` dicts already include a ``type`` key (e.g. "context_entity").
         yield sse_raw(entity)
         all_entities.append(entity)
 
-    tool_results_msg.append({
-        "type": "tool_result",
-        "tool_use_id": tool_use["id"],
-        "content": result_str,
-    })
+    tool_results_msg.append(
+        {
+            "type": "tool_result",
+            "tool_use_id": tool_use["id"],
+            "content": result_str,
+        }
+    )

@@ -65,9 +65,10 @@ export function ModelPicker({ onChange, compact = false }: Props) {
         }}
       >
         {models.map((m) => {
-          const cost = m.input_weight === 1.0 && m.output_weight === 4.0
-            ? ""
-            : ` · ${m.input_weight}×/${m.output_weight}×`;
+          const cost =
+            m.input_weight === 1.0 && m.output_weight === 4.0
+              ? ""
+              : ` · ${m.input_weight}×/${m.output_weight}×`;
           return (
             <option key={m.id} value={m.id} disabled={!m.available}>
               {m.display_name}

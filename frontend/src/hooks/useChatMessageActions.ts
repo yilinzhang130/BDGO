@@ -18,13 +18,7 @@ export function useChatMessageActions(
     searchMode,
   }: { isStreaming: boolean; planMode: PlanMode; searchMode: SearchMode },
 ) {
-  const {
-    active,
-    activeId,
-    addMessage,
-    removeMessage,
-    updatePlanStatus,
-  } = useSessionStore();
+  const { active, activeId, addMessage, removeMessage, updatePlanStatus } = useSessionStore();
 
   const spawnAssistantPlaceholder = useCallback(
     (sessionId: string): string => {
@@ -64,7 +58,16 @@ export function useChatMessageActions(
         searchModeOverride: searchMode,
       });
     },
-    [activeId, active, isStreaming, removeMessage, spawnAssistantPlaceholder, streamInto, planMode, searchMode],
+    [
+      activeId,
+      active,
+      isStreaming,
+      removeMessage,
+      spawnAssistantPlaceholder,
+      streamInto,
+      planMode,
+      searchMode,
+    ],
   );
 
   const handlePlanConfirm = useCallback(
@@ -82,7 +85,12 @@ export function useChatMessageActions(
           tools_expected: s.tools_expected,
         }));
 
-      updatePlanStatus(activeId, planMsgId, "confirmed", selectedSteps.map((s) => s.id));
+      updatePlanStatus(
+        activeId,
+        planMsgId,
+        "confirmed",
+        selectedSteps.map((s) => s.id),
+      );
       const executionMsgId = spawnAssistantPlaceholder(activeId);
 
       await streamInto({

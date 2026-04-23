@@ -68,7 +68,9 @@ export default function ChatPage() {
   const cyclePlanMode = () => {
     const next: PlanMode = planMode === "auto" ? "on" : planMode === "on" ? "off" : "auto";
     setPlanMode(next);
-    try { localStorage.setItem("bdgo.planMode", next); } catch {}
+    try {
+      localStorage.setItem("bdgo.planMode", next);
+    } catch {}
   };
 
   // Auto-scroll on new messages
@@ -172,7 +174,9 @@ export default function ChatPage() {
               searchMode={searchMode}
               onSearchModeChange={(m) => {
                 setSearchMode(m);
-                try { localStorage.setItem("bdgo.searchMode", m); } catch {}
+                try {
+                  localStorage.setItem("bdgo.searchMode", m);
+                } catch {}
               }}
               planMode={planMode}
               onCyclePlanMode={cyclePlanMode}

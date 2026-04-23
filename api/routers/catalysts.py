@@ -2,8 +2,9 @@
 
 import re
 from datetime import date, datetime
-from fastapi import APIRouter, Query
+
 from crm_store import query
+from fastapi import APIRouter, Query
 
 router = APIRouter()
 
@@ -90,66 +91,70 @@ def list_catalysts(
     events: list[dict] = []
 
     # Source 1: 临床 table (richer data, 32k records with dates)
-    clinical_rows = query('''
+    clinical_rows = query("""
         SELECT "记录ID", "公司名称", "资产名称", "下一个催化剂", "催化剂类型",
                "催化剂预计时间", "催化剂确定性", "适应症", "临床期次",
                "数据状态", "结果判定", "试验ID"
         FROM "临床"
         WHERE "催化剂预计时间" IS NOT NULL AND "催化剂预计时间" != ''
-    ''')
+    """)
 
     for r in clinical_rows:
         parsed = _parse_date(r.get("催化剂预计时间", ""))
         if not parsed:
             continue
-        events.append({
-            "id": f"c-{r.get('记录ID', '')}",
-            "source": "clinical",
-            "company": r.get("公司名称", ""),
-            "asset": r.get("资产名称", ""),
-            "event": r.get("下一个催化剂", ""),
-            "type": r.get("催化剂类型", "") or "Milestone",
-            "raw_date": r.get("催化剂预计时间", ""),
-            "date": parsed,
-            "certainty": r.get("催化剂确定性", ""),
-            "indication": r.get("适应症", ""),
-            "phase": r.get("临床期次", ""),
-            "data_status": r.get("数据状态", ""),
-            "result": r.get("结果判定", ""),
-            "trial_id": r.get("试验ID", ""),
-            "status": _status(parsed, today),
-        })
+        events.append(
+            {
+                "id": f"c-{r.get('记录ID', '')}",
+                "source": "clinical",
+                "company": r.get("公司名称", ""),
+                "asset": r.get("资产名称", ""),
+                "event": r.get("下一个催化剂", ""),
+                "type": r.get("催化剂类型", "") or "Milestone",
+                "raw_date": r.get("催化剂预计时间", ""),
+                "date": parsed,
+                "certainty": r.get("催化剂确定性", ""),
+                "indication": r.get("适应症", ""),
+                "phase": r.get("临床期次", ""),
+                "data_status": r.get("数据状态", ""),
+                "result": r.get("结果判定", ""),
+                "trial_id": r.get("试验ID", ""),
+                "status": _status(parsed, today),
+            }
+        )
 
     # Source 2: 资产 table (1k records — asset-level milestones)
-    asset_rows = query('''
+    asset_rows = query("""
         SELECT "资产名称", "所属客户", "下一个临床节点", "节点预计时间",
                "催化剂日历", "临床阶段", "疾病领域", "适应症"
         FROM "资产"
         WHERE "节点预计时间" IS NOT NULL AND "节点预计时间" != ''
-    ''')
+    """)
 
     for r in asset_rows:
         parsed = _parse_date(r.get("节点预计时间", ""))
         if not parsed:
             continue
-        events.append({
-            "id": f"a-{r.get('所属客户', '')}-{r.get('资产名称', '')}",
-            "source": "asset",
-            "company": r.get("所属客户", ""),
-            "asset": r.get("资产名称", ""),
-            "event": r.get("下一个临床节点", ""),
-            "type": "Milestone",
-            "raw_date": r.get("节点预计时间", ""),
-            "date": parsed,
-            "certainty": "",
-            "indication": r.get("适应症", "") or r.get("疾病领域", ""),
-            "phase": r.get("临床阶段", ""),
-            "data_status": "",
-            "result": "",
-            "trial_id": "",
-            "status": _status(parsed, today),
-            "calendar_detail": r.get("催化剂日历", ""),
-        })
+        events.append(
+            {
+                "id": f"a-{r.get('所属客户', '')}-{r.get('资产名称', '')}",
+                "source": "asset",
+                "company": r.get("所属客户", ""),
+                "asset": r.get("资产名称", ""),
+                "event": r.get("下一个临床节点", ""),
+                "type": "Milestone",
+                "raw_date": r.get("节点预计时间", ""),
+                "date": parsed,
+                "certainty": "",
+                "indication": r.get("适应症", "") or r.get("疾病领域", ""),
+                "phase": r.get("临床阶段", ""),
+                "data_status": "",
+                "result": "",
+                "trial_id": "",
+                "status": _status(parsed, today),
+                "calendar_detail": r.get("催化剂日历", ""),
+            }
+        )
 
     # Deduplicate: prefer clinical source over asset for same company+asset
     seen = set()
@@ -166,9 +171,13 @@ def list_catalysts(
     filtered = deduped
     if q:
         ql = q.lower()
-        filtered = [e for e in filtered if ql in (e["company"] or "").lower()
-                    or ql in (e["asset"] or "").lower()
-                    or ql in (e["event"] or "").lower()]
+        filtered = [
+            e
+            for e in filtered
+            if ql in (e["company"] or "").lower()
+            or ql in (e["asset"] or "").lower()
+            or ql in (e["event"] or "").lower()
+        ]
     if catalyst_type:
         filtered = [e for e in filtered if catalyst_type.lower() in (e["type"] or "").lower()]
     if phase:
@@ -198,7 +207,7 @@ def list_catalysts(
     # Paginate
     total = len(filtered)
     offset = (page - 1) * page_size
-    page_data = filtered[offset:offset + page_size]
+    page_data = filtered[offset : offset + page_size]
 
     # Catalyst types for filter dropdown
     all_types = sorted(set(e["type"] for e in deduped if e["type"]))

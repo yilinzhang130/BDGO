@@ -24,14 +24,21 @@ export function GlobalSearch() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const doSearch = useCallback(async (query: string) => {
-    if (query.length < 1) { setResults(null); setOpen(false); return; }
+    if (query.length < 1) {
+      setResults(null);
+      setOpen(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await globalSearch(query);
       setResults(data.results);
       setOpen(true);
-    } catch { setResults(null); }
-    finally { setLoading(false); }
+    } catch {
+      setResults(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const handleInput = (val: string) => {
@@ -62,8 +69,15 @@ export function GlobalSearch() {
       <input
         value={q}
         onChange={(e) => handleInput(e.target.value)}
-        onFocus={() => { if (hasResults) setOpen(true); }}
-        onKeyDown={(e) => { if (e.key === "Escape") { setOpen(false); setQ(""); } }}
+        onFocus={() => {
+          if (hasResults) setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setOpen(false);
+            setQ("");
+          }
+        }}
         placeholder="Search companies, assets, trials, deals, IP..."
         className="global-search-input"
       />
@@ -81,11 +95,7 @@ export function GlobalSearch() {
                   const display = item.display;
                   const cols = Object.values(display).filter(Boolean);
                   return (
-                    <div
-                      key={i}
-                      className="search-result"
-                      onClick={() => navigate(item.link)}
-                    >
+                    <div key={i} className="search-result" onClick={() => navigate(item.link)}>
                       <span className="search-result-primary">{String(cols[0])}</span>
                       {cols.length > 1 && (
                         <span className="search-result-secondary">
@@ -103,7 +113,14 @@ export function GlobalSearch() {
 
       {open && q && !hasResults && !loading && (
         <div className="global-search-dropdown">
-          <div style={{ padding: "1rem", color: "var(--text-secondary)", fontSize: "0.85rem", textAlign: "center" }}>
+          <div
+            style={{
+              padding: "1rem",
+              color: "var(--text-secondary)",
+              fontSize: "0.85rem",
+              textAlign: "center",
+            }}
+          >
             No results for &quot;{q}&quot;
           </div>
         </div>

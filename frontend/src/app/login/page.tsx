@@ -12,10 +12,24 @@ function validateEmail(email: string): boolean {
 function BDGoLogo() {
   return (
     <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
-      <svg width="52" height="52" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg
+        width="52"
+        height="52"
+        viewBox="0 0 36 36"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
         <rect width="36" height="36" rx="9" fill="#1E3A8A" />
         <circle cx="11" cy="18" r="3.5" fill="white" />
-        <line x1="15" y1="18" x2="22.5" y2="18" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+        <line
+          x1="15"
+          y1="18"
+          x2="22.5"
+          y2="18"
+          stroke="white"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
         <path d="M22 13 L29 18 L22 23 Z" fill="white" />
       </svg>
     </div>
@@ -35,10 +49,22 @@ export default function LoginPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!validateEmail(email)) { setError("请输入有效的邮箱地址"); return; }
-    if (password.length < 6)   { setError("密码至少需要6个字符"); return; }
-    if (tab === "register" && !name.trim()) { setError("请输入您的姓名"); return; }
-    if (tab === "register" && !inviteCode.trim()) { setError("请输入邀请码"); return; }
+    if (!validateEmail(email)) {
+      setError("请输入有效的邮箱地址");
+      return;
+    }
+    if (password.length < 6) {
+      setError("密码至少需要6个字符");
+      return;
+    }
+    if (tab === "register" && !name.trim()) {
+      setError("请输入您的姓名");
+      return;
+    }
+    if (tab === "register" && !inviteCode.trim()) {
+      setError("请输入邀请码");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -83,7 +109,10 @@ export default function LoginPage() {
             <button
               key={t}
               style={{ ...s.tab, ...(tab === t ? s.tabActive : {}) }}
-              onClick={() => { setTab(t); setError(""); }}
+              onClick={() => {
+                setTab(t);
+                setError("");
+              }}
             >
               {t === "login" ? "登录" : "注册"}
             </button>
@@ -133,10 +162,25 @@ export default function LoginPage() {
           </div>
 
           <div style={s.fieldGroup}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 6,
+              }}
+            >
               <label style={s.label}>密码</label>
               {tab === "login" && (
-                <a href="#" style={{ fontSize: 12, color: "#2563EB", textDecoration: "none", fontWeight: 500 }}>
+                <a
+                  href="#"
+                  style={{
+                    fontSize: 12,
+                    color: "#2563EB",
+                    textDecoration: "none",
+                    fontWeight: 500,
+                  }}
+                >
                   忘记密码？
                 </a>
               )}
@@ -154,8 +198,8 @@ export default function LoginPage() {
           {error && (
             <div style={s.error}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="8" cy="8" r="7" stroke="#EF4444" strokeWidth="1.5"/>
-                <path d="M8 5v4M8 11v.5" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="8" cy="8" r="7" stroke="#EF4444" strokeWidth="1.5" />
+                <path d="M8 5v4M8 11v.5" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
               {error}
             </div>
@@ -174,7 +218,10 @@ export default function LoginPage() {
           {tab === "login" ? "还没有账户？" : "已有账户？"}
           <button
             style={s.switchLink}
-            onClick={() => { setTab(tab === "login" ? "register" : "login"); setError(""); }}
+            onClick={() => {
+              setTab(tab === "login" ? "register" : "login");
+              setError("");
+            }}
           >
             {tab === "login" ? "免费注册" : "立即登录"}
           </button>

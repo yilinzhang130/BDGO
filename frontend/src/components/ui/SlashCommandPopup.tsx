@@ -6,16 +6,19 @@
 // because it owns the textarea.
 
 export interface SlashCommand {
-  alias: string;          // e.g. "mnc" — what the user types after "/"
-  slug: string;           // canonical report service slug
-  displayName: string;    // e.g. "MNC Buyer Profile"
+  alias: string; // e.g. "mnc" — what the user types after "/"
+  slug: string; // canonical report service slug
+  displayName: string; // e.g. "MNC Buyer Profile"
   description: string;
   estimatedSeconds?: number;
 }
 
 // Canonical alias → slug map. Kept in frontend because the short names are
 // UX decisions, not part of the backend contract.
-export const SLASH_COMMANDS: Omit<SlashCommand, "displayName" | "description" | "estimatedSeconds">[] = [
+export const SLASH_COMMANDS: Omit<
+  SlashCommand,
+  "displayName" | "description" | "estimatedSeconds"
+>[] = [
   { alias: "paper", slug: "paper-analysis" },
   { alias: "mnc", slug: "buyer-profile" },
   { alias: "dd", slug: "dd-checklist" },

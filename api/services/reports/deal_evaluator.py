@@ -34,7 +34,9 @@ class DealEvaluatorInput(BaseModel):
     moa: str | None = None
     modality: str = "small_molecule"
     indication: str
-    phase: str = "Phase 2"  # Preclinical | Phase 1 | Phase 2 | Phase 3 | NDA/BLA | Approved | Path R
+    phase: str = (
+        "Phase 2"  # Preclinical | Phase 1 | Phase 2 | Phase 3 | NDA/BLA | Approved | Path R
+    )
     brief: str | None = None  # Freeform data: clinical readouts, IP, competitor signals, BP claims
     include_web_search: bool = True
 
@@ -180,7 +182,10 @@ class DealEvaluatorService(ReportService):
             "modality": {"type": "string", "enum": MODALITY_VALUES},
             "indication": {"type": "string"},
             "phase": {"type": "string", "enum": PHASE_VALUES_WITH_PATH_R},
-            "brief": {"type": "string", "description": "补充信息：临床读出、IP 状况、竞品态势、BP 核心声称。给越多越准。"},
+            "brief": {
+                "type": "string",
+                "description": "补充信息：临床读出、IP 状况、竞品态势、BP 核心声称。给越多越准。",
+            },
             "include_web_search": {"type": "boolean", "default": True},
         },
         "required": ["company_name", "asset_name", "target", "indication", "phase"],
@@ -263,4 +268,3 @@ class DealEvaluatorService(ReportService):
                 "total_chars": len(markdown),
             },
         )
-

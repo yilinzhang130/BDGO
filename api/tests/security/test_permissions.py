@@ -11,16 +11,13 @@
 如果这些测试仍然通过，说明安全边界没有被意外打破。
 """
 
-import json
-import pytest
-
 
 # ════════════════════════════════════════════════════════════════
 # 认证边界
 # ════════════════════════════════════════════════════════════════
 
-class TestAuthBoundary:
 
+class TestAuthBoundary:
     def test_no_token_returns_401(self, client):
         """无 token 的请求返回 401"""
         resp = client.get("/api/auth/me")
@@ -28,45 +25,38 @@ class TestAuthBoundary:
 
     def test_garbage_token_returns_401(self, client):
         """垃圾字符串 token 返回 401"""
-        resp = client.get(
-            "/api/auth/me",
-            headers={"Authorization": "Bearer this-is-not-a-jwt"}
-        )
+        resp = client.get("/api/auth/me", headers={"Authorization": "Bearer this-is-not-a-jwt"})
         assert resp.status_code == 401
 
     def test_expired_token_returns_401(self, client):
         """过期 token 返回 401"""
         import datetime
-        import jwt
+
         import config
+        import jwt
 
         payload = {
             "user_id": "user-ext-001",
             "email": "test@example.com",
-            "exp": datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=60),
+            "exp": datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=60),
         }
         expired = jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
-        resp = client.get(
-            "/api/auth/me",
-            headers={"Authorization": f"Bearer {expired}"}
-        )
+        resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {expired}"})
         assert resp.status_code == 401
 
     def test_wrong_secret_token_returns_401(self, client):
         """用不同 secret 签的 token 返回 401"""
         import datetime
+
         import jwt
 
         payload = {
             "user_id": "user-ext-001",
             "email": "test@example.com",
-            "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1),
+            "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=1),
         }
         evil_token = jwt.encode(payload, "wrong-secret-123", algorithm="HS256")
-        resp = client.get(
-            "/api/auth/me",
-            headers={"Authorization": f"Bearer {evil_token}"}
-        )
+        resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {evil_token}"})
         assert resp.status_code == 401
 
     def test_valid_token_returns_200(self, client, ext_headers):
@@ -79,8 +69,8 @@ class TestAuthBoundary:
 # 权限隔离：外部用户不能调用 Admin 接口
 # ════════════════════════════════════════════════════════════════
 
-class TestAdminIsolation:
 
+class TestAdminIsolation:
     def test_external_cannot_access_admin_stats(self, client, ext_headers):
         """外部用户不能访问 /api/admin/ 系列接口"""
         resp = client.get("/api/admin/users", headers=ext_headers)
@@ -102,6 +92,7 @@ class TestAdminIsolation:
 # 字段泄露检测：API 层
 # ════════════════════════════════════════════════════════════════
 
+
 class TestFieldLeakage:
     """
     这组测试 mock CRM 数据库，注入含内部字段的行，
@@ -109,8 +100,13 @@ class TestFieldLeakage:
     """
 
     INTERNAL_FIELDS = [
-        "BD跟进优先级", "BD联系人", "BD状态", "公司质量评分",
-        "内部备注", "内部评分", "POS预测",
+        "BD跟进优先级",
+        "BD联系人",
+        "BD状态",
+        "公司质量评分",
+        "内部备注",
+        "内部评分",
+        "POS预测",
     ]
 
     def test_me_response_has_no_hashed_password(self, client, ext_headers):
@@ -121,9 +117,7 @@ class TestFieldLeakage:
         resp = client.get("/api/auth/me", headers=ext_headers)
         assert resp.status_code == 200
         data = resp.json()
-        assert "hashed_password" not in data, (
-            "🚨 安全漏洞：/me 接口泄露了 hashed_password！"
-        )
+        assert "hashed_password" not in data, "🚨 安全漏洞：/me 接口泄露了 hashed_password！"
 
     def test_me_response_structure(self, client, ext_headers):
         """/me 返回预期字段"""

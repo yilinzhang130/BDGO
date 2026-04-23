@@ -91,9 +91,7 @@ export function ReportGenerateDialog({ service, onClose, onStarted, initialParam
           />
         )}
 
-        {stage === "done" && result && (
-          <ReportDoneStage result={result} onClose={onClose} />
-        )}
+        {stage === "done" && result && <ReportDoneStage result={result} onClose={onClose} />}
 
         {stage === "error" && (
           <ReportErrorStage

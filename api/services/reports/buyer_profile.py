@@ -20,7 +20,12 @@ from typing import Any
 from pydantic import BaseModel
 
 from services.helpers import docx_builder
-from services.helpers.text import format_web_results, safe_json_loads, safe_slug, search_and_deduplicate
+from services.helpers.text import (
+    format_web_results,
+    safe_json_loads,
+    safe_slug,
+    search_and_deduplicate,
+)
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -33,6 +38,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 # Input schema
 # ─────────────────────────────────────────────────────────────
+
 
 class BuyerProfileInput(BaseModel):
     company_name: str
@@ -217,6 +223,7 @@ _BP_CH8_PROMPT = """
 # Service
 # ─────────────────────────────────────────────────────────────
 
+
 class BuyerProfileService(ReportService):
     slug = "buyer-profile"
     display_name = "MNC Buyer Profile"
@@ -266,6 +273,7 @@ class BuyerProfileService(ReportService):
         # Phase 1: Resolve company via shared fuzzy resolver
         ctx.log(f"Looking up {inp.company_name} in MNC画像...")
         from services.helpers.resolve import resolve_mnc
+
         resolve = resolve_mnc(inp.company_name)
         profile = resolve.row
         web_only = profile is None
@@ -543,26 +551,37 @@ class BuyerProfileService(ReportService):
                 max_tokens=800,
             )
             from services.helpers.llm import _extract_json_object
+
             data = _extract_json_object(raw) or {}
             if not data.get("company_name"):
                 data["company_name"] = company_name
             data["last_updated"] = datetime.date.today().isoformat()
 
             # JSON-encode any dict/list values to match column storage format
-            for key in ("deal_type_preference", "sunk_cost_by_ta", "signature_deals",
-                        "bd_pattern_theses", "commercial_capabilities", "regulatory_expertise"):
+            for key in (
+                "deal_type_preference",
+                "sunk_cost_by_ta",
+                "signature_deals",
+                "bd_pattern_theses",
+                "commercial_capabilities",
+                "regulatory_expertise",
+            ):
                 if key in data and isinstance(data[key], (dict, list)):
                     data[key] = json.dumps(data[key], ensure_ascii=False)
 
             # Write to CRM via crm_db (works on VM/PG; no-op on local SQLite read-only)
-            import sys as _sys
             import os as _os
+            import sys as _sys
+
             _scripts_dir = _os.path.expanduser("~/.openclaw/workspace/scripts")
             if _scripts_dir not in _sys.path:
                 _sys.path.insert(0, _scripts_dir)
             import crm_db as _crm
+
             if not _crm._is_pg():
-                ctx.log("CRM enrichment skipped — SQLite snapshot is read-only (run on VM to persist)")
+                ctx.log(
+                    "CRM enrichment skipped — SQLite snapshot is read-only (run on VM to persist)"
+                )
                 return
             action, key = _crm.upsert_row("MNC画像", data)
             ctx.log(f"CRM enrichment: {action} MNC画像 entry for '{key}' — 下次可直接从 CRM 加载")

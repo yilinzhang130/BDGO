@@ -1,11 +1,19 @@
 """Task runner — triggers OpenClaw agent or MiniMax API for analysis tasks."""
 
-import subprocess, uuid, logging, time, threading, json, os, re
+import json
+import logging
+import os
+import re
+import subprocess
+import threading
+import time
+import uuid
+
 import httpx
+from config import MINIMAX_ANTHROPIC_VERSION, MINIMAX_KEY, MINIMAX_MODEL, MINIMAX_URL
+from crm_store import query, update_row
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from crm_store import query, update_row
-from config import MINIMAX_ANTHROPIC_VERSION, MINIMAX_KEY, MINIMAX_MODEL, MINIMAX_URL
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -41,14 +49,51 @@ def _extract_entity(message: str) -> tuple[str, str, str]:
     return ("company", msg, "")
 
 
-VALID_COMPANY_COLS = {"客户类型", "所处国家", "疾病领域", "核心产品的阶段", "核心资产主要适应症",
-    "市值/估值", "年收入", "Ticker", "网址", "主要资产或技术平台的类型", "主要核心pipeline的名字",
-    "POS预测", "跟进建议", "潜在买方", "公司质量评分", "BD跟进优先级", "推荐交易类型"}
+VALID_COMPANY_COLS = {
+    "客户类型",
+    "所处国家",
+    "疾病领域",
+    "核心产品的阶段",
+    "核心资产主要适应症",
+    "市值/估值",
+    "年收入",
+    "Ticker",
+    "网址",
+    "主要资产或技术平台的类型",
+    "主要核心pipeline的名字",
+    "POS预测",
+    "跟进建议",
+    "潜在买方",
+    "公司质量评分",
+    "BD跟进优先级",
+    "推荐交易类型",
+}
 
-VALID_ASSET_COLS = {"技术平台类别", "疾病领域", "适应症", "临床阶段", "靶点", "作用机制(MOA)",
-    "给药途径", "资产描述", "竞品情况", "差异化描述", "峰值销售预测", "风险因素",
-    "资产代号", "关键试验名称", "POS预测", "BD优先级", "BD类别",
-    "Q1_生物学", "Q2_药物形式", "Q3_临床监管", "Q4_商业交易性", "Q总分", "差异化分级"}
+VALID_ASSET_COLS = {
+    "技术平台类别",
+    "疾病领域",
+    "适应症",
+    "临床阶段",
+    "靶点",
+    "作用机制(MOA)",
+    "给药途径",
+    "资产描述",
+    "竞品情况",
+    "差异化描述",
+    "峰值销售预测",
+    "风险因素",
+    "资产代号",
+    "关键试验名称",
+    "POS预测",
+    "BD优先级",
+    "BD类别",
+    "Q1_生物学",
+    "Q2_药物形式",
+    "Q3_临床监管",
+    "Q4_商业交易性",
+    "Q总分",
+    "差异化分级",
+}
 
 ENRICH_COMPANY_PROMPT = """你是CRM数据补全专家。请根据你的知识补全公司"{name}"的空字段。
 
@@ -152,11 +197,13 @@ def _call_minimax(system: str, prompt: str) -> str | None:
             )
         if resp.status_code == 200:
             data = resp.json()
-            text_parts = [b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"]
+            text_parts = [
+                b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"
+            ]
             return "\n".join(text_parts)
         logger.warning("MiniMax API error: %d", resp.status_code)
         return None
-    except Exception as e:
+    except Exception:
         logger.exception("MiniMax call failed")
         return None
 
@@ -173,9 +220,22 @@ def _run_task(task_id: str, agent: str, message: str, timeout: int):
         env = os.environ.copy()
         env["PATH"] = f"/usr/local/bin:/opt/homebrew/bin:{env.get('PATH', '')}"
         result = subprocess.run(
-            [OPENCLAW_BIN, "agent", "--agent", agent, "--message", message,
-             "--session-id", f"crm-dashboard-{task_id}", "--timeout", str(min(timeout, 120))],
-            capture_output=True, text=True, timeout=130, env=env,
+            [
+                OPENCLAW_BIN,
+                "agent",
+                "--agent",
+                agent,
+                "--message",
+                message,
+                "--session-id",
+                f"crm-dashboard-{task_id}",
+                "--timeout",
+                str(min(timeout, 120)),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=130,
+            env=env,
         )
         if result.returncode == 0 and "error" not in (result.stderr or "").lower()[:200]:
             _tasks[task_id]["status"] = "completed"
@@ -212,7 +272,8 @@ def _run_task(task_id: str, agent: str, message: str, timeout: int):
         if parsed and isinstance(parsed, dict):
             # Filter: only write non-empty fields that are different from existing
             existing = query(
-                'SELECT * FROM "公司" WHERE "客户名称" = ?' if entity_type == "company"
+                'SELECT * FROM "公司" WHERE "客户名称" = ?'
+                if entity_type == "company"
                 else 'SELECT * FROM "资产" WHERE "文本" = ? AND "所属客户" = ?',
                 (name,) if entity_type == "company" else (name, company),
             )
@@ -258,7 +319,9 @@ def run_task(req: TaskRequest):
         "status": "queued",
         "created_at": time.time(),
     }
-    thread = threading.Thread(target=_run_task, args=(task_id, req.agent, req.message, req.timeout), daemon=True)
+    thread = threading.Thread(
+        target=_run_task, args=(task_id, req.agent, req.message, req.timeout), daemon=True
+    )
     thread.start()
     return {"task_id": task_id, "status": "queued"}
 

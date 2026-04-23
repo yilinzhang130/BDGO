@@ -15,8 +15,13 @@ Never import ``database.py`` from here, and never import ``crm_store``
 from auth or session code — the two databases must stay independent.
 """
 
-import os, sys, re, math, threading
+import math
+import os
+import re
+import sys
+import threading
 from contextlib import contextmanager
+
 from fastapi import HTTPException
 
 # Import crm_db from the workspace scripts directory
@@ -24,8 +29,8 @@ _scripts_dir = os.path.expanduser("~/.openclaw/workspace/scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
-import crm_db  # noqa: E402
 import config  # noqa: E402
+import crm_db  # noqa: E402
 
 # Table → primary key mapping
 PK_MAP: dict[str, str | tuple[str, str]] = {
@@ -45,7 +50,7 @@ _is_pg = crm_db._is_pg
 
 def _ph():
     """Placeholder: %s for PG, ? for SQLite."""
-    return '%s' if _is_pg() else '?'
+    return "%s" if _is_pg() else "?"
 
 
 # Match (in order): single-quoted string | double-quoted identifier | ?
@@ -117,11 +122,11 @@ def like_contains(q: str, max_len: int = _LIKE_MAX) -> str:
 # with negligible gain. We keep creating fresh read-only connections.
 # ─────────────────────────────────────────────────────────────
 
-_pg_read_pool = None          # psycopg2.pool.ThreadedConnectionPool | None
-_pg_write_pool = None         # psycopg2.pool.ThreadedConnectionPool | None
+_pg_read_pool = None  # psycopg2.pool.ThreadedConnectionPool | None
+_pg_write_pool = None  # psycopg2.pool.ThreadedConnectionPool | None
 _pg_pool_lock = threading.Lock()
 _PG_POOL_MIN = 2
-_PG_POOL_MAX = 10             # sized for asyncio.to_thread default pool (~8 workers)
+_PG_POOL_MAX = 10  # sized for asyncio.to_thread default pool (~8 workers)
 
 # Writes are rare compared to reads (dashboard edits, company renames), so
 # a small pool is plenty. Keeping them separate from the read pool prevents
@@ -139,6 +144,7 @@ def _get_pg_read_pool():
         if _pg_read_pool is not None:
             return _pg_read_pool
         import psycopg2.pool
+
         _pg_read_pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=_PG_POOL_MIN,
             maxconn=_PG_POOL_MAX,
@@ -156,6 +162,7 @@ def _get_pg_write_pool():
         if _pg_write_pool is not None:
             return _pg_write_pool
         import psycopg2.pool
+
         _pg_write_pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=_PG_WRITE_POOL_MIN,
             maxconn=_PG_WRITE_POOL_MAX,
@@ -172,10 +179,11 @@ def get_conn():
     if _is_pg():
         pool = _get_pg_read_pool()
         conn = pool.getconn()
-        conn.autocommit = True   # read-only queries; no transaction needed
+        conn.autocommit = True  # read-only queries; no transaction needed
         return conn
     else:
         import sqlite3
+
         DB_PATH = config.CRM_DB_PATH
         conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")
@@ -205,6 +213,7 @@ def _fetchall(conn, sql, params=()):
     """Execute and return list[dict], backend-agnostic."""
     if _is_pg():
         import psycopg2.extras
+
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(sql, params)
         return [dict(r) for r in cur.fetchall()]
@@ -217,6 +226,7 @@ def _fetchone(conn, sql, params=()):
     """Execute and return single dict or None."""
     if _is_pg():
         import psycopg2.extras
+
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(sql, params)
         row = cur.fetchone()
@@ -258,6 +268,7 @@ def count(sql: str, params: tuple = ()) -> int:
 
 _NUM_RE = re.compile(r"[-+]?\d*\.?\d+")
 
+
 def parse_numeric(val) -> float | None:
     """Parse TEXT fields like '300.0', '$1.25B', '~6.8B' into float or None."""
     if val is None:
@@ -296,6 +307,7 @@ def get_write_conn():
         return conn
     else:
         import sqlite3
+
         DB_PATH = config.CRM_DB_PATH
         conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")
@@ -391,8 +403,9 @@ def update_row(table: str, pk_value: str | dict, fields: dict[str, str]) -> dict
             )
             conn.commit()
             import psycopg2.extras
+
             cur2 = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            cur2.execute(f'SELECT * FROM "{physical}" WHERE {where}', params[len(fields):])
+            cur2.execute(f'SELECT * FROM "{physical}" WHERE {where}', params[len(fields) :])
             row = cur2.fetchone()
             return dict(row) if row else None
         else:
@@ -401,7 +414,9 @@ def update_row(table: str, pk_value: str | dict, fields: dict[str, str]) -> dict
                 params,
             )
             conn.commit()
-            row = conn.execute(f'SELECT * FROM "{physical}" WHERE {where}', params[len(fields):]).fetchone()
+            row = conn.execute(
+                f'SELECT * FROM "{physical}" WHERE {where}', params[len(fields) :]
+            ).fetchone()
             return dict(row) if row else None
 
 
@@ -451,10 +466,24 @@ def rename_company(old_name: str, new_name: str) -> bool:
             (f'UPDATE "资产" SET "所属客户" = {ph} WHERE "所属客户" = {ph}', (new_name, old_name)),
         ]
         physical_clinical = crm_db._TABLE_ALIAS.get("临床", "临床")
-        stmts.append((f'UPDATE "{physical_clinical}" SET "公司名称" = {ph} WHERE "公司名称" = {ph}', (new_name, old_name)))
-        stmts.append((f'UPDATE "交易" SET "买方公司" = {ph} WHERE "买方公司" = {ph}', (new_name, old_name)))
-        stmts.append((f'UPDATE "交易" SET "卖方/合作方" = {ph} WHERE "卖方/合作方" = {ph}', (new_name, old_name)))
-        stmts.append((f'UPDATE "IP" SET "关联公司" = {ph} WHERE "关联公司" = {ph}', (new_name, old_name)))
+        stmts.append(
+            (
+                f'UPDATE "{physical_clinical}" SET "公司名称" = {ph} WHERE "公司名称" = {ph}',
+                (new_name, old_name),
+            )
+        )
+        stmts.append(
+            (f'UPDATE "交易" SET "买方公司" = {ph} WHERE "买方公司" = {ph}', (new_name, old_name))
+        )
+        stmts.append(
+            (
+                f'UPDATE "交易" SET "卖方/合作方" = {ph} WHERE "卖方/合作方" = {ph}',
+                (new_name, old_name),
+            )
+        )
+        stmts.append(
+            (f'UPDATE "IP" SET "关联公司" = {ph} WHERE "关联公司" = {ph}', (new_name, old_name))
+        )
 
         if _is_pg():
             cur = conn.cursor()
@@ -468,7 +497,7 @@ def rename_company(old_name: str, new_name: str) -> bool:
         return True
 
 
-_SAFE_COLUMN_RE = re.compile(r'^[\w\u4e00-\u9fff()/\s·\-]+$')
+_SAFE_COLUMN_RE = re.compile(r"^[\w\u4e00-\u9fff()/\s·\-]+$")
 
 
 def distinct_values(table: str, column: str, limit: int = 500) -> list[dict]:
@@ -504,7 +533,7 @@ def paginate(
     ph = _ph()
 
     # Convert any ? in caller's where clause to %s for PG
-    if _is_pg() and '?' in where_clause:
+    if _is_pg() and "?" in where_clause:
         where_clause = _qmark_to_percent(where_clause)
 
     with _crm_conn() as conn:
@@ -519,7 +548,7 @@ def paginate(
             total = row[0] if row else 0
 
         offset = (page - 1) * page_size
-        limit_sql = f'LIMIT {ph} OFFSET {ph}'
+        limit_sql = f"LIMIT {ph} OFFSET {ph}"
         full_sql = f'SELECT {select} FROM "{physical}" {where_clause} {order_clause} {limit_sql}'
         rows = _fetchall(conn, full_sql, params + (page_size, offset))
 

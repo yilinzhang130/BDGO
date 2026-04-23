@@ -38,11 +38,7 @@ export function ChatInput({ value, onChange, onSend, disabled }: Props) {
         disabled={disabled}
         rows={1}
       />
-      <button
-        onClick={onSend}
-        disabled={!value.trim() || disabled}
-        className="chat-send-btn"
-      >
+      <button onClick={onSend} disabled={!value.trim() || disabled} className="chat-send-btn">
         {disabled ? "..." : "\u2191"}
       </button>
     </div>

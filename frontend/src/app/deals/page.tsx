@@ -3,9 +3,7 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { fetchDeals, fetchDealsByType } from "@/lib/api";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const COLUMNS = [
   { key: "交易名称", label: "Deal" },
@@ -44,8 +42,12 @@ function DealsContent() {
     fetchDeals({ q, type, page, page_size: 50, sort, order }).then(setData);
   }, [q, type, page, sort, order]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { fetchDealsByType().then(setDealTypes); }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  useEffect(() => {
+    fetchDealsByType().then(setDealTypes);
+  }, []);
 
   const handleSort = (col: string) => {
     if (sort === col) {
@@ -82,13 +84,24 @@ function DealsContent() {
         <input
           placeholder="Search deal / company / asset..."
           value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
           style={{ width: 260 }}
         />
-        <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
+        <select
+          value={type}
+          onChange={(e) => {
+            setType(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Types</option>
           {dealTypes.map((d) => (
-            <option key={d.type} value={d.type}>{d.type} ({d.count})</option>
+            <option key={d.type} value={d.type}>
+              {d.type} ({d.count})
+            </option>
           ))}
         </select>
       </div>
@@ -108,14 +121,18 @@ function DealsContent() {
             </thead>
             <tbody>
               {data?.data?.map((d: any) => (
-                <tr key={d["交易名称"]} onClick={() => router.push(`/deals/${encodeURIComponent(d["交易名称"])}`)}>
+                <tr
+                  key={d["交易名称"]}
+                  onClick={() => router.push(`/deals/${encodeURIComponent(d["交易名称"])}`)}
+                >
                   <td style={{ fontWeight: 600 }}>{d["交易名称"]}</td>
                   <td>{d["交易类型"] || "-"}</td>
                   <td
                     style={{ cursor: "pointer", color: "var(--accent)" }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (d["买方公司"]) router.push(`/companies/${encodeURIComponent(d["买方公司"])}`);
+                      if (d["买方公司"])
+                        router.push(`/companies/${encodeURIComponent(d["买方公司"])}`);
                     }}
                   >
                     {d["买方公司"] || "-"}
@@ -124,7 +141,8 @@ function DealsContent() {
                     style={{ cursor: "pointer", color: "var(--accent)" }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (d["卖方/合作方"]) router.push(`/companies/${encodeURIComponent(d["卖方/合作方"])}`);
+                      if (d["卖方/合作方"])
+                        router.push(`/companies/${encodeURIComponent(d["卖方/合作方"])}`);
                     }}
                   >
                     {d["卖方/合作方"] || "-"}
@@ -144,9 +162,15 @@ function DealsContent() {
 
         {data && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-            <span>Page {data.page} of {data.total_pages}</span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Prev
+            </button>
+            <span>
+              Page {data.page} of {data.total_pages}
+            </span>
+            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
+              Next
+            </button>
           </div>
         )}
       </div>

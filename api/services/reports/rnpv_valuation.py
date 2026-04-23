@@ -32,7 +32,9 @@ from services.report_builder import (
 logger = logging.getLogger(__name__)
 
 
-_BENCHMARKS_PATH = Path(__file__).resolve().parent.parent / "helpers" / "rnpv_default_benchmarks.json"
+_BENCHMARKS_PATH = (
+    Path(__file__).resolve().parent.parent / "helpers" / "rnpv_default_benchmarks.json"
+)
 _BENCHMARKS_STR: str | None = None
 
 
@@ -57,7 +59,7 @@ class RNPVInput(BaseModel):
     therapeutic_area: str = "Oncology"
     target: str | None = None
     moa: str | None = None
-    brief: str | None = None           # Free-form context to seed assumptions
+    brief: str | None = None  # Free-form context to seed assumptions
     include_web_search: bool = True
 
 
@@ -176,15 +178,27 @@ class RNPVValuationService(ReportService):
     chat_tool_input_schema = {
         "type": "object",
         "properties": {
-            "company_name": {"type": "string", "description": "公司名（英文或中文），如 'Ascentage Pharma'。"},
-            "asset_name": {"type": "string", "description": "资产/药物名或代号，如 'APG-2575' 或 'lisaftoclax'。"},
+            "company_name": {
+                "type": "string",
+                "description": "公司名（英文或中文），如 'Ascentage Pharma'。",
+            },
+            "asset_name": {
+                "type": "string",
+                "description": "资产/药物名或代号，如 'APG-2575' 或 'lisaftoclax'。",
+            },
             "indication": {"type": "string", "description": "适应症，如 'CLL 2L+'。"},
             "phase": {"type": "string", "enum": PHASE_VALUES, "description": "当前临床阶段。"},
             "modality": {"type": "string", "enum": MODALITY_VALUES, "description": "分子形式。"},
-            "therapeutic_area": {"type": "string", "description": "治疗领域（Oncology / CNS / Rare Disease 等）。"},
+            "therapeutic_area": {
+                "type": "string",
+                "description": "治疗领域（Oncology / CNS / Rare Disease 等）。",
+            },
             "target": {"type": "string", "description": "靶点（optional）。"},
             "moa": {"type": "string", "description": "作用机制（optional）。"},
-            "brief": {"type": "string", "description": "补充说明，如关键临床数据、差异化、竞品（optional，帮助 LLM 精化假设）。"},
+            "brief": {
+                "type": "string",
+                "description": "补充说明，如关键临床数据、差异化、竞品（optional，帮助 LLM 精化假设）。",
+            },
             "include_web_search": {"type": "boolean", "default": True},
         },
         "required": ["company_name", "asset_name", "indication", "phase", "modality"],
@@ -255,7 +269,9 @@ class RNPVValuationService(ReportService):
 
         slug = safe_slug(f"{inp.company_name}_{inp.asset_name}")
         config_filename = f"rnpv_config_{slug}.json"
-        ctx.save_file(config_filename, json.dumps(config, ensure_ascii=False, indent=2), format="json")
+        ctx.save_file(
+            config_filename, json.dumps(config, ensure_ascii=False, indent=2), format="json"
+        )
         ctx.log(f"Config JSON saved ({config_filename})")
 
         ctx.log("Generating 10-sheet formula-driven Excel model…")
@@ -290,8 +306,9 @@ class RNPVValuationService(ReportService):
             },
         )
 
-    def _summary_markdown(self, inp: RNPVInput, today: str, config: dict,
-                          xlsx_filename: str) -> str:
+    def _summary_markdown(
+        self, inp: RNPVInput, today: str, config: dict, xlsx_filename: str
+    ) -> str:
         npv = config.get("_npv", 0)
         unrisked = config.get("_unrisked_npv", 0)
         peak_rev = config.get("_peak_rev", 0)
@@ -315,9 +332,13 @@ class RNPVValuationService(ReportService):
             )
 
         ind_table = (
-            "| 适应症 | 线别 | Years to Launch | Cumulative PoS | Peak Penetration |\n"
-            "|---|---|---|---|---|\n" + "\n".join(ind_rows)
-        ) if ind_rows else "(无适应症数据)"
+            (
+                "| 适应症 | 线别 | Years to Launch | Cumulative PoS | Peak Penetration |\n"
+                "|---|---|---|---|---|\n" + "\n".join(ind_rows)
+            )
+            if ind_rows
+            else "(无适应症数据)"
+        )
 
         return f"""# {inp.company_name} — {inp.asset_name} rNPV 估值摘要
 
@@ -331,8 +352,8 @@ class RNPVValuationService(ReportService):
 | Unrisked NPV | ${unrisked:,.1f}M |
 | Peak Revenue | ${peak_rev:,.1f}M (@ {peak_yr}) |
 | Per-Share Value | {per_share} |
-| WACC | {config.get('discount', {}).get('wacc', 0):.1%} |
-| 投影年限 | {config.get('discount', {}).get('projection_years', 20)} yrs |
+| WACC | {config.get("discount", {}).get("wacc", 0):.1%} |
+| 投影年限 | {config.get("discount", {}).get("projection_years", 20)} yrs |
 
 ## 资产信息
 - **公司** / **资产**：{inp.company_name} / {inp.asset_name}

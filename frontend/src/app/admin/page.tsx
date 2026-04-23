@@ -74,7 +74,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    fetchInboxUnreadCount().then(r => setInboxUnread(r.count)).catch(() => {});
+    fetchInboxUnreadCount()
+      .then((r) => setInboxUnread(r.count))
+      .catch(() => {});
   }, [isAdmin]);
 
   if (!isAdmin) return <div className="loading">Loading...</div>;
@@ -120,7 +122,12 @@ export default function AdminPage() {
 
   const handleToggleInternal = async (u: AdminUser) => {
     const verb = u.is_internal ? "标记为外部" : "标记为内部";
-    if (!confirm(`${verb}: "${u.name}" (${u.email})?\n\n内部用户能看到 BD 优先级、POS 预测、Q 评分等主观字段；外部用户只看客观数据。`)) return;
+    if (
+      !confirm(
+        `${verb}: "${u.name}" (${u.email})?\n\n内部用户能看到 BD 优先级、POS 预测、Q 评分等主观字段；外部用户只看客观数据。`,
+      )
+    )
+      return;
     try {
       await setUserInternal(u.id, !u.is_internal);
       await reloadUsers();
@@ -152,10 +159,15 @@ export default function AdminPage() {
     if (!d) return "-";
     try {
       return new Date(d).toLocaleDateString("zh-CN", {
-        year: "numeric", month: "2-digit", day: "2-digit",
-        hour: "2-digit", minute: "2-digit",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
       });
-    } catch { return d; }
+    } catch {
+      return d;
+    }
   };
 
   return (
@@ -169,21 +181,38 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="tabs">
-        <button className={`tab ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>
+        <button
+          className={`tab ${tab === "users" ? "active" : ""}`}
+          onClick={() => setTab("users")}
+        >
           用户管理 ({users.length || "..."})
         </button>
-        <button className={`tab ${tab === "codes" ? "active" : ""}`} onClick={() => setTab("codes")}>
+        <button
+          className={`tab ${tab === "codes" ? "active" : ""}`}
+          onClick={() => setTab("codes")}
+        >
           邀请码 ({codes.length || "..."})
         </button>
-        <button className={`tab ${tab === "inbox" ? "active" : ""}`} onClick={() => setTab("inbox")}
-          style={{ position: "relative" }}>
+        <button
+          className={`tab ${tab === "inbox" ? "active" : ""}`}
+          onClick={() => setTab("inbox")}
+          style={{ position: "relative" }}
+        >
           站内信
           {inboxUnread > 0 && (
-            <span style={{
-              marginLeft: 6, fontSize: 10, fontWeight: 700,
-              background: "#ef4444", color: "#fff",
-              borderRadius: 10, padding: "1px 6px",
-            }}>{inboxUnread}</span>
+            <span
+              style={{
+                marginLeft: 6,
+                fontSize: 10,
+                fontWeight: 700,
+                background: "#ef4444",
+                color: "#fff",
+                borderRadius: 10,
+                padding: "1px 6px",
+              }}
+            >
+              {inboxUnread}
+            </span>
           )}
         </button>
       </div>
@@ -215,24 +244,61 @@ export default function AdminPage() {
                       <td style={{ fontWeight: 600 }}>
                         {u.name}
                         {u.is_admin && (
-                          <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: "#fff", background: "#DC2626", padding: "1px 5px", borderRadius: 4 }}>
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              fontSize: 9,
+                              fontWeight: 700,
+                              color: "#fff",
+                              background: "#DC2626",
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                            }}
+                          >
                             ADMIN
                           </span>
                         )}
                         {isSelf && (
-                          <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 600, color: "#2563EB" }}>
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              fontSize: 9,
+                              fontWeight: 600,
+                              color: "#2563EB",
+                            }}
+                          >
                             (你)
                           </span>
                         )}
                       </td>
-                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{u.email}</td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                        {u.email}
+                      </td>
                       <td>
                         {u.is_internal ? (
-                          <span style={{ fontSize: 10, fontWeight: 600, color: "#1E3A8A", background: "#DBEAFE", padding: "1px 6px", borderRadius: 4 }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "#1E3A8A",
+                              background: "#DBEAFE",
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                            }}
+                          >
                             内部
                           </span>
                         ) : (
-                          <span style={{ fontSize: 10, fontWeight: 600, color: "#64748B", background: "#F1F5F9", padding: "1px 6px", borderRadius: 4 }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "#64748B",
+                              background: "#F1F5F9",
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                            }}
+                          >
                             外部
                           </span>
                         )}
@@ -241,10 +307,17 @@ export default function AdminPage() {
                         {u.is_admin ? (
                           <span style={{ color: "#7C3AED", fontWeight: 600 }}>\u221E</span>
                         ) : (
-                          <span style={{
-                            fontWeight: 600,
-                            color: u.credit_balance >= 500 ? "#16A34A" : u.credit_balance > 0 ? "#D97706" : "#DC2626",
-                          }}>
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              color:
+                                u.credit_balance >= 500
+                                  ? "#16A34A"
+                                  : u.credit_balance > 0
+                                    ? "#D97706"
+                                    : "#DC2626",
+                            }}
+                          >
                             {u.credit_balance.toLocaleString()}
                           </span>
                         )}
@@ -256,11 +329,29 @@ export default function AdminPage() {
                       <td style={{ fontSize: "0.75rem" }}>{fmtDate(u.last_login)}</td>
                       <td>
                         {u.is_active ? (
-                          <span style={{ fontSize: 10, fontWeight: 600, color: "#16A34A", background: "#F0FDF4", padding: "1px 6px", borderRadius: 4 }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "#16A34A",
+                              background: "#F0FDF4",
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                            }}
+                          >
                             ACTIVE
                           </span>
                         ) : (
-                          <span style={{ fontSize: 10, fontWeight: 600, color: "#64748B", background: "#F1F5F9", padding: "1px 6px", borderRadius: 4 }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "#64748B",
+                              background: "#F1F5F9",
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                            }}
+                          >
                             BANNED
                           </span>
                         )}
@@ -269,7 +360,10 @@ export default function AdminPage() {
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {!u.is_admin && (
                             <button
-                              onClick={() => { setGrantTarget(u); setGrantAmount(""); }}
+                              onClick={() => {
+                                setGrantTarget(u);
+                                setGrantAmount("");
+                              }}
                               disabled={!u.is_active}
                               style={btnStyle("accent", !u.is_active)}
                             >
@@ -310,18 +404,38 @@ export default function AdminPage() {
 
           {/* Grant credits modal */}
           {grantTarget && (
-            <div style={{
-              position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
-              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-            }} onClick={() => setGrantTarget(null)}>
-              <div onClick={(e) => e.stopPropagation()} style={{
-                background: "#fff", borderRadius: 12, padding: "1.5rem", width: 360,
-                boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-              }}>
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1000,
+              }}
+              onClick={() => setGrantTarget(null)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: "#fff",
+                  borderRadius: 12,
+                  padding: "1.5rem",
+                  width: 360,
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+                }}
+              >
                 <h3 style={{ margin: "0 0 1rem", fontSize: "0.95rem" }}>
                   发放积分给 {grantTarget.name}
                 </h3>
-                <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                <p
+                  style={{
+                    margin: "0 0 0.5rem",
+                    fontSize: "0.8rem",
+                    color: "var(--text-secondary)",
+                  }}
+                >
                   当前余额: {grantTarget.credit_balance.toLocaleString()}
                 </p>
                 <input
@@ -331,15 +445,26 @@ export default function AdminPage() {
                   placeholder="数量（例如 5000）"
                   autoFocus
                   style={{
-                    width: "100%", padding: "0.6rem", fontSize: "0.9rem",
-                    border: "1px solid #E2E8F0", borderRadius: 8, marginBottom: "1rem",
+                    width: "100%",
+                    padding: "0.6rem",
+                    fontSize: "0.9rem",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: 8,
+                    marginBottom: "1rem",
                     boxSizing: "border-box",
                   }}
                 />
                 <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
                   <button
                     onClick={() => setGrantTarget(null)}
-                    style={{ padding: "0.4rem 1rem", fontSize: "0.85rem", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 6, cursor: "pointer" }}
+                    style={{
+                      padding: "0.4rem 1rem",
+                      fontSize: "0.85rem",
+                      background: "#f1f5f9",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
                   >
                     取消
                   </button>
@@ -347,9 +472,14 @@ export default function AdminPage() {
                     onClick={handleGrant}
                     disabled={granting || !grantAmount || parseFloat(grantAmount) <= 0}
                     style={{
-                      padding: "0.4rem 1rem", fontSize: "0.85rem", fontWeight: 600,
-                      background: "var(--accent)", color: "#fff", border: "none",
-                      borderRadius: 6, cursor: granting ? "not-allowed" : "pointer",
+                      padding: "0.4rem 1rem",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      background: "var(--accent)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: granting ? "not-allowed" : "pointer",
                     }}
                   >
                     {granting ? "..." : "发放"}
@@ -365,9 +495,14 @@ export default function AdminPage() {
             <button
               onClick={handleCreateCode}
               style={{
-                padding: "0.4rem 0.9rem", fontSize: "0.8rem", fontWeight: 600,
-                background: "var(--accent)", color: "#fff", border: "none",
-                borderRadius: 6, cursor: "pointer",
+                padding: "0.4rem 0.9rem",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                background: "var(--accent)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
               }}
             >
               + 新建邀请码
@@ -388,24 +523,34 @@ export default function AdminPage() {
               <tbody>
                 {codes.map((c) => (
                   <tr key={c.code}>
-                    <td style={{ fontWeight: 600, fontFamily: "monospace", letterSpacing: "0.05em" }}>
+                    <td
+                      style={{ fontWeight: 600, fontFamily: "monospace", letterSpacing: "0.05em" }}
+                    >
                       {c.code}
                     </td>
                     <td>
-                      <span style={{ color: c.use_count >= c.max_uses ? "#DC2626" : "var(--text)" }}>
+                      <span
+                        style={{ color: c.use_count >= c.max_uses ? "#DC2626" : "var(--text)" }}
+                      >
                         {c.use_count}
                       </span>
                     </td>
                     <td>{c.max_uses}</td>
                     <td style={{ fontSize: "0.8rem" }}>{fmtDate(c.created_at)}</td>
-                    <td style={{ fontSize: "0.8rem" }}>{c.expires_at ? fmtDate(c.expires_at) : "永不"}</td>
+                    <td style={{ fontSize: "0.8rem" }}>
+                      {c.expires_at ? fmtDate(c.expires_at) : "永不"}
+                    </td>
                     <td>
                       <button
                         onClick={() => handleDeleteCode(c.code)}
                         style={{
-                          padding: "0.2rem 0.5rem", fontSize: "0.75rem",
-                          background: "white", color: "var(--red)", border: "1px solid var(--red)",
-                          borderRadius: 4, cursor: "pointer",
+                          padding: "0.2rem 0.5rem",
+                          fontSize: "0.75rem",
+                          background: "white",
+                          color: "var(--red)",
+                          border: "1px solid var(--red)",
+                          borderRadius: 4,
+                          cursor: "pointer",
                         }}
                       >
                         撤销
@@ -414,7 +559,11 @@ export default function AdminPage() {
                   </tr>
                 ))}
                 {codes.length === 0 && (
-                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--text-secondary)" }}>暂无邀请码</td></tr>
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: "center", color: "var(--text-secondary)" }}>
+                      暂无邀请码
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -423,17 +572,31 @@ export default function AdminPage() {
       ) : (
         /* Inbox */
         <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "0.75rem",
+            }}
+          >
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
               共 {inboxTotal} 条，{inboxUnread} 条未读
             </span>
             {inboxUnread > 0 && (
               <button
-                onClick={async () => { await markAllRead(); await reloadInbox(); }}
+                onClick={async () => {
+                  await markAllRead();
+                  await reloadInbox();
+                }}
                 style={{
-                  padding: "0.3rem 0.8rem", fontSize: "0.75rem", fontWeight: 600,
-                  background: "#f1f5f9", border: "1px solid #e2e8f0",
-                  borderRadius: 5, cursor: "pointer",
+                  padding: "0.3rem 0.8rem",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  background: "#f1f5f9",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 5,
+                  cursor: "pointer",
                 }}
               >
                 全部标为已读
@@ -442,21 +605,35 @@ export default function AdminPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {inbox.length === 0 && (
-              <div style={{ textAlign: "center", color: "var(--text-secondary)", padding: "2rem 0" }}>暂无消息</div>
+              <div
+                style={{ textAlign: "center", color: "var(--text-secondary)", padding: "2rem 0" }}
+              >
+                暂无消息
+              </div>
             )}
-            {inbox.map(m => (
-              <div key={m.id} style={{
-                borderRadius: 8, padding: "12px 14px",
-                background: m.read_at ? "#f8fafc" : "#fffbeb",
-                border: `1px solid ${m.read_at ? "#e2e8f0" : "#fde68a"}`,
-              }}>
+            {inbox.map((m) => (
+              <div
+                key={m.id}
+                style={{
+                  borderRadius: 8,
+                  padding: "12px 14px",
+                  background: m.read_at ? "#f8fafc" : "#fffbeb",
+                  border: `1px solid ${m.read_at ? "#e2e8f0" : "#fde68a"}`,
+                }}
+              >
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "2px 7px",
-                    background: m.type === "data_report" ? "#fee2e2" : "#dbeafe",
-                    color: m.type === "data_report" ? "#dc2626" : "#1e3a8a",
-                    flexShrink: 0, marginTop: 1,
-                  }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      borderRadius: 4,
+                      padding: "2px 7px",
+                      background: m.type === "data_report" ? "#fee2e2" : "#dbeafe",
+                      color: m.type === "data_report" ? "#dc2626" : "#1e3a8a",
+                      flexShrink: 0,
+                      marginTop: 1,
+                    }}
+                  >
                     {m.type === "data_report" ? "数据举报" : "反馈"}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -464,25 +641,43 @@ export default function AdminPage() {
                       <div style={{ fontSize: 11, color: "#64748b", marginBottom: 3 }}>
                         {m.entity_type} · {m.entity_key}
                         {m.entity_url && (
-                          <a href={m.entity_url} target="_blank" rel="noopener"
-                            style={{ marginLeft: 6, color: "#3b82f6", textDecoration: "none" }}>↗</a>
+                          <a
+                            href={m.entity_url}
+                            target="_blank"
+                            rel="noopener"
+                            style={{ marginLeft: 6, color: "#3b82f6", textDecoration: "none" }}
+                          >
+                            ↗
+                          </a>
                         )}
                       </div>
                     )}
-                    <div style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{m.message}</div>
+                    <div style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                      {m.message}
+                    </div>
                     <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 5 }}>
                       {m.user_name} · {m.user_email} · {fmtDate(m.created_at)}
                     </div>
                   </div>
                   {!m.read_at && (
                     <button
-                      onClick={async () => { await markMessageRead(m.id); await reloadInbox(); }}
-                      style={{
-                        flexShrink: 0, padding: "2px 8px", fontSize: 11,
-                        background: "#fff", border: "1px solid #e2e8f0",
-                        borderRadius: 4, cursor: "pointer", color: "#64748b",
+                      onClick={async () => {
+                        await markMessageRead(m.id);
+                        await reloadInbox();
                       }}
-                    >已读</button>
+                      style={{
+                        flexShrink: 0,
+                        padding: "2px 8px",
+                        fontSize: 11,
+                        background: "#fff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        color: "#64748b",
+                      }}
+                    >
+                      已读
+                    </button>
                   )}
                 </div>
               </div>
@@ -508,9 +703,14 @@ function btnStyle(
   };
   const c = colors[variant];
   return {
-    padding: "0.25rem 0.55rem", fontSize: "0.7rem", fontWeight: 600,
-    background: c.bg, color: c.fg, border: c.border,
-    borderRadius: 5, cursor: disabled ? "not-allowed" : "pointer",
+    padding: "0.25rem 0.55rem",
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    background: c.bg,
+    color: c.fg,
+    border: c.border,
+    borderRadius: 5,
+    cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.4 : 1,
     whiteSpace: "nowrap",
   };

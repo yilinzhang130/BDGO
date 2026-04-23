@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import logging
 
-from database import transaction
 from crm_store import LIKE_ESCAPE, like_contains, query, query_one
-from services.helpers.resolve import resolve_company, resolve_mnc, fuzzy_company_names
+from database import transaction
+from services.helpers.resolve import fuzzy_company_names, resolve_company, resolve_mnc
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +17,13 @@ logger = logging.getLogger(__name__)
 # Companies
 # ═════════════════════════════════════════════════════════════════
 
+
 def search_companies(q="", country="", type="", disease="", limit=10):
     conds, params = [], []
     if q:
-        conds.append(f'("客户名称" LIKE ? {LIKE_ESCAPE} OR "英文名" LIKE ? {LIKE_ESCAPE} OR "中文名" LIKE ? {LIKE_ESCAPE})')
+        conds.append(
+            f'("客户名称" LIKE ? {LIKE_ESCAPE} OR "英文名" LIKE ? {LIKE_ESCAPE} OR "中文名" LIKE ? {LIKE_ESCAPE})'
+        )
         params.extend([like_contains(q)] * 3)
     if country:
         conds.append('"所处国家" = ?')
@@ -63,13 +66,18 @@ def get_company(name):
         if result.fuzzy:
             result.row["_matched_as"] = result.canonical
         return result.row
-    hint = f"你是否是指：{', '.join(result.suggestions[:3])}？" if result.suggestions else "请检查公司名称拼写。"
+    hint = (
+        f"你是否是指：{', '.join(result.suggestions[:3])}？"
+        if result.suggestions
+        else "请检查公司名称拼写。"
+    )
     return {"_not_found": True, "message": f"未找到公司 '{name}'。{hint}"}
 
 
 # ═════════════════════════════════════════════════════════════════
 # Assets
 # ═════════════════════════════════════════════════════════════════
+
 
 def search_assets(q="", company="", phase="", disease="", target="", limit=10):
     conds, params = [], []
@@ -109,6 +117,7 @@ def get_asset(name, company):
 # Clinical trials
 # ═════════════════════════════════════════════════════════════════
 
+
 def search_clinical(q="", company="", asset="", phase="", limit=10):
     conds, params = [], []
     if q:
@@ -137,6 +146,7 @@ def search_clinical(q="", company="", asset="", phase="", limit=10):
 # Deals
 # ═════════════════════════════════════════════════════════════════
 
+
 def search_deals(q="", buyer="", seller="", type="", sort_by="date", limit=10):
     conds, params = [], []
     if q:
@@ -152,7 +162,9 @@ def search_deals(q="", buyer="", seller="", type="", sort_by="date", limit=10):
         conds.append(f'"交易类型" LIKE ? {LIKE_ESCAPE}')
         params.append(like_contains(type))
     where = " AND ".join(conds) if conds else "1=1"
-    order_col = {"date": "宣布日期", "upfront": "首付款($M)", "total": "交易总额($M)"}.get(sort_by, "宣布日期")
+    order_col = {"date": "宣布日期", "upfront": "首付款($M)", "total": "交易总额($M)"}.get(
+        sort_by, "宣布日期"
+    )
     sql = (
         'SELECT "交易名称","交易类型","买方公司","卖方/合作方","资产名称",'
         '"首付款($M)","交易总额($M)","宣布日期","战略评分" '
@@ -165,6 +177,7 @@ def search_deals(q="", buyer="", seller="", type="", sort_by="date", limit=10):
 # ═════════════════════════════════════════════════════════════════
 # Patents
 # ═════════════════════════════════════════════════════════════════
+
 
 def search_patents(q="", company="", status="", limit=10):
     conds, params = [], []
@@ -190,13 +203,18 @@ def search_patents(q="", company="", status="", limit=10):
 # Buyer profiles
 # ═════════════════════════════════════════════════════════════════
 
+
 def get_buyer_profile(company):
     result = resolve_mnc(company)
     if result.row:
         if result.fuzzy:
             result.row["_matched_as"] = result.canonical
         return result.row
-    hint = f"已收录的 MNC 包括：{', '.join(result.suggestions[:5])}" if result.suggestions else "该公司暂无买方画像数据。"
+    hint = (
+        f"已收录的 MNC 包括：{', '.join(result.suggestions[:5])}"
+        if result.suggestions
+        else "该公司暂无买方画像数据。"
+    )
     return {"_not_found": True, "message": f"未找到 '{company}' 的买方画像。{hint}"}
 
 
@@ -205,9 +223,11 @@ def get_buyer_profile(company):
 # Conference Insight
 # ═════════════════════════════════════════════════════════════════
 
+
 def _conference_companies(session_id: str) -> list[dict]:
     """Load company list for a session (cached)."""
     from routers.conference import _load_report_data
+
     try:
         raw = _load_report_data(session_id)
         return raw.get("companies", [])
@@ -215,7 +235,13 @@ def _conference_companies(session_id: str) -> list[dict]:
         return []
 
 
-def search_conference(session: str = "AACR-2026", q: str = "", company_type: str = "", country: str = "", limit: int = 10) -> list[dict]:
+def search_conference(
+    session: str = "AACR-2026",
+    q: str = "",
+    company_type: str = "",
+    country: str = "",
+    limit: int = 10,
+) -> list[dict]:
     """Search companies participating in a conference session."""
     companies = _conference_companies(session)
     results = []
@@ -228,16 +254,18 @@ def search_conference(session: str = "AACR-2026", q: str = "", company_type: str
         if country and c.get("所处国家") != country:
             continue
         abstracts = c.get("abstracts", [])
-        results.append({
-            "company": c.get("company"),
-            "客户类型": c.get("客户类型"),
-            "所处国家": c.get("所处国家"),
-            "CT_count": c.get("CT_count", 0),
-            "LB_count": c.get("LB_count", 0),
-            "abstract_count": len(abstracts),
-            "top_titles": [a.get("title", "") for a in abstracts[:3]],
-            "targets": list({t for a in abstracts for t in (a.get("targets") or [])}),
-        })
+        results.append(
+            {
+                "company": c.get("company"),
+                "客户类型": c.get("客户类型"),
+                "所处国家": c.get("所处国家"),
+                "CT_count": c.get("CT_count", 0),
+                "LB_count": c.get("LB_count", 0),
+                "abstract_count": len(abstracts),
+                "top_titles": [a.get("title", "") for a in abstracts[:3]],
+                "targets": list({t for a in abstracts for t in (a.get("targets") or [])}),
+            }
+        )
         if len(results) >= min(limit, 20):
             break
     return results
@@ -286,6 +314,7 @@ def count_by(table, group_by):
 # Global fuzzy search
 # ═════════════════════════════════════════════════════════════════
 
+
 def search_global(q, limit=5):
     return {
         "companies": search_companies(q=q, limit=limit),
@@ -298,6 +327,7 @@ def search_global(q, limit=5):
 # ═════════════════════════════════════════════════════════════════
 # Watchlist (write)
 # ═════════════════════════════════════════════════════════════════
+
 
 def add_to_watchlist(entity_type: str, entity_key: str, notes: str = "", _user_id: str = ""):
     """Add entity to the current user's watchlist (Postgres)."""
@@ -363,7 +393,10 @@ SCHEMAS = [
             "properties": {
                 "q": {"type": "string"},
                 "company": {"type": "string"},
-                "phase": {"type": "string", "description": "e.g. Phase 1, Phase 2, Phase 3, Commercial"},
+                "phase": {
+                    "type": "string",
+                    "description": "e.g. Phase 1, Phase 2, Phase 3, Commercial",
+                },
                 "disease": {"type": "string"},
                 "target": {"type": "string"},
                 "limit": {"type": "integer", "default": 10},
@@ -406,7 +439,11 @@ SCHEMAS = [
                 "buyer": {"type": "string"},
                 "seller": {"type": "string"},
                 "type": {"type": "string", "description": "e.g. M&A, License, Collaboration"},
-                "sort_by": {"type": "string", "enum": ["date", "upfront", "total"], "description": "Sort field"},
+                "sort_by": {
+                    "type": "string",
+                    "enum": ["date", "upfront", "total"],
+                    "description": "Sort field",
+                },
                 "limit": {"type": "integer", "default": 10},
             },
         },
@@ -440,7 +477,10 @@ SCHEMAS = [
             "type": "object",
             "properties": {
                 "table": {"type": "string", "enum": ["公司", "资产", "临床", "交易", "IP"]},
-                "group_by": {"type": "string", "description": "Column name to group by, e.g. 临床阶段, 疾病领域"},
+                "group_by": {
+                    "type": "string",
+                    "description": "Column name to group by, e.g. 临床阶段, 疾病领域",
+                },
             },
             "required": ["table", "group_by"],
         },
@@ -463,9 +503,16 @@ SCHEMAS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "session": {"type": "string", "description": "Conference session ID, e.g. 'AACR-2026'", "default": "AACR-2026"},
+                "session": {
+                    "type": "string",
+                    "description": "Conference session ID, e.g. 'AACR-2026'",
+                    "default": "AACR-2026",
+                },
                 "q": {"type": "string", "description": "Search by company name"},
-                "company_type": {"type": "string", "description": "e.g. Biotech, Pharma, MNC, Biotech(CN)"},
+                "company_type": {
+                    "type": "string",
+                    "description": "e.g. Biotech, Pharma, MNC, Biotech(CN)",
+                },
                 "country": {"type": "string", "description": "e.g. 中国, 美国, 日本"},
                 "limit": {"type": "integer", "default": 10},
             },
@@ -489,9 +536,19 @@ SCHEMAS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "entity_type": {"type": "string", "enum": ["company", "asset", "disease", "target", "incubator"], "description": "Type of entity"},
-                "entity_key": {"type": "string", "description": "The name/key of the entity, e.g. the company name or asset name"},
-                "notes": {"type": "string", "description": "Optional notes about why this is being watched"},
+                "entity_type": {
+                    "type": "string",
+                    "enum": ["company", "asset", "disease", "target", "incubator"],
+                    "description": "Type of entity",
+                },
+                "entity_key": {
+                    "type": "string",
+                    "description": "The name/key of the entity, e.g. the company name or asset name",
+                },
+                "notes": {
+                    "type": "string",
+                    "description": "Optional notes about why this is being watched",
+                },
             },
             "required": ["entity_type", "entity_key"],
         },
@@ -524,11 +581,11 @@ IMPLS = {
 # stripping (external users cannot see internal BD/scoring columns).
 TABLE_MAP: dict[str, str] = {
     "search_companies": "公司",
-    "get_company":      "公司",
-    "search_assets":    "资产",
-    "get_asset":        "资产",
-    "search_clinical":  "临床",
-    "search_deals":     "交易",
+    "get_company": "公司",
+    "search_assets": "资产",
+    "get_asset": "资产",
+    "search_clinical": "临床",
+    "search_deals": "交易",
 }
 
 # add_to_watchlist writes to Postgres and needs the caller's user id.
@@ -539,8 +596,8 @@ NEEDS_USER_ID: set[str] = {"add_to_watchlist"}
 MULTI_TABLE_MAP: dict[str, list[tuple[str, str]]] = {
     "search_global": [
         ("companies", "公司"),
-        ("assets",    "资产"),
-        ("deals",     "交易"),
-        ("clinical",  "临床"),
+        ("assets", "资产"),
+        ("deals", "交易"),
+        ("clinical", "临床"),
     ],
 }

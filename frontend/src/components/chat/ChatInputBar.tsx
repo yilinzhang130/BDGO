@@ -82,11 +82,10 @@ export function ChatInputBar({
           >
             {attachments.map((f) => (
               <div key={f} className="attachment-chip">
-                <span>{"\uD83D\uDCCE"} {f}</span>
-                <button
-                  onClick={() => onRemoveAttachment(f)}
-                  className="attachment-chip-remove"
-                >
+                <span>
+                  {"\uD83D\uDCCE"} {f}
+                </span>
+                <button onClick={() => onRemoveAttachment(f)} className="attachment-chip-remove">
                   {"\u00D7"}
                 </button>
               </div>
@@ -137,9 +136,7 @@ export function ChatInputBar({
                   }
                   if (e.key === "ArrowUp") {
                     e.preventDefault();
-                    onSlashActiveIndexChange(
-                      (i) => (i - 1 + filtered.length) % filtered.length,
-                    );
+                    onSlashActiveIndexChange((i) => (i - 1 + filtered.length) % filtered.length);
                     return;
                   }
                   if (e.key === "Enter" && !e.shiftKey) {

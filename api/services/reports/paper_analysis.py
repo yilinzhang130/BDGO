@@ -16,9 +16,9 @@ import re
 from pathlib import Path
 from typing import Literal
 
+from config import BP_DIR
 from pydantic import BaseModel
 
-from config import BP_DIR
 from services.helpers import pubmed
 from services.helpers.text import safe_slug
 from services.report_builder import (
@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 # Input schema
 # ─────────────────────────────────────────────────────────────
+
 
 class PaperAnalysisInput(BaseModel):
     mode: Literal["single", "survey"] = "single"
@@ -167,6 +168,7 @@ SURVEY_ANALYSIS_PROMPT = """你正在对 **"{topic}"** 方向做文献综述。�
 # Service
 # ─────────────────────────────────────────────────────────────
 
+
 class PaperAnalysisService(ReportService):
     slug = "paper-analysis"
     display_name = "Paper Analysis"
@@ -224,10 +226,10 @@ class PaperAnalysisService(ReportService):
     estimated_seconds = 60
     category = "research"
     field_rules = {
-        "pmid":       {"visible_when": {"mode": "single"}},
-        "doi":        {"visible_when": {"mode": "single"}},
-        "filename":   {"visible_when": {"mode": "single"}},
-        "topic":      {"visible_when": {"mode": "survey"}},
+        "pmid": {"visible_when": {"mode": "single"}},
+        "doi": {"visible_when": {"mode": "single"}},
+        "filename": {"visible_when": {"mode": "single"}},
+        "topic": {"visible_when": {"mode": "survey"}},
         "max_papers": {"visible_when": {"mode": "survey"}},
         "years_back": {"visible_when": {"mode": "survey"}},
     }
@@ -244,9 +246,7 @@ class PaperAnalysisService(ReportService):
         # 1. Fetch paper content
         paper = self._fetch_paper(inp, ctx)
         if not paper:
-            raise ValueError(
-                "Could not fetch paper. Provide a valid pmid, doi, or filename."
-            )
+            raise ValueError("Could not fetch paper. Provide a valid pmid, doi, or filename.")
 
         ctx.log(f"Loaded paper: {paper.get('title', '(untitled)')[:80]}")
 
@@ -350,9 +350,7 @@ class PaperAnalysisService(ReportService):
         )
 
         if not pmids:
-            raise RuntimeError(
-                f"No papers found for topic '{topic}'. Try broader keywords."
-            )
+            raise RuntimeError(f"No papers found for topic '{topic}'. Try broader keywords.")
 
         ctx.log(f"Found {len(pmids)} PMIDs. Fetching metadata + abstracts...")
 
@@ -404,6 +402,7 @@ class PaperAnalysisService(ReportService):
     def _extract_pubmed_query(self, raw: str, fallback: str) -> str:
         """Parse LLM strategy output, extract pubmed_query field with fallback."""
         import json
+
         # Try ```json ... ``` block
         m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
         json_str = m.group(1) if m else raw
@@ -435,5 +434,3 @@ class PaperAnalysisService(ReportService):
             )
             parts.append(block)
         return "\n---\n".join(parts)
-
-        return t[:max_len] or "untitled"

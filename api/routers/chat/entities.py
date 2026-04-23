@@ -42,6 +42,7 @@ def _format_field(label: str, value) -> dict | None:
 # Per-table extractors
 # ─────────────────────────────────────────────────────────────
 
+
 def _entity_from_company(row: dict) -> dict | None:
     name = row.get("客户名称")
     if not name:

@@ -15,7 +15,6 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Inches, Pt
 
-
 NAVY = RGBColor(0x1F, 0x4E, 0x79)
 GOLD = RGBColor(0xBF, 0x92, 0x3C)
 DARK_GRAY = RGBColor(0x40, 0x40, 0x40)
@@ -27,6 +26,7 @@ BLACK = RGBColor(0x12, 0x1A, 0x24)
 @dataclass
 class TeaserContent:
     """Structured deck content — filled by the LLM, rendered by build_deck()."""
+
     asset_name: str
     indication: str
     company: str
@@ -34,20 +34,22 @@ class TeaserContent:
     moa: str
     phase: str
     date: str
-    highlights: list[str]                   # 3-5 bullets with embedded data
-    unmet_need: str                         # ~200 字
-    tam: str                                # "$8.5B global"
-    peak_revenue: str                       # "$1.2-1.8B"
-    mechanism: str                          # MoA + differentiation vs SoC
-    clinical_data: list[list[str]]          # table rows: ["Metric", "Our Asset", "SoC", "Δ"]
-    competitive: list[list[str]]            # ["Competitor", "Company", "Stage", "Differentiation"]
-    development_plan: list[str]             # milestone bullets
+    highlights: list[str]  # 3-5 bullets with embedded data
+    unmet_need: str  # ~200 字
+    tam: str  # "$8.5B global"
+    peak_revenue: str  # "$1.2-1.8B"
+    mechanism: str  # MoA + differentiation vs SoC
+    clinical_data: list[list[str]]  # table rows: ["Metric", "Our Asset", "SoC", "Δ"]
+    competitive: list[list[str]]  # ["Competitor", "Company", "Stage", "Differentiation"]
+    development_plan: list[str]  # milestone bullets
     deal_structure: str
     contact: str
 
 
 def _add_title_bar(slide, title: str, subtitle: str | None = None) -> None:
-    bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.33), Inches(0.9))
+    bar = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.33), Inches(0.9)
+    )
     bar.line.fill.background()
     bar.fill.solid()
     bar.fill.fore_color.rgb = NAVY
@@ -69,7 +71,9 @@ def _add_title_bar(slide, title: str, subtitle: str | None = None) -> None:
             r.font.size = Pt(12)
             r.font.color.rgb = GOLD
 
-    accent = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0.9), Inches(13.33), Inches(0.05))
+    accent = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(0), Inches(0.9), Inches(13.33), Inches(0.05)
+    )
     accent.line.fill.background()
     accent.fill.solid()
     accent.fill.fore_color.rgb = GOLD
@@ -87,7 +91,9 @@ def _add_footer(slide, text: str = "CONFIDENTIAL — For Discussion Purposes Onl
         r.font.color.rgb = DARK_GRAY
 
 
-def _add_body_text(slide, text: str, *, top: float = 1.2, height: float = 5.5, size: int = 14) -> None:
+def _add_body_text(
+    slide, text: str, *, top: float = 1.2, height: float = 5.5, size: int = 14
+) -> None:
     box = slide.shapes.add_textbox(Inches(0.6), Inches(top), Inches(12.1), Inches(height))
     tf = box.text_frame
     tf.word_wrap = True
@@ -204,7 +210,9 @@ def build_deck(content: TeaserContent) -> bytes:
 
     # ── Slide 3: Unmet Need & Market ───────────────────────
     s = prs.slides.add_slide(blank)
-    _add_title_bar(s, "Unmet Need & Market", f"TAM {content.tam}  ·  Peak Revenue {content.peak_revenue}")
+    _add_title_bar(
+        s, "Unmet Need & Market", f"TAM {content.tam}  ·  Peak Revenue {content.peak_revenue}"
+    )
     _add_body_text(s, content.unmet_need, top=1.3)
     _add_footer(s)
 

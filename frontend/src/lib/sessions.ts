@@ -237,11 +237,9 @@ if (isBrowser()) {
 // ═══════════════════════════════════════════
 
 function genId(): string {
-  return (
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID().slice(0, 12)
-      : Math.random().toString(36).slice(2, 14)
-  );
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID().slice(0, 12)
+    : Math.random().toString(36).slice(2, 14);
 }
 
 export function listSessions(): ChatSession[] {
@@ -288,9 +286,7 @@ export function createSession(title = "New Chat"): ChatSession {
         loadedSessionIds.delete(tempId);
         loadedSessionIds.add(serverId);
         setLocalState({
-          sessions: state.sessions.map((s) =>
-            s.id === tempId ? { ...s, id: serverId } : s,
-          ),
+          sessions: state.sessions.map((s) => (s.id === tempId ? { ...s, id: serverId } : s)),
           activeId: state.activeId === tempId ? serverId : state.activeId,
         });
         session.id = serverId;
@@ -305,9 +301,8 @@ export function deleteSession(id: string) {
   const remaining = state.sessions.filter((s) => s.id !== id);
   let nextActive = state.activeId;
   if (state.activeId === id) {
-    nextActive = remaining.length > 0
-      ? [...remaining].sort((a, b) => b.updatedAt - a.updatedAt)[0].id
-      : null;
+    nextActive =
+      remaining.length > 0 ? [...remaining].sort((a, b) => b.updatedAt - a.updatedAt)[0].id : null;
   }
   setLocalState({ sessions: remaining, activeId: nextActive });
   loadedSessionIds.delete(id);
@@ -344,25 +339,15 @@ export function addMessage(sessionId: string, msg: ChatMessage) {
   }
 }
 
-export function appendAssistantChunk(
-  sessionId: string,
-  msgId: string,
-  chunk: string,
-) {
+export function appendAssistantChunk(sessionId: string, msgId: string, chunk: string) {
   // Local-only during streaming — saved on markMessageDone
   touchSession(sessionId, (s) => ({
     ...s,
-    messages: s.messages.map((m) =>
-      m.id === msgId ? { ...m, content: m.content + chunk } : m,
-    ),
+    messages: s.messages.map((m) => (m.id === msgId ? { ...m, content: m.content + chunk } : m)),
   }));
 }
 
-export function addToolEvent(
-  sessionId: string,
-  msgId: string,
-  event: ToolEvent,
-) {
+export function addToolEvent(sessionId: string, msgId: string, event: ToolEvent) {
   touchSession(sessionId, (s) => ({
     ...s,
     messages: s.messages.map((m) =>
@@ -371,17 +356,11 @@ export function addToolEvent(
   }));
 }
 
-export function addReportTask(
-  sessionId: string,
-  msgId: string,
-  task: ReportTask,
-) {
+export function addReportTask(sessionId: string, msgId: string, task: ReportTask) {
   touchSession(sessionId, (s) => ({
     ...s,
     messages: s.messages.map((m) =>
-      m.id === msgId
-        ? { ...m, reportTasks: [...(m.reportTasks || []), task] }
-        : m,
+      m.id === msgId ? { ...m, reportTasks: [...(m.reportTasks || []), task] } : m,
     ),
   }));
 }
@@ -393,22 +372,14 @@ export function setMessageQuickSources(
 ) {
   touchSession(sessionId, (s) => ({
     ...s,
-    messages: s.messages.map((m) =>
-      m.id === msgId ? { ...m, quickSources: sources } : m,
-    ),
+    messages: s.messages.map((m) => (m.id === msgId ? { ...m, quickSources: sources } : m)),
   }));
 }
 
-export function setMessageError(
-  sessionId: string,
-  msgId: string,
-  error: string,
-) {
+export function setMessageError(sessionId: string, msgId: string, error: string) {
   touchSession(sessionId, (s) => ({
     ...s,
-    messages: s.messages.map((m) =>
-      m.id === msgId ? { ...m, error, streaming: false } : m,
-    ),
+    messages: s.messages.map((m) => (m.id === msgId ? { ...m, error, streaming: false } : m)),
   }));
 }
 
@@ -422,9 +393,7 @@ export function removeMessage(sessionId: string, msgId: string) {
 export function markMessageDone(sessionId: string, msgId: string) {
   touchSession(sessionId, (s) => ({
     ...s,
-    messages: s.messages.map((m) =>
-      m.id === msgId ? { ...m, streaming: false } : m,
-    ),
+    messages: s.messages.map((m) => (m.id === msgId ? { ...m, streaming: false } : m)),
   }));
 
   // Persist the completed assistant message to server.
@@ -436,7 +405,8 @@ export function markMessageDone(sessionId: string, msgId: string) {
     // Build a structured payload whenever a message carries anything
     // beyond a plain tool timeline — plan cards, quick-search sources,
     // or report tasks all need to survive a reload.
-    const hasStructured = msg.plan || msg.quickSources || (msg.reportTasks && msg.reportTasks.length);
+    const hasStructured =
+      msg.plan || msg.quickSources || (msg.reportTasks && msg.reportTasks.length);
     const toolsJson = hasStructured
       ? JSON.stringify({
           ...(msg.plan && {
@@ -450,8 +420,8 @@ export function markMessageDone(sessionId: string, msgId: string) {
           tools: msg.tools,
         })
       : msg.tools
-      ? JSON.stringify(msg.tools)
-      : undefined;
+        ? JSON.stringify(msg.tools)
+        : undefined;
     bg(
       postMessage(sessionId, {
         id: msg.id,
@@ -576,7 +546,7 @@ function getServerSnapshot(): StoreState {
 export function useSessionStore() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const active = snapshot.activeId
-    ? snapshot.sessions.find((s) => s.id === snapshot.activeId) ?? null
+    ? (snapshot.sessions.find((s) => s.id === snapshot.activeId) ?? null)
     : null;
   return {
     sessions: [...snapshot.sessions].sort((a, b) => b.updatedAt - a.updatedAt),

@@ -43,6 +43,7 @@ FONT_CN = "\u5fae\u8f6f\u96c5\u9ed1"  # 微软雅黑
 # Low-level helpers (port from md_to_docx.py)
 # ─────────────────────────────────────────────────────────────
 
+
 def set_cell_shading(cell, color_hex: str) -> None:
     shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{color_hex}" w:val="clear"/>')
     cell._tc.get_or_add_tcPr().append(shading)
@@ -65,13 +66,14 @@ def set_run_font(
     rPr = run._element.get_or_add_rPr()
     rFonts = rPr.find(qn("w:rFonts"))
     if rFonts is None:
-        rFonts = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
+        rFonts = parse_xml(f"<w:rFonts {nsdecls('w')}/>")
         rPr.insert(0, rFonts)
     rFonts.set(qn("w:eastAsia"), FONT_CN)
 
 
-def add_formatted_run(paragraph, text: str, size_pt: float = 10.5,
-                      color: RGBColor = BODY, bold: bool = False) -> None:
+def add_formatted_run(
+    paragraph, text: str, size_pt: float = 10.5, color: RGBColor = BODY, bold: bool = False
+) -> None:
     """Add text to a paragraph, parsing inline **bold** markdown."""
     if not text:
         return
@@ -91,6 +93,7 @@ def add_formatted_run(paragraph, text: str, size_pt: float = 10.5,
 # High-level builder API
 # ─────────────────────────────────────────────────────────────
 
+
 def new_report_document() -> Document:
     """Create a styled Document with A4 margins + default body font."""
     doc = Document()
@@ -109,7 +112,7 @@ def new_report_document() -> Document:
     rPr = style.element.get_or_add_rPr()
     rFonts = rPr.find(qn("w:rFonts"))
     if rFonts is None:
-        rFonts = parse_xml(f'<w:rFonts {nsdecls("w")}/>')
+        rFonts = parse_xml(f"<w:rFonts {nsdecls('w')}/>")
         rPr.insert(0, rFonts)
     rFonts.set(qn("w:eastAsia"), FONT_CN)
     return doc
@@ -147,9 +150,9 @@ def add_h1(doc: Document, text: str) -> None:
     # Gold bottom border on paragraph
     pPr = p._element.get_or_add_pPr()
     pBdr = parse_xml(
-        f'<w:pBdr {nsdecls("w")}>'
+        f"<w:pBdr {nsdecls('w')}>"
         f'<w:bottom w:val="single" w:sz="8" w:space="2" w:color="{GOLD_HEX}"/>'
-        f'</w:pBdr>'
+        f"</w:pBdr>"
     )
     pPr.append(pBdr)
 
@@ -194,9 +197,9 @@ def add_blockquote(doc: Document, text: str) -> None:
     add_formatted_run(p, text, size_pt=10, color=GREY, bold=False)
     pPr = p._element.get_or_add_pPr()
     pBdr = parse_xml(
-        f'<w:pBdr {nsdecls("w")}>'
+        f"<w:pBdr {nsdecls('w')}>"
         f'<w:left w:val="single" w:sz="24" w:space="8" w:color="0E7C7B"/>'
-        f'</w:pBdr>'
+        f"</w:pBdr>"
     )
     pPr.append(pBdr)
 
@@ -230,7 +233,7 @@ def add_table(doc: Document, rows: list[list[str]]) -> None:
 
     # Full-width
     tbl = table._tbl
-    tblPr = tbl.tblPr if tbl.tblPr is not None else parse_xml(f'<w:tblPr {nsdecls("w")}/>')
+    tblPr = tbl.tblPr if tbl.tblPr is not None else parse_xml(f"<w:tblPr {nsdecls('w')}/>")
     existing_w = tblPr.find(qn("w:tblW"))
     if existing_w is None:
         tblPr.append(parse_xml(f'<w:tblW {nsdecls("w")} w:type="pct" w:w="5000"/>'))

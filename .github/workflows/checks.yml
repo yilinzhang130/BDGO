@@ -1,0 +1,117 @@
+# checks.yml — 代码质量自动检查
+#
+# 触发时机: 任何分支 push + 任何 pull request
+# 4 个 job 并行跑,互不阻塞 —— 一个挂了不会取消其他:
+#   1. lint-python     —— ruff 检查 Python 代码
+#   2. lint-frontend   —— ESLint + Prettier 检查前端代码
+#   3. semgrep         —— 语义级静态分析(安全 + 常见 bug)
+#   4. codeql          —— GitHub 官方深度静态分析
+#
+# PR 里在 "Checks" 标签页看结果;push 到分支后在 Actions 标签页看。
+
+name: checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# 同一分支新 push 自动取消旧的跑,省 CI 额度
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # Python: ruff 静态分析 + 格式检查
+  # ──────────────────────────────────────────────────────────
+  lint-python:
+    name: Lint Python (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format --check
+        run: ruff format --check .
+
+  # ──────────────────────────────────────────────────────────
+  # Frontend: ESLint + Prettier
+  # ──────────────────────────────────────────────────────────
+  lint-frontend:
+    name: Lint Frontend (eslint + prettier)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier check
+        run: npm run format:check
+
+  # ──────────────────────────────────────────────────────────
+  # Semgrep: 语义级静态分析,使用 --config=auto 自动选规则集
+  # ──────────────────────────────────────────────────────────
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Semgrep scan
+        run: semgrep scan --config=auto --error --metrics=off
+        # --error 让 Semgrep 在发现问题时返回非 0 退出码,CI 会标红
+        # --metrics=off 关闭匿名遥测
+
+  # ──────────────────────────────────────────────────────────
+  # CodeQL: GitHub 官方深度分析(Python + JS/TS)
+  # ──────────────────────────────────────────────────────────
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      # CodeQL 需要把 finding 写回 repo 的 Security 标签页
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      # 一个语言挂了不影响另一个
+      fail-fast: false
+      matrix:
+        language: ["python", "javascript-typescript"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
