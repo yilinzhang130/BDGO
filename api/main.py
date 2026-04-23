@@ -1,5 +1,10 @@
 """
-CRM Dashboard API — FastAPI backend wrapping crm_db.
+CRM Dashboard API — BDGO backend (auth + chat + CRUD + reports).
+
+CRM reads go through ``crm_store.py`` → the workspace-level
+``scripts/crm_db.py`` (PostgreSQL in prod, SQLite snapshot locally).
+Auth / sessions / credits / report history live in a separate Postgres
+managed by ``auth_db.py``.
 """
 
 import json
