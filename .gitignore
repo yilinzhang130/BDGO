@@ -25,7 +25,8 @@ data/
 .idea/
 
 # Claude Code 本地状态(skills、worktrees、session 数据等) — 不入 repo
-.claude/
+# 双星号匹配任何子目录下的 .claude/(比如 frontend/.claude/)
+**/.claude/
 
 # Build
 dist/
