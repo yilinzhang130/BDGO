@@ -24,9 +24,12 @@ data/
 .vscode/
 .idea/
 
-# Claude Code 本地状态(skills、worktrees、session 数据等) — 不入 repo
+# Claude Code 本地状态 — 默认不入 repo（用 /** 而非 / 以便对子路径做例外）
 # 双星号匹配任何子目录下的 .claude/(比如 frontend/.claude/)
-**/.claude/
+**/.claude/**
+# 例外：团队级共享的审查 skill 要入 repo（settings/worktrees/session 数据仍忽略）
+!**/.claude/skills/
+!**/.claude/skills/**
 
 # Build
 dist/
