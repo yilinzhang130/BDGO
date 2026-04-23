@@ -8,6 +8,7 @@ import logging
 
 from auth_db import transaction
 from crm_store import LIKE_ESCAPE, like_contains, query, query_one
+from services.conference import load_report_data
 from services.helpers.resolve import fuzzy_company_names, resolve_company, resolve_mnc
 
 logger = logging.getLogger(__name__)
@@ -226,10 +227,8 @@ def get_buyer_profile(company):
 
 def _conference_companies(session_id: str) -> list[dict]:
     """Load company list for a session (cached)."""
-    from routers.conference import _load_report_data
-
     try:
-        raw = _load_report_data(session_id)
+        raw = load_report_data(session_id)
         return raw.get("companies", [])
     except Exception:
         return []
