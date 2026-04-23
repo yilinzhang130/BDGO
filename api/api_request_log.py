@@ -41,7 +41,9 @@ def log_request(
             )
     except Exception:
         # key_id is a DB row UUID, not the API token.
-        _logger.exception("Failed to write api_request_log row_id=%s path=%s", key_id, path)  # lgtm[py/clear-text-logging-sensitive-data]
+        _logger.exception(
+            "Failed to write api_request_log row_id=%s path=%s", key_id, path
+        )  # lgtm[py/clear-text-logging-sensitive-data]
 
 
 def count_today(key_id: str) -> int:
