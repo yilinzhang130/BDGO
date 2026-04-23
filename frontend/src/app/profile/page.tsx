@@ -564,6 +564,31 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* ─── Developer ─── */}
+      <div style={sectionStyle}>
+        <div style={sectionTitleStyle}>Developer</div>
+        <div style={sectionDescStyle}>
+          Programmatic access — create API keys to call BD Go data endpoints from scripts or your
+          own tools.
+        </div>
+        <a
+          href="/settings/api-keys"
+          style={{
+            display: "inline-block",
+            padding: "9px 18px",
+            fontSize: 14,
+            fontWeight: 500,
+            color: "#2563eb",
+            background: "#fff",
+            border: "1px solid #2563eb",
+            borderRadius: 8,
+            textDecoration: "none",
+          }}
+        >
+          Manage API Keys →
+        </a>
+      </div>
+
       {/* ─── Account ─── */}
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Account</div>

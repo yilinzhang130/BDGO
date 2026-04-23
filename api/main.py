@@ -10,7 +10,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 
 # ── Structured JSON logging ───────────────────────────────────
 # Enabled in production (LOG_FORMAT=json env var or when DATABASE_URL is set).
@@ -81,6 +84,7 @@ from routers import (
     watchlist,
     write,
 )
+from routers import api_keys as api_keys_router
 from routers import auth as auth_router
 from routers import credits as credits_router
 from routers import sessions as sessions_router
@@ -101,7 +105,19 @@ async def lifespan(app: FastAPI):
         await close_pool()
 
 
-app = FastAPI(title="OpenClaw CRM Dashboard API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="OpenClaw CRM Dashboard API",
+    version="0.1.0",
+    lifespan=lifespan,
+    # Disable the default /docs + /redoc — they would surface every internal
+    # endpoint (/api/write, /api/admin, /api/chat). The curated developer
+    # docs at /api/public/docs show only routes marked @public_api.
+    # /openapi.json is kept off for the same reason; /api/public/openapi.json
+    # is the external-facing replacement.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 _default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 _cors_env = os.environ.get("CORS_ORIGINS", "")
@@ -116,6 +132,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Cross-module contract with auth.py: when an X-API-Key request resolves,
+# auth stashes api_key_id / api_user_id on request.state. This middleware
+# reads them after the response and persists one log row per API-key call.
+# JWT/anonymous traffic is intentionally skipped (the table only meters
+# external programmatic usage).
+
+import time as _time  # noqa: E402
+
+import api_request_log as _api_request_log  # noqa: E402
+
+
+@app.middleware("http")
+async def log_api_key_requests(request, call_next):
+    start = _time.monotonic()
+    response = await call_next(request)
+    key_id = getattr(request.state, "api_key_id", None)
+    if key_id:
+        try:
+            _api_request_log.log_request(
+                key_id=key_id,
+                user_id=getattr(request.state, "api_user_id", None),
+                method=request.method,
+                path=request.url.path,
+                status=response.status_code,
+                latency_ms=int((_time.monotonic() - start) * 1000),
+            )
+        except Exception:
+            pass  # log_request already swallows; defence-in-depth
+    return response
+
 
 # Auth router — no auth dependency (handles its own authentication)
 app.include_router(auth_router.router, prefix="/api/auth", tags=["auth"])
@@ -155,8 +203,76 @@ app.include_router(inbox.router, prefix="/api/inbox", tags=["inbox"], dependenci
 app.include_router(
     conference.router, prefix="/api/conference", tags=["conference"], dependencies=_auth
 )
+app.include_router(
+    api_keys_router.router, prefix="/api/keys", tags=["api-keys"], dependencies=_auth
+)
 # Credits + models router — routes handle their own auth via Depends(get_current_user)
 app.include_router(credits_router.router)
+
+
+# Public developer docs: filter the auto-generated OpenAPI to @public_api
+# routes only, so external Swagger UI can't discover internal endpoints.
+from auth import PUBLIC_API_ATTR as _PUBLIC_API_ATTR  # noqa: E402
+
+
+def _build_public_openapi_schema() -> dict:
+    """OpenAPI spec containing only ``@public_api``-marked routes."""
+    full = get_openapi(
+        title="BD Go Public API",
+        version="1.0.0",
+        description=(
+            "Programmatic access to BD Go data endpoints.\n\n"
+            "Authenticate via the `X-API-Key` header. Create keys at "
+            "[/settings/api-keys](/settings/api-keys)."
+        ),
+        routes=app.routes,
+    )
+
+    # A path may host both a public GET and a private DELETE — keep only the
+    # public methods.
+    allowed: dict[str, set[str]] = {}
+    for route in app.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        if not getattr(route.endpoint, _PUBLIC_API_ATTR, False):
+            continue
+        allowed.setdefault(route.path, set()).update(m.lower() for m in route.methods)
+
+    full["paths"] = {
+        path: {m: op for m, op in ops.items() if m.lower() in allowed.get(path, set())}
+        for path, ops in full.get("paths", {}).items()
+        if any(m.lower() in allowed.get(path, set()) for m in ops)
+    }
+
+    full.setdefault("components", {}).setdefault("securitySchemes", {})["ApiKeyAuth"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+    }
+    full["security"] = [{"ApiKeyAuth": []}]
+    return full
+
+
+# Routes are static after startup; build once, serve from cache.
+_PUBLIC_OPENAPI_CACHE: dict | None = None
+
+
+@app.get("/api/public/openapi.json", include_in_schema=False)
+def public_openapi():
+    """OpenAPI spec for the external/developer surface."""
+    global _PUBLIC_OPENAPI_CACHE
+    if _PUBLIC_OPENAPI_CACHE is None:
+        _PUBLIC_OPENAPI_CACHE = _build_public_openapi_schema()
+    return _PUBLIC_OPENAPI_CACHE
+
+
+@app.get("/api/public/docs", include_in_schema=False)
+def public_swagger_ui():
+    """Swagger UI pointed at the filtered public OpenAPI spec."""
+    return get_swagger_ui_html(
+        openapi_url="/api/public/openapi.json",
+        title="BD Go Public API — Developer Docs",
+    )
 
 
 @app.get("/api/health")

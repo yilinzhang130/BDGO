@@ -2,7 +2,7 @@
 
 from urllib.parse import unquote
 
-from auth import get_current_user
+from auth import get_current_user, public_api
 from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from fastapi import APIRouter, Depends, HTTPException, Query
 from field_policy import strip_hidden
@@ -11,6 +11,7 @@ router = APIRouter()
 
 
 @router.get("")
+@public_api
 def list_assets(
     q: str = Query("", description="Search asset name"),
     company: str = Query("", description="Filter by company"),
@@ -83,6 +84,7 @@ def list_assets(
 
 
 @router.get("/{company}/{name}")
+@public_api
 def get_asset(company: str, name: str, user: dict = Depends(get_current_user)):
     company = unquote(company)
     name = unquote(name)
@@ -96,6 +98,7 @@ def get_asset(company: str, name: str, user: dict = Depends(get_current_user)):
 
 
 @router.get("/{company}/{name}/trials")
+@public_api
 def get_asset_trials(
     company: str,
     name: str,

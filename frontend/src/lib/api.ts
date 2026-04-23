@@ -607,3 +607,44 @@ export const fetchConferenceAbstracts = (
       page_size: params.page_size ?? 24,
     },
   );
+
+// ---------------------------------------------------------------------------
+// API Keys (developer portal)
+// ---------------------------------------------------------------------------
+
+export interface ApiKeyRecord {
+  id: string;
+  user_id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  quota_daily: number | null;
+  created_at: string;
+  last_used_at: string | null;
+  last_used_ip: string | null;
+  revoked_at: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+}
+
+export const fetchApiKeys = (includeRevoked = false) =>
+  get<{ items: ApiKeyRecord[] }>(
+    `${BASE}/keys`,
+    includeRevoked ? { include_revoked: "true" } : undefined,
+  );
+
+export const createApiKey = (name: string, quotaDaily?: number) =>
+  post<{ key: string; record: ApiKeyRecord }>(`${BASE}/keys`, {
+    name,
+    ...(quotaDaily !== undefined ? { quota_daily: quotaDaily } : {}),
+  });
+
+export const revokeApiKey = (keyId: string) =>
+  fetch(`${BASE}/keys/${encodeURIComponent(keyId)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  }).then(async (res) => {
+    handle401(res);
+    if (!res.ok) throw new Error(`Revoke failed: ${res.status}`);
+    return res.json() as Promise<ApiKeyRecord>;
+  });

@@ -1,6 +1,6 @@
 """Clinical trial endpoints."""
 
-from auth import get_current_user
+from auth import get_current_user, public_api
 from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from fastapi import APIRouter, Depends, HTTPException, Query
 from field_policy import strip_hidden
@@ -9,6 +9,7 @@ router = APIRouter()
 
 
 @router.get("")
+@public_api
 def list_clinical(
     q: str = Query("", description="Search trial/asset/company"),
     company: str = Query(""),
@@ -75,6 +76,7 @@ def list_clinical(
 
 
 @router.get("/{record_id}")
+@public_api
 def get_clinical_record(record_id: str, user: dict = Depends(get_current_user)):
     row = query_one('SELECT * FROM "临床" WHERE "记录ID" = ?', (record_id,))
     if not row:

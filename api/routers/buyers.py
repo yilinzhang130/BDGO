@@ -2,6 +2,7 @@
 
 from urllib.parse import unquote
 
+from auth import public_api
 from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from fastapi import APIRouter, HTTPException, Query
 
@@ -9,6 +10,7 @@ router = APIRouter()
 
 
 @router.get("")
+@public_api
 def list_buyers(
     q: str = Query("", description="Search company name"),
     sort: str = Query("company_name", description="Sort column"),
@@ -48,6 +50,7 @@ def list_buyers(
 
 
 @router.get("/{name}")
+@public_api
 def get_buyer(name: str):
     name = unquote(name)
     row = query_one('SELECT * FROM "MNC画像" WHERE "company_name" = ?', (name,))

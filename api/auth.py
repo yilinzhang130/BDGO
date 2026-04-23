@@ -1,5 +1,15 @@
 """
 auth.py — Password hashing, JWT helpers, and FastAPI auth dependencies.
+
+Two authentication methods are supported on protected endpoints:
+
+  1. ``Authorization: Bearer <jwt>`` — browser sessions (issued via login)
+  2. ``X-API-Key: bdgo_live_...``   — programmatic access (issued via
+     /api/keys). Only accepted on routes marked ``@public_api``.
+
+``get_current_user`` resolves either into the same user dict and attaches
+``auth_method`` (``"jwt"`` or ``"api_key"``) so downstream code can branch
+on billing / rate-limiting / scope checks.
 """
 
 from __future__ import annotations
@@ -8,10 +18,12 @@ import datetime as _dt
 import logging
 import os
 
+import api_keys as api_keys_mod
+import api_request_log as api_request_log_mod
 import bcrypt
 import config
 import jwt
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 
 _logger = logging.getLogger(__name__)
 
@@ -109,30 +121,124 @@ def _lookup_user(user_id: str) -> dict:
     return user
 
 
-def get_current_user(authorization: str = Header(None)) -> dict:
-    """FastAPI dependency — requires a valid Bearer token.
+# ---------------------------------------------------------------------------
+# Public-API marker — a sentinel attribute attached by @public_api.
+# When auth sees this flag on the resolved route, it permits X-API-Key
+# fallback in addition to JWT. Off by default: endpoints are JWT-only.
+# ---------------------------------------------------------------------------
 
-    Returns a user dict or raises HTTPException(401).
+PUBLIC_API_ATTR = "__bdgo_public_api__"
+
+
+def public_api(func):
+    """Mark a route handler as accepting ``X-API-Key`` auth in addition to JWT.
+
+    Usage::
+
+        @router.get("/companies")
+        @public_api
+        def list_companies(...):
+            ...
+
+    Only endpoints carrying this marker can be reached with an API key.
+    Everything else stays JWT-only, which keeps ``/api/chat``, ``/api/write``,
+    ``/api/upload`` etc. firmly inside the browser session boundary.
     """
+    setattr(func, PUBLIC_API_ATTR, True)
+    return func
+
+
+def _route_is_public(request: Request | None) -> bool:
+    """Return True if the matched route handler is marked @public_api."""
+    if request is None:
+        return False
+    route = request.scope.get("route")
+    endpoint = getattr(route, "endpoint", None) if route is not None else None
+    return bool(endpoint and getattr(endpoint, PUBLIC_API_ATTR, False))
+
+
+def _resolve_api_key_user(request: Request | None, x_api_key: str) -> dict:
+    """Validate an ``X-API-Key`` and return the owning user's dict.
+
+    Raises 403 if the route isn't ``@public_api`` (key leaks can't reach
+    chat/write/admin), 401 on unknown/revoked keys, 429 on daily-quota
+    exhaustion.
+    """
+    if not _route_is_public(request):
+        raise HTTPException(
+            status_code=403,
+            detail="This endpoint does not accept API key authentication",
+        )
+    client_ip = request.client.host if (request is not None and request.client) else None
+    ctx = api_keys_mod.verify_key(x_api_key, client_ip=client_ip)
+    if ctx is None:
+        raise HTTPException(status_code=401, detail="Invalid or revoked API key")
+
+    # quota_daily IS NULL → unlimited (internal/trusted issuance only).
+    # Race note: count_today() reads the log table, which the per-request
+    # middleware writes to *after* the response. N parallel in-flight calls
+    # can each see the same count and over-run the quota by ≤ concurrency-1.
+    # Acceptable: cap is a soft monthly-billing guard, not a hard security
+    # boundary. Tighten via a counter row on api_keys if precise needed.
+    quota = ctx.get("quota_daily")
+    if quota is not None and api_request_log_mod.count_today(ctx["key_id"]) >= quota:
+        raise HTTPException(
+            status_code=429,
+            detail=f"API Key 已达今日配额上限（{quota} 次）。UTC 次日 00:00 自动重置。",
+        )
+
+    user = _lookup_user(ctx["user_id"])
+    user["auth_method"] = "api_key"
+    user["api_key_id"] = ctx["key_id"]
+    user["api_key_scopes"] = ctx["scopes"]
+    user["api_key_quota_daily"] = ctx["quota_daily"]
+
+    # Cross-module contract: middleware in main.py reads these to emit
+    # api_request_logs rows after the response.
+    if request is not None:
+        request.state.api_key_id = ctx["key_id"]
+        request.state.api_user_id = ctx["user_id"]
+    return user
+
+
+def get_current_user(
+    request: Request = None,
+    authorization: str = Header(None),
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+) -> dict:
+    """FastAPI dependency — requires a valid JWT Bearer token OR an API key.
+
+    API key auth only works on routes marked ``@public_api``. On any other
+    route a valid key returns 403, forcing programmatic callers to stick to
+    the intentionally-opened surface.
+
+    Returns a user dict (augmented with ``auth_method``) or raises 401.
+    """
+    if x_api_key:
+        return _resolve_api_key_user(request, x_api_key)
+
     token = _extract_bearer(authorization)
     try:
         claims = decode_token(token)
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from None
-    return _lookup_user(claims["user_id"])
+    user = _lookup_user(claims["user_id"])
+    user["auth_method"] = "jwt"
+    return user
 
 
-def get_optional_user(authorization: str = Header(None)) -> dict | None:
-    """FastAPI dependency — same as get_current_user but returns None
-    instead of 401 when no token is provided.
-    """
-    if not authorization:
+def get_optional_user(
+    request: Request = None,
+    authorization: str = Header(None),
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+) -> dict | None:
+    """Same as get_current_user but returns None when no credentials are
+    provided (or any auth path fails) instead of raising 401."""
+    if not authorization and not x_api_key:
         return None
     try:
-        token = _extract_bearer(authorization)
-        claims = decode_token(token)
-        return _lookup_user(claims["user_id"])
-    except Exception:
+        return get_current_user(request, authorization, x_api_key)
+    except HTTPException:
         return None
 
 

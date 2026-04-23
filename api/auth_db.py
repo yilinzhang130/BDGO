@@ -210,6 +210,42 @@ CREATE INDEX IF NOT EXISTS idx_usage_logs_user_created
 CREATE INDEX IF NOT EXISTS idx_usage_logs_session
     ON usage_logs(session_id);
 
+-- API keys for external consumers (see api_keys.py + migration 442676e3bb8e)
+CREATE TABLE IF NOT EXISTS api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    key_prefix VARCHAR(20) NOT NULL,
+    key_hash TEXT NOT NULL UNIQUE,
+    scopes TEXT[] NOT NULL DEFAULT '{}',
+    quota_daily INTEGER,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_used_at TIMESTAMP,
+    last_used_ip VARCHAR(45),
+    revoked_at TIMESTAMP,
+    expires_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_api_keys_user_active
+    ON api_keys(user_id) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash_active
+    ON api_keys(key_hash) WHERE revoked_at IS NULL;
+
+-- API request logs (per-key usage ledger; see api_request_log.py + migration a7eceb4cad87)
+CREATE TABLE IF NOT EXISTS api_request_logs (
+    id BIGSERIAL PRIMARY KEY,
+    key_id UUID NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    method VARCHAR(10) NOT NULL,
+    path VARCHAR(255) NOT NULL,
+    status INTEGER NOT NULL,
+    latency_ms INTEGER,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_api_request_logs_key_created
+    ON api_request_logs(key_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_request_logs_user_created
+    ON api_request_logs(user_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS inbox_messages (
     id BIGSERIAL PRIMARY KEY,
     type VARCHAR(20) NOT NULL,          -- 'data_report' | 'feedback'

@@ -2,7 +2,7 @@
 
 from urllib.parse import unquote
 
-from auth import get_current_user
+from auth import get_current_user, public_api
 from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from fastapi import APIRouter, Depends, HTTPException, Query
 from field_policy import strip_hidden
@@ -11,6 +11,7 @@ router = APIRouter()
 
 
 @router.get("")
+@public_api
 def list_deals(
     q: str = Query("", description="Search deal name/company/asset"),
     type: str = Query("", description="Filter by deal type"),
@@ -70,6 +71,7 @@ def list_deals(
 
 
 @router.get("/{name}")
+@public_api
 def get_deal(name: str, user: dict = Depends(get_current_user)):
     name = unquote(name)
     row = query_one('SELECT * FROM "交易" WHERE "交易名称" = ?', (name,))
