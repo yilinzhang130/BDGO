@@ -1,5 +1,6 @@
 """Global cross-table search endpoint — with Chinese bigram fuzzy matching."""
 
+from auth import public_api
 from crm_store import LIKE_ESCAPE, like_escape, query
 from fastapi import APIRouter, Query
 from services.helpers.resolve import fuzzy_company_names
@@ -77,6 +78,7 @@ def _build_patterns(q: str) -> list[str]:
 
 
 @router.get("/global")
+@public_api
 def global_search(
     q: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(5, ge=1, le=10, description="Max results per category"),
