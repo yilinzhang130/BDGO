@@ -40,7 +40,8 @@ def log_request(
                 (key_id, user_id, method[:10], path[:255], int(status), latency_ms),
             )
     except Exception:
-        _logger.exception("Failed to write api_request_log key=%s path=%s", key_id, path)
+        # codeql[py/clear-text-logging-sensitive-data]: key_id is a DB row UUID, not the API token.
+        _logger.exception("Failed to write api_request_log row_id=%s path=%s", key_id, path)
 
 
 def count_today(key_id: str) -> int:

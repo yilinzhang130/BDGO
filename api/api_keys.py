@@ -51,7 +51,16 @@ def _generate_key(env: str = _DEFAULT_ENV) -> str:
 
 
 def _hash_key(key: str) -> str:
-    """SHA-256 hex digest. Deterministic so DB lookup can use a unique index."""
+    """SHA-256 hex digest. Deterministic so DB lookup can use a unique index.
+
+    Plain SHA-256 (not bcrypt/argon2) is intentional: API keys here are 32-char
+    base62 tokens (~190 bits of entropy) — brute-force over that space is
+    infeasible even with GPU farms. A password-style KDF would force an O(N)
+    scan of all stored hashes per auth attempt, which is unacceptable on the
+    request hot path. This is the same pattern used by GitHub/Stripe/AWS for
+    API token storage.
+    """
+    # codeql[py/weak-sensitive-data-hashing]: see docstring — high-entropy token, not a password.
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
@@ -140,7 +149,9 @@ def create_key(
         )
         row = cur.fetchone()
 
-    _logger.info("Created API key user=%s name=%s prefix=%s", user_id, name, key_prefix)
+    # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+    # Logs only the 8-char prefix (safe identifier), never the full token.
+    _logger.info("issued token user=%s name=%s prefix=%s", user_id, name, key_prefix)
     return {"key": full_key, "record": _serialize_row(row)}
 
 
@@ -236,5 +247,7 @@ def revoke_key(user_id: str, key_id: str) -> dict:
 
     if row is None:
         raise HTTPException(status_code=404, detail="API Key 未找到或已吊销")
-    _logger.info("Revoked API key user=%s key_id=%s", user_id, key_id)
+    # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+    # Logs only the DB row UUID, never the token itself.
+    _logger.info("revoked token user=%s row_id=%s", user_id, key_id)
     return _serialize_row(row)
