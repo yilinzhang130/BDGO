@@ -372,7 +372,13 @@ def _ensure_backup():
 
 
 def update_row(table: str, pk_value: str | dict, fields: dict[str, str]) -> dict | None:
-    """Update specific fields of a row. Returns the updated row."""
+    """Update specific fields of a row. Returns the updated row.
+
+    Column names in ``fields`` are validated against the table's known schema
+    before being interpolated into the SQL (column names can't be bound as
+    parameters — a whitelist is the only safe option). Unknown columns are
+    silently dropped. If no valid columns remain, returns None.
+    """
     if table not in ALLOWED_TABLES:
         return None
     _ensure_backup()
@@ -381,9 +387,18 @@ def update_row(table: str, pk_value: str | dict, fields: dict[str, str]) -> dict
     pk = PK_MAP[table]
     ph = _ph()
 
+    # Whitelist column names against the physical table's schema. Without this,
+    # a caller passing fields={"name\" = 'x' --": "y"} could break out of the
+    # quoted identifier and inject arbitrary SQL (CodeQL alert: SQL query
+    # built from user-controlled sources, crm_store.py update path).
+    allowed_cols = set(crm_db._col_order_phys(physical, table))
+    safe_fields = {k: v for k, v in fields.items() if k in allowed_cols}
+    if not safe_fields:
+        return None
+
     set_parts = []
     params: list = []
-    for col, val in fields.items():
+    for col, val in safe_fields.items():
         set_parts.append(f'"{col}" = {ph}')
         params.append(val)
 
