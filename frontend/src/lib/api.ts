@@ -49,7 +49,11 @@ async function put<T = any>(path: string, body?: unknown): Promise<T> {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   handle401(res);
-  if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`);
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try { const j = await res.json(); detail = j.detail ?? j.message ?? detail; } catch {}
+    throw new Error(detail);
+  }
   return res.json();
 }
 

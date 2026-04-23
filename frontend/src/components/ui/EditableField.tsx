@@ -27,8 +27,8 @@ export function EditableField({ label, value, onSave }: Props) {
     try {
       await onSave(draft);
       setEditing(false);
-    } catch {
-      alert("Save failed");
+    } catch (err: any) {
+      alert(`保存失败: ${err?.message ?? "未知错误"}`);
     } finally {
       setSaving(false);
     }
