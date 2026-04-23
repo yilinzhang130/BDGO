@@ -1,16 +1,25 @@
 import { LandingNav } from "@/components/LandingNav";
 import Link from "next/link";
 
+// Curated list of public endpoints. Source-of-truth is the @public_api
+// decorator on the backend — if you add a new public endpoint there, also
+// append it here so the landing copy stays accurate. For the interactive
+// reference use the Swagger UI button below.
 const endpoints = [
-  { method: "GET", path: "/api/companies", desc: "查询公司列表，支持分页与关键词过滤" },
-  { method: "GET", path: "/api/companies/{id}", desc: "获取单家公司详细信息" },
+  { method: "GET", path: "/api/companies", desc: "公司列表，支持分页与关键词过滤" },
+  { method: "GET", path: "/api/companies/{name}", desc: "单家公司详细信息" },
+  { method: "GET", path: "/api/companies/{name}/assets", desc: "某公司的管线资产" },
+  { method: "GET", path: "/api/companies/{name}/trials", desc: "某公司的临床试验" },
+  { method: "GET", path: "/api/companies/{name}/deals", desc: "某公司的授权交易记录" },
   { method: "GET", path: "/api/assets", desc: "管线资产列表，支持按靶点、适应症、阶段过滤" },
-  { method: "GET", path: "/api/clinical", desc: "临床试验数据，支持按 NCT 编号、公司、状态查询" },
-  { method: "GET", path: "/api/deals", desc: "授权交易记录，支持按年份、类型、金额区间过滤" },
-  { method: "POST", path: "/api/chat", desc: "AI 自然语言查询接口，流式返回（SSE）" },
-  { method: "POST", path: "/api/reports/{type}", desc: "触发报告生成任务，返回 task_id" },
-  { method: "GET", path: "/api/reports/tasks/{task_id}", desc: "查询报告生成进度与结果" },
-  { method: "GET", path: "/api/search", desc: "跨表全文搜索，返回结构化匹配结果" },
+  { method: "GET", path: "/api/assets/{company}/{name}", desc: "单个资产详情" },
+  { method: "GET", path: "/api/clinical", desc: "临床试验数据，支持按 NCT / 公司 / 状态查询" },
+  { method: "GET", path: "/api/clinical/{record_id}", desc: "单条临床记录" },
+  { method: "GET", path: "/api/deals", desc: "授权交易记录，支持按年份、类型、金额过滤" },
+  { method: "GET", path: "/api/deals/{name}", desc: "单笔交易详情" },
+  { method: "GET", path: "/api/buyers", desc: "MNC 买方画像列表" },
+  { method: "GET", path: "/api/buyers/{name}", desc: "单个 MNC 画像详情" },
+  { method: "GET", path: "/api/search/global", desc: "跨表全文搜索，中文双字符模糊匹配" },
 ];
 
 const methodColor: Record<string, string> = {
@@ -58,8 +67,49 @@ export default function ApiDocsPage() {
           接入你的工作流
         </h1>
         <p style={{ fontSize: 17, color: "#64748B", lineHeight: 1.7, margin: 0 }}>
-          REST API + SSE 流式接口，JWT 认证，支持 Python / Node.js / cURL。
+          REST API，X-API-Key 认证，支持 Python / Node.js / cURL，可直接在 Swagger 中试用。
         </p>
+
+        {/* Primary CTAs */}
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            justifyContent: "center",
+            marginTop: 28,
+            flexWrap: "wrap",
+          }}
+        >
+          <Link
+            href="/api/public/docs"
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#fff",
+              background: "#1E3A8A",
+              padding: "12px 24px",
+              borderRadius: 10,
+              textDecoration: "none",
+            }}
+          >
+            打开交互式文档 →
+          </Link>
+          <Link
+            href="/settings/api-keys"
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#1E3A8A",
+              background: "#fff",
+              border: "1px solid #1E3A8A",
+              padding: "11px 24px",
+              borderRadius: 10,
+              textDecoration: "none",
+            }}
+          >
+            生成 API Key
+          </Link>
+        </div>
       </div>
 
       {/* Auth note */}
@@ -72,24 +122,27 @@ export default function ApiDocsPage() {
             padding: "16px 20px",
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#C2410C", marginBottom: 4 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#C2410C", marginBottom: 8 }}>
             认证方式
           </div>
           <div
             style={{
               fontSize: 13,
-              color: "#7C3AED",
+              color: "#1E3A8A",
               fontFamily: "monospace",
               background: "#F3F0FF",
               padding: "8px 12px",
               borderRadius: 8,
-              marginTop: 8,
             }}
           >
-            Authorization: Bearer {"<your_jwt_token>"}
+            X-API-Key: bdgo_live_xxxxxxxx
           </div>
-          <div style={{ fontSize: 12, color: "#92400E", marginTop: 8 }}>
-            通过 POST /api/auth/login 获取 token。API Key 方案即将上线。
+          <div style={{ fontSize: 12, color: "#92400E", marginTop: 10, lineHeight: 1.6 }}>
+            在{" "}
+            <Link href="/settings/api-keys" style={{ color: "#1E3A8A", fontWeight: 600 }}>
+              账户设置 → API Keys
+            </Link>{" "}
+            页创建 key。完整值仅在创建时显示一次，之后只保留前缀用于识别。吊销即刻生效。
           </div>
         </div>
       </div>
@@ -97,12 +150,12 @@ export default function ApiDocsPage() {
       {/* Endpoints */}
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 32px 80px" }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A", marginBottom: 20 }}>
-          核心端点
+          公开端点
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {endpoints.map((ep) => (
             <div
-              key={ep.path}
+              key={`${ep.method}-${ep.path}`}
               style={{
                 background: "#fff",
                 border: "1px solid #E8EFFE",
@@ -145,9 +198,10 @@ export default function ApiDocsPage() {
           ))}
         </div>
 
+        {/* Python example */}
         <div style={{ background: "#1E293B", borderRadius: 12, padding: "24px", marginTop: 40 }}>
           <div
-            style={{ fontSize: 12, color: "#64748B", marginBottom: 12, fontFamily: "monospace" }}
+            style={{ fontSize: 12, color: "#94A3B8", marginBottom: 12, fontFamily: "monospace" }}
           >
             示例 — Python
           </div>
@@ -163,21 +217,66 @@ export default function ApiDocsPage() {
             }}
           >{`import requests
 
-TOKEN = "your_jwt_token"
+API_KEY = "bdgo_live_xxxxxxxx"
 BASE = "https://api.bdgo.ai"
 
 # 查询近两年 GLP-1 交易
 r = requests.get(
     f"{BASE}/api/deals",
-    params={"keyword": "GLP-1", "year_from": 2023},
-    headers={"Authorization": f"Bearer {TOKEN}"}
+    params={"q": "GLP-1"},
+    headers={"X-API-Key": API_KEY},
 )
 print(r.json())`}</pre>
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 40 }}>
+        {/* cURL example */}
+        <div style={{ background: "#1E293B", borderRadius: 12, padding: "24px", marginTop: 16 }}>
+          <div
+            style={{ fontSize: 12, color: "#94A3B8", marginBottom: 12, fontFamily: "monospace" }}
+          >
+            示例 — cURL
+          </div>
+          <pre
+            style={{
+              margin: 0,
+              fontSize: 13,
+              color: "#E2E8F0",
+              fontFamily: "monospace",
+              lineHeight: 1.6,
+              overflowX: "auto",
+              whiteSpace: "pre-wrap",
+            }}
+          >{`curl "https://api.bdgo.ai/api/companies?q=biotech&page=1" \\
+  -H "X-API-Key: bdgo_live_xxxxxxxx"`}</pre>
+        </div>
+
+        {/* Node example */}
+        <div style={{ background: "#1E293B", borderRadius: 12, padding: "24px", marginTop: 16 }}>
+          <div
+            style={{ fontSize: 12, color: "#94A3B8", marginBottom: 12, fontFamily: "monospace" }}
+          >
+            示例 — Node.js (fetch)
+          </div>
+          <pre
+            style={{
+              margin: 0,
+              fontSize: 13,
+              color: "#E2E8F0",
+              fontFamily: "monospace",
+              lineHeight: 1.6,
+              overflowX: "auto",
+              whiteSpace: "pre-wrap",
+            }}
+          >{`const res = await fetch(
+  "https://api.bdgo.ai/api/assets?phase=Phase%203",
+  { headers: { "X-API-Key": process.env.BDGO_API_KEY } }
+);
+const data = await res.json();`}</pre>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 48 }}>
           <p style={{ fontSize: 14, color: "#64748B", marginBottom: 16 }}>
-            需要完整 API 文档或沙盒环境？
+            需要更高配额 / 自定义端点？
           </p>
           <Link
             href="/contact"
@@ -191,7 +290,7 @@ print(r.json())`}</pre>
               textDecoration: "none",
             }}
           >
-            联系我们获取访问权限
+            联系销售
           </Link>
         </div>
       </div>

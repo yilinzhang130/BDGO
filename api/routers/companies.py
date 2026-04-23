@@ -2,7 +2,7 @@
 
 from urllib.parse import unquote
 
-from auth import get_current_user
+from auth import get_current_user, public_api
 from crm_store import LIKE_ESCAPE, like_contains, paginate, query, query_one
 from fastapi import APIRouter, Depends, HTTPException, Query
 from field_policy import strip_hidden
@@ -11,6 +11,7 @@ router = APIRouter()
 
 
 @router.get("")
+@public_api
 def list_companies(
     q: str = Query("", description="Search company name"),
     country: str = Query("", description="Filter by country"),
@@ -71,6 +72,7 @@ def list_companies(
 
 
 @router.get("/{name}")
+@public_api
 def get_company(name: str, user: dict = Depends(get_current_user)):
     name = unquote(name)
     row = query_one('SELECT * FROM "公司" WHERE "客户名称" = ?', (name,))
@@ -80,6 +82,7 @@ def get_company(name: str, user: dict = Depends(get_current_user)):
 
 
 @router.get("/{name}/assets")
+@public_api
 def get_company_assets(
     name: str,
     page: int = Query(1, ge=1),
@@ -100,6 +103,7 @@ def get_company_assets(
 
 
 @router.get("/{name}/trials")
+@public_api
 def get_company_trials(
     name: str,
     page: int = Query(1, ge=1),
@@ -120,6 +124,7 @@ def get_company_trials(
 
 
 @router.get("/{name}/deals")
+@public_api
 def get_company_deals(name: str, user: dict = Depends(get_current_user)):
     name = unquote(name)
     rows = query(
