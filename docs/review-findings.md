@@ -52,7 +52,6 @@
 
 | ID | Date | Scope | Rubric | Severity | Status | Effort | BreaksClient | File:Line | Summary | Notes |
 |----|------|-------|--------|----------|--------|--------|--------------|-----------|---------|-------|
-| S-001 | 2026-04-24 | structure | A3/E2 | high | open | M | n/a | api/crm_db.py vs workspace/scripts/crm_db.py | `crm_db.py` exists in two places as a near-duplicate (34963 vs 32411 bytes, diverged CHANGELOGs); api version is loaded when sys.path hits api first | `crm_store.py:29` uses `sys.path.insert(0, scripts_dir)` to force the scripts copy. Any other `import crm_db` gets the api copy. Delete api/crm_db.py or make it a pure re-export |
 | S-002 | 2026-04-24 | structure | A2/A4 | high | open | L | n/a | api/routers/*.py (20 files) | No service layer for CRUD — routers call `crm_store` SQL helpers and `database.transaction` directly (67 raw SQL hits across 20 router files) | Service layer exists only for reports (`services/reports/`). CRUD routers (companies/assets/clinical/deals/ip/buyers/stats/catalysts/watchlist/write/search/inbox/sessions/tasks/admin/auth/upload/aidd_sso) bypass it entirely. Extract per-domain service modules |
 | S-003 | 2026-04-24 | structure | C2 | high | open | M | n/a | api/database.py, api/db.py, api/crm_db.py, api/crm_store.py | Four DB-ish modules with near-identical names and overlapping scope. Reader cannot distinguish roles at a glance | `database.py`=auth/users PG pool; `db.py`=deprecated shim (zero callers); `crm_db.py`=CSV/SQLite/PG abstraction (+duplicate in workspace/scripts); `crm_store.py`=crm_db wrapper. Rename to `auth_db.py` / `crm_low.py` / `crm_repo.py` (or similar) and delete `db.py` |
 | S-004 | 2026-04-24 | structure | A1/E1 | high | open | M | n/a | api/routers/{assets,buyers,clinical,companies,deals,ip}.py | Same list-endpoint pattern duplicated 6× — `allowed_sorts={...}` + LIKE filter building + `paginate(...)` + `strip_hidden(...)` | Extract a `list_table_view(table, filters, sort_whitelist, user)` helper. Sort whitelist is per-table business rule — belongs in a service, not the router |
@@ -72,6 +71,7 @@
 
 | ID | Date | Scope | Rubric | Severity | Status | Effort | BreaksClient | File:Line | Summary | Notes |
 |----|------|-------|--------|----------|--------|--------|--------------|-----------|---------|-------|
+| S-001 | 2026-04-24 | structure | A3/E2 | high | in-progress | M | n/a | api/crm_db.py vs workspace/scripts/crm_db.py | `crm_db.py` exists in two places as a near-duplicate (34963 vs 32411 bytes, diverged CHANGELOGs); api version is loaded when sys.path hits api first | PR #17: deleted `api/crm_db.py`; both importers (`crm_store.py`, `services/reports/buyer_profile.py`) already prepend `scripts_dir` to sys.path |
 
 ---
 
