@@ -18,7 +18,8 @@ Design (minimum viable, Manus-inspired):
 - Initial grant: `DEFAULT_GRANT_CREDITS` on first ensure_balance lookup.
   New users get a welcome balance; top-ups are admin-only for now.
 
-The schema migration runs via auth_db.py on startup (see _SCHEMA_SQL extension).
+Schema (``credits``, ``usage_logs`` + indexes) lives in
+``auth_db._SCHEMA_SQL`` and runs on startup — not in this module.
 """
 
 from __future__ import annotations
@@ -39,36 +40,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_GRANT_CREDITS = 10_000
 # Require at least this many credits before starting a chat request
 MIN_CREDITS_PER_REQUEST = 10
-
-
-# ─────────────────────────────────────────────────────────────
-# Schema (appended to auth_db._SCHEMA_SQL at import time)
-# ─────────────────────────────────────────────────────────────
-
-SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS credits (
-    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    balance NUMERIC(14, 2) NOT NULL DEFAULT 0,
-    total_granted NUMERIC(14, 2) NOT NULL DEFAULT 0,
-    total_spent NUMERIC(14, 2) NOT NULL DEFAULT 0,
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS usage_logs (
-    id BIGSERIAL PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_id VARCHAR(12),
-    model_id VARCHAR(64) NOT NULL,
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    credits_charged NUMERIC(12, 2) NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_usage_logs_user_created
-    ON usage_logs(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_usage_logs_session
-    ON usage_logs(session_id);
-"""
 
 
 # ─────────────────────────────────────────────────────────────
