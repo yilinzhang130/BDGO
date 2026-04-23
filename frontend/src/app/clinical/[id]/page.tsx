@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { fetchClinicalRecord, updateRecord, deleteRecord } from "@/lib/api";
-import { phaseBadgeClass, resultBadgeClass } from "@/lib/utils";
+import { phaseBadgeClass, resultBadgeClass } from "@/lib/badges";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ReportButton } from "@/components/ui/ReportButton";

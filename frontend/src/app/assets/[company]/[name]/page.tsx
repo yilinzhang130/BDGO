@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { fetchAsset, fetchAssetTrials, updateRecord, deleteRecord } from "@/lib/api";
-import { phaseBadgeClass, resultBadgeClass, parseNum } from "@/lib/utils";
+import { phaseBadgeClass, resultBadgeClass } from "@/lib/badges";
+import { parseNum } from "@/lib/format";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { fetchPatent, updateRecord, deleteRecord } from "@/lib/api";
-import { statusBadgeClass } from "@/lib/utils";
+import { statusBadgeClass } from "@/lib/badges";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 

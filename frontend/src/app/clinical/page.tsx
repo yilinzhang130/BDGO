@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchClinical } from "@/lib/api";
-import { phaseBadgeClass, resultBadgeClass } from "@/lib/utils";
+import { phaseBadgeClass, resultBadgeClass } from "@/lib/badges";
 
 const COLUMNS = [
   { key: "试验ID", label: "Trial ID" },

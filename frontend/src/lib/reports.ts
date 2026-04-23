@@ -36,7 +36,7 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
-import { isBrowser, bg } from "./utils";
+import { isBrowser, bg } from "./browser";
 import { getToken } from "./auth";
 
 function setLocalState(next: CompletedReport[]) {

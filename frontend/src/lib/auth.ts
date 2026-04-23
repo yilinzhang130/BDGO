@@ -2,7 +2,7 @@
 // BD Go — Auth token & user storage (localStorage)
 // ═══════════════════════════════════════════
 
-import { isBrowser } from "./utils";
+import { isBrowser } from "./browser";
 
 export interface AuthUser {
   id: string;
