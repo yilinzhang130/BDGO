@@ -160,13 +160,21 @@ def record_usage(
                 (credits_charged, credits_charged, user_id),
             )
     except Exception:
+        # Swallow-and-continue: don't surface billing errors to the user
+        # mid-chat. But ops needs a grep-able signal + the unbilled
+        # amount so usage can be reconciled manually. The
+        # ``BILLING_LEAK`` prefix is the alert hook — wire monitoring
+        # to trigger on this marker.
         logger.exception(
-            "Failed to record usage for user=%s session=%s model=%s",
+            "BILLING_LEAK record_usage failed user=%s session=%s model=%s "
+            "credits_unbilled=%.2f input_tokens=%d output_tokens=%d",
             user_id,
             session_id,
             model_id,
+            credits_charged,
+            input_tokens,
+            output_tokens,
         )
-        # Don't surface billing errors to the user mid-chat
         return 0.0
 
     return credits_charged
