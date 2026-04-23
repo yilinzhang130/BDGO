@@ -33,7 +33,9 @@ export default function IPPage() {
     fetchIP({ q, status, jurisdiction, sort, order, page, page_size: 50 }).then(setData);
   }, [q, status, jurisdiction, sort, order, page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSort = (col: string) => {
     if (sort === col) {
@@ -61,18 +63,35 @@ export default function IPPage() {
         <input
           placeholder="Search patent / company / asset..."
           value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
           style={{ width: 260 }}
         />
-        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Status</option>
           <option value="有效">Active (有效)</option>
           <option value="已过期">Expired (已过期)</option>
         </select>
-        <select value={jurisdiction} onChange={(e) => { setJurisdiction(e.target.value); setPage(1); }}>
+        <select
+          value={jurisdiction}
+          onChange={(e) => {
+            setJurisdiction(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Jurisdictions</option>
           {["US", "Europe", "China", "Japan", "Korea", "Global"].map((j) => (
-            <option key={j} value={j}>{j}</option>
+            <option key={j} value={j}>
+              {j}
+            </option>
           ))}
         </select>
       </div>
@@ -93,14 +112,18 @@ export default function IPPage() {
             </thead>
             <tbody>
               {data?.data?.map((row: any) => (
-                <tr key={row["专利号"]} onClick={() => router.push(`/ip/${encodeURIComponent(row["专利号"])}`)}>
+                <tr
+                  key={row["专利号"]}
+                  onClick={() => router.push(`/ip/${encodeURIComponent(row["专利号"])}`)}
+                >
                   <td style={{ fontWeight: 600 }}>{row["专利号"]}</td>
                   <td>{row["专利持有人"] || "-"}</td>
                   <td>{row["关联资产"] || "-"}</td>
                   <td
                     style={{ cursor: "pointer", color: "var(--accent)" }}
                     onClick={() => {
-                      if (row["关联公司"]) router.push(`/companies/${encodeURIComponent(row["关联公司"])}`);
+                      if (row["关联公司"])
+                        router.push(`/companies/${encodeURIComponent(row["关联公司"])}`);
                     }}
                   >
                     {row["关联公司"] || "-"}
@@ -116,7 +139,10 @@ export default function IPPage() {
                   <td>{row["Orange_Book"] || "-"}</td>
                   <td>
                     <span
-                      onClick={(e) => { e.stopPropagation(); setDeleting(row["专利号"]); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleting(row["专利号"]);
+                      }}
                       style={{ cursor: "pointer", color: "var(--red)", fontSize: "0.8rem" }}
                       title="Delete"
                     >
@@ -131,9 +157,15 @@ export default function IPPage() {
 
         {data && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-            <span>Page {data.page} of {data.total_pages}</span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Prev
+            </button>
+            <span>
+              Page {data.page} of {data.total_pages}
+            </span>
+            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
+              Next
+            </button>
           </div>
         )}
       </div>

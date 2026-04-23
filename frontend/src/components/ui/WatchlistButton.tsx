@@ -25,8 +25,12 @@ export function WatchlistButton({ entityType, entityKey, size = 20 }: Props) {
         setItemId(res.id ?? null);
       })
       .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [entityType, entityKey]);
 
   const toggle = async (e: React.MouseEvent) => {

@@ -28,47 +28,57 @@ CHANGELOG (最新在上):
     2026-03-27  初始版本：SQLite 单后端，替代 CSV 读写
 """
 
-import csv, json, os, sqlite3, shutil
-from pathlib import Path
+import csv
+import json
+import os
+import shutil
+import sqlite3
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # ─── 自动加载 .env（如果环境变量未设置） ───
-_env_file = Path.home() / '.openclaw' / '.env'
-if _env_file.exists() and 'CRM_BACKEND' not in os.environ:
+_env_file = Path.home() / ".openclaw" / ".env"
+if _env_file.exists() and "CRM_BACKEND" not in os.environ:
     for line in _env_file.read_text().splitlines():
         line = line.strip()
-        if line and not line.startswith('#') and '=' in line:
-            k, v = line.split('=', 1)
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
             k, v = k.strip(), v.strip()
             if k and k not in os.environ:
                 os.environ[k] = v
 
 # ─── 后端选择 ───
-CRM_BACKEND = os.environ.get('CRM_BACKEND', 'sqlite').lower()
-PG_DSN = os.environ.get('CRM_PG_DSN', 'dbname=bdgo')
+CRM_BACKEND = os.environ.get("CRM_BACKEND", "sqlite").lower()
+PG_DSN = os.environ.get("CRM_PG_DSN", "dbname=bdgo")
 
 # ─── 路径 ───
-_default = os.path.expanduser('~/.openclaw/workspace')
-BASE = Path(os.environ.get('OPENCLAW_WORKSPACE', _default))
-CRM_DIR = BASE / 'crm-database'
-DB_PATH = CRM_DIR / 'crm.db'
-BACKUP_DIR = CRM_DIR / 'backups'
+_default = os.path.expanduser("~/.openclaw/workspace")
+BASE = Path(os.environ.get("OPENCLAW_WORKSPACE", _default))
+CRM_DIR = BASE / "crm-database"
+DB_PATH = CRM_DIR / "crm.db"
+BACKUP_DIR = CRM_DIR / "backups"
 
-TABLES = ['公司', '资产', '临床', '交易', 'MNC画像', 'LOE', 'IP']
+TABLES = ["公司", "资产", "临床", "交易", "MNC画像", "LOE", "IP"]
 
 # Tracking status constants
-STATUS_EXCLUDED = '排除'
-STATUS_TRACKING = '追踪中'
-STATUS_PENDING  = '待分类'
+STATUS_EXCLUDED = "排除"
+STATUS_TRACKING = "追踪中"
+STATUS_PENDING = "待分类"
 
 # 表名映射：逻辑名 → 物理表名（临床 v3 迁移）
-_TABLE_ALIAS = {'临床': '临床'}
+_TABLE_ALIAS = {"临床": "临床"}
 
 # 主键映射：逻辑表名 → 主键列名
-_PK_MAP = {'公司': '客户名称', '资产': '资产名称', '临床': '记录ID', '交易': '交易名称', 'IP': '专利号'}
+_PK_MAP = {
+    "公司": "客户名称",
+    "资产": "资产名称",
+    "临床": "记录ID",
+    "交易": "交易名称",
+    "IP": "专利号",
+}
 
 # 受保护列：upsert/save 时不会用空值覆盖已有非空值
-PROTECTED_COLS = ['追踪状态', '英文名', '中文名', '曾用名', '母公司']
+PROTECTED_COLS = ["追踪状态", "英文名", "中文名", "曾用名", "母公司"]
 
 # ─── Schema (SQLite only, PG uses migrate_to_pg.py) ───
 SCHEMA_SQL = """
@@ -335,8 +345,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_公司_中文名_unique
 # ─── 连接管理 ───
 _conn = None
 
+
 def _is_pg():
-    return CRM_BACKEND == 'postgresql'
+    return CRM_BACKEND == "postgresql"
 
 
 def get_conn():
@@ -349,6 +360,7 @@ def get_conn():
         if _is_pg():
             import psycopg2
             import psycopg2.extras
+
             _conn = psycopg2.connect(PG_DSN)
             _conn.autocommit = False
         else:
@@ -419,8 +431,10 @@ class _PgCompatCursor:
     """PG cursor包装器，兼容 sqlite3.Cursor 接口。
     自动把 ? 转为 %s，返回 dict-like rows。
     """
+
     def __init__(self, pg_conn):
         import psycopg2.extras
+
         self._conn = pg_conn
         self._cur = pg_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         self.lastrowid = None
@@ -459,8 +473,10 @@ class _PgCompatConnection:
     """PG连接包装器，兼容 sqlite3.Connection 接口。
     支持 execute/executemany/commit/close/with 语法。
     """
+
     def __init__(self):
         import psycopg2
+
         self._conn = psycopg2.connect(PG_DSN)
         self._conn.autocommit = False
 
@@ -505,7 +521,7 @@ class _PgCompatConnection:
 
 def _placeholder():
     """返回参数占位符: SQLite用?, PG用%s"""
-    return '%s' if _is_pg() else '?'
+    return "%s" if _is_pg() else "?"
 
 
 def _execute(conn, sql, params=None):
@@ -522,6 +538,7 @@ def _fetchall_dicts(conn, sql, params=None):
     """执行查询并返回 list[dict]"""
     if _is_pg():
         import psycopg2.extras
+
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(sql, params or ())
         return [dict(r) for r in cur.fetchall()]
@@ -537,7 +554,7 @@ def _get_table_cols(conn, table):
         cur = conn.cursor()
         cur.execute(
             "SELECT column_name FROM information_schema.columns WHERE table_name = %s ORDER BY ordinal_position",
-            (table,)
+            (table,),
         )
         return [r[0] for r in cur.fetchall()]
     else:
@@ -548,22 +565,25 @@ def _col_order(table: str) -> list[str]:
     """从 _meta 表读取列顺序"""
     return _col_order_phys(table, table)
 
+
 def _col_order_phys(phys_table: str, meta_key: str) -> list[str]:
     """从 _meta 表读取列顺序，支持物理表名与逻辑表名不同"""
     conn = get_conn()
     ph = _placeholder()
     for key in (meta_key, phys_table):
-        rows = _fetchall_dicts(conn, f'SELECT col_order FROM _meta WHERE table_name = {ph}', (key,))
+        rows = _fetchall_dicts(conn, f"SELECT col_order FROM _meta WHERE table_name = {ph}", (key,))
         if rows:
-            return json.loads(rows[0]['col_order'])
+            return json.loads(rows[0]["col_order"])
     return _get_table_cols(conn, phys_table)
 
 
 # ─── Public API ───
 
+
 def _physical_table(table: str) -> str:
     """逻辑表名 → 物理表名"""
     return _TABLE_ALIAS.get(table, table)
+
 
 def load(table: str) -> tuple[list[dict], list[str]]:
     """加载整张表，返回 (rows, cols)，与原 load_csv 完全兼容"""
@@ -572,35 +592,37 @@ def load(table: str) -> tuple[list[dict], list[str]]:
     conn = get_conn()
     phys = _physical_table(table)
     cols = _col_order_phys(phys, table)
-    quoted = ', '.join(f'"{c}"' for c in cols)
+    quoted = ", ".join(f'"{c}"' for c in cols)
     rows = _fetchall_dicts(conn, f'SELECT {quoted} FROM "{phys}"')
     # Ensure consistent col ordering in dicts
     result = []
     for row in rows:
-        result.append({c: row.get(c, '') for c in cols})
+        result.append({c: row.get(c, "") for c in cols})
     return result, cols
 
 
 def is_excluded(row: dict) -> bool:
     """Check if a row has 排除 tracking status (with strip)."""
-    return (row.get('追踪状态') or '').strip() == STATUS_EXCLUDED
+    return (row.get("追踪状态") or "").strip() == STATUS_EXCLUDED
 
 
-def load_enum(table: str = None, field: str = None) -> dict[tuple[str,str], set[str]]:
+def load_enum(table: str = None, field: str = None) -> dict[tuple[str, str], set[str]]:
     """从 _enum 表加载合法值。返回 {(表名, 字段名): {合法值, ...}}。"""
     conn = get_conn()
     ph = _placeholder()
     sql = 'SELECT "表名", "字段名", "合法值" FROM _enum WHERE 1=1'
     params = []
     if table:
-        sql += f' AND "表名"={ph}'; params.append(table)
+        sql += f' AND "表名"={ph}'
+        params.append(table)
     if field:
-        sql += f' AND "字段名"={ph}'; params.append(field)
+        sql += f' AND "字段名"={ph}'
+        params.append(field)
     rows = _fetchall_dicts(conn, sql, params)
-    result: dict[tuple[str,str], set[str]] = {}
+    result: dict[tuple[str, str], set[str]] = {}
     for r in rows:
-        key = (r['表名'], r['字段名'])
-        result.setdefault(key, set()).add(r['合法值'])
+        key = (r["表名"], r["字段名"])
+        result.setdefault(key, set()).add(r["合法值"])
     return result
 
 
@@ -608,23 +630,35 @@ def validate_enum(table: str, rows: list[dict]) -> list[dict]:
     """校验 rows 中的枚举字段，返回违规列表。"""
     enums = load_enum(table)
     violations = []
-    pk_map = {'公司': '客户名称', '资产': '资产名称', '临床': '记录ID', '交易': '交易名称'}
-    pk = pk_map.get(table, '')
+    pk_map = {"公司": "客户名称", "资产": "资产名称", "临床": "记录ID", "交易": "交易名称"}
+    pk = pk_map.get(table, "")
     for row in rows:
         for (t, f), valid in enums.items():
-            val = (row.get(f) or '').strip()
+            val = (row.get(f) or "").strip()
             if not val:
                 continue
-            if f == '交易类型':
-                parts = [p.strip() for p in val.split(';') if p.strip()]
+            if f == "交易类型":
+                parts = [p.strip() for p in val.split(";") if p.strip()]
                 bad = [p for p in parts if p not in valid]
                 if bad:
-                    violations.append({'row_key': row.get(pk, ''), 'field': f,
-                                       'value': val, 'invalid_parts': bad,
-                                       'valid_values': sorted(valid)})
+                    violations.append(
+                        {
+                            "row_key": row.get(pk, ""),
+                            "field": f,
+                            "value": val,
+                            "invalid_parts": bad,
+                            "valid_values": sorted(valid),
+                        }
+                    )
             elif val not in valid:
-                violations.append({'row_key': row.get(pk, ''), 'field': f,
-                                   'value': val, 'valid_values': sorted(valid)})
+                violations.append(
+                    {
+                        "row_key": row.get(pk, ""),
+                        "field": f,
+                        "value": val,
+                        "valid_values": sorted(valid),
+                    }
+                )
     return violations
 
 
@@ -639,9 +673,11 @@ def save(table: str, rows: list[dict], cols: list[str]):
         raise ValueError(f"未知表名: {table}，可选: {TABLES}")
     if _is_pg() and len(rows) > 5000:
         import warnings
+
         warnings.warn(
             f"[crm_db.save] PostgreSQL模式下 save('{table}') 将 DELETE+INSERT {len(rows)} 行。"
-            "大表操作建议改用直接 SQL UPDATE。", stacklevel=2
+            "大表操作建议改用直接 SQL UPDATE。",
+            stacklevel=2,
         )
 
     conn = get_conn()
@@ -654,19 +690,19 @@ def save(table: str, rows: list[dict], cols: list[str]):
     active_protected = [pc for pc in PROTECTED_COLS if pc in existing_db_cols]
 
     if active_protected:
-        pk = _PK_MAP.get(table, 'rowid')
-        prot_cols_sql = ', '.join(f'"{c}"' for c in active_protected)
+        pk = _PK_MAP.get(table, "rowid")
+        prot_cols_sql = ", ".join(f'"{c}"' for c in active_protected)
 
-        if pk == 'rowid' and not _is_pg():
+        if pk == "rowid" and not _is_pg():
             old_rows_raw = _fetchall_dicts(conn, f'SELECT rowid, {prot_cols_sql} FROM "{phys}"')
             old_map = {}
             for r in old_rows_raw:
-                old_map[r.get('rowid')] = {c: r.get(c) for c in active_protected}
+                old_map[r.get("rowid")] = {c: r.get(c) for c in active_protected}
         else:
             old_rows_raw = _fetchall_dicts(conn, f'SELECT "{pk}", {prot_cols_sql} FROM "{phys}"')
             old_map = {}
             for r in old_rows_raw:
-                key = (r.get(pk) or '').strip()
+                key = (r.get(pk) or "").strip()
                 if key:
                     old_map[key] = {c: r.get(c) for c in active_protected}
 
@@ -675,45 +711,42 @@ def save(table: str, rows: list[dict], cols: list[str]):
                 cols.append(pcol)
 
         for row in rows:
-            row_key = (row.get(pk, '') or '').strip() if pk != 'rowid' else None
+            row_key = (row.get(pk, "") or "").strip() if pk != "rowid" else None
             old_vals = old_map.get(row_key, {}) if row_key else {}
             for pcol in active_protected:
-                cur_val = (row.get(pcol) or '').strip()
+                cur_val = (row.get(pcol) or "").strip()
                 if not cur_val and old_vals.get(pcol):
                     row[pcol] = old_vals[pcol]
                 elif pcol not in row:
-                    row[pcol] = old_vals.get(pcol, '')
+                    row[pcol] = old_vals.get(pcol, "")
 
     # ── 资产表: Q总分 自动计算 ──
-    if table == '资产':
-        if 'Q总分' not in cols:
-            cols.append('Q总分')
+    if table == "资产":
+        if "Q总分" not in cols:
+            cols.append("Q总分")
         for row in rows:
             q_vals = []
-            for qf in ('Q1_生物学', 'Q2_药物形式', 'Q3_临床监管', 'Q4_商业交易性'):
-                v = str(row.get(qf) or '').strip()
+            for qf in ("Q1_生物学", "Q2_药物形式", "Q3_临床监管", "Q4_商业交易性"):
+                v = str(row.get(qf) or "").strip()
                 if v and v.isdigit():
                     q_vals.append(int(v))
             if len(q_vals) == 4:
-                row['Q总分'] = str(sum(q_vals))
+                row["Q总分"] = str(sum(q_vals))
 
-    quoted_cols = ', '.join(f'"{c}"' for c in cols)
-    placeholders = ', '.join([ph] * len(cols))
+    quoted_cols = ", ".join(f'"{c}"' for c in cols)
+    placeholders = ", ".join([ph] * len(cols))
 
     if _is_pg():
         cur = conn.cursor()
         try:
             cur.execute(f'DELETE FROM "{phys}"')
             for row in rows:
-                vals = [row.get(c, '') for c in cols]
-                cur.execute(
-                    f'INSERT INTO "{phys}" ({quoted_cols}) VALUES ({placeholders})',
-                    vals
-                )
+                vals = [row.get(c, "") for c in cols]
+                cur.execute(f'INSERT INTO "{phys}" ({quoted_cols}) VALUES ({placeholders})', vals)
             cur.execute(
-                f'INSERT INTO _meta (table_name, col_order) VALUES (%s, %s) '
-                f'ON CONFLICT (table_name) DO UPDATE SET col_order = EXCLUDED.col_order',
-                (table, json.dumps(cols, ensure_ascii=False))
+                "INSERT INTO _meta (table_name, col_order) VALUES (%s, %s) "
+                "ON CONFLICT (table_name) DO UPDATE SET col_order = EXCLUDED.col_order",
+                (table, json.dumps(cols, ensure_ascii=False)),
             )
             conn.commit()
         except Exception:
@@ -724,11 +757,11 @@ def save(table: str, rows: list[dict], cols: list[str]):
             conn.execute(f'DELETE FROM "{phys}"')
             conn.executemany(
                 f'INSERT OR REPLACE INTO "{phys}" ({quoted_cols}) VALUES ({placeholders})',
-                [[row.get(c, '') for c in cols] for row in rows]
+                [[row.get(c, "") for c in cols] for row in rows],
             )
             conn.execute(
-                'INSERT OR REPLACE INTO _meta (table_name, col_order) VALUES (?, ?)',
-                (table, json.dumps(cols, ensure_ascii=False))
+                "INSERT OR REPLACE INTO _meta (table_name, col_order) VALUES (?, ?)",
+                (table, json.dumps(cols, ensure_ascii=False)),
             )
 
 
@@ -750,7 +783,7 @@ def upsert_row(table: str, data: dict) -> tuple[str, str]:
 
     conn = get_conn()
     phys = _physical_table(table)
-    pk = _PK_MAP.get(table, '')
+    pk = _PK_MAP.get(table, "")
     ph = _placeholder()
 
     # ── Step 1: 加载现有数据用于查重 ──
@@ -758,57 +791,63 @@ def upsert_row(table: str, data: dict) -> tuple[str, str]:
 
     # ── Step 2: 查重 ──
     matched = None
-    if table == '公司':
+    if table == "公司":
         from crm_ingest import find_existing_company
-        company_name = (data.get('客户名称') or '').strip()
+
+        company_name = (data.get("客户名称") or "").strip()
         if company_name:
             matched = find_existing_company(company_name, rows)
-    elif table == '资产':
+    elif table == "资产":
         from crm_ingest import find_existing_asset
-        asset_name = (data.get('资产名称') or '').strip()
-        company_name = (data.get('所属客户') or '').strip()
+
+        asset_name = (data.get("资产名称") or "").strip()
+        company_name = (data.get("所属客户") or "").strip()
         if asset_name:
             matched = find_existing_asset(asset_name, company_name, rows)
-    elif table == '交易':
+    elif table == "交易":
         from crm_ingest import find_existing_deal
+
         matched = find_existing_deal(
-            (data.get('交易名称') or '').strip(),
-            (data.get('买方公司') or '').strip(),
-            (data.get('卖方/合作方') or '').strip(),
-            (data.get('资产名称') or '').strip(),
-            rows
+            (data.get("交易名称") or "").strip(),
+            (data.get("买方公司") or "").strip(),
+            (data.get("卖方/合作方") or "").strip(),
+            (data.get("资产名称") or "").strip(),
+            rows,
         )
-    elif table == '临床':
+    elif table == "临床":
         from crm_ingest import find_existing_clinical
+
         matched = find_existing_clinical(
-            (data.get('试验ID') or '').strip(),
-            (data.get('资产名称') or '').strip(),
-            (data.get('公司名称') or '').strip(),
-            (data.get('临床期次') or '').strip(),
-            (data.get('适应症') or '').strip(),
-            rows
+            (data.get("试验ID") or "").strip(),
+            (data.get("资产名称") or "").strip(),
+            (data.get("公司名称") or "").strip(),
+            (data.get("临床期次") or "").strip(),
+            (data.get("适应症") or "").strip(),
+            rows,
         )
     else:
         if pk:
-            pk_val = (data.get(pk) or '').strip()
+            pk_val = (data.get(pk) or "").strip()
             if pk_val:
                 for r in rows:
-                    if (r.get(pk) or '').strip() == pk_val:
+                    if (r.get(pk) or "").strip() == pk_val:
                         matched = r
                         break
 
     # ── Step 3: 执行写入 ──
     if matched:
-        matched_key = (matched.get(pk) or '').strip() if pk else ''
+        matched_key = (matched.get(pk) or "").strip() if pk else ""
 
         set_clauses, values = [], []
         for col, val in data.items():
             if col == pk:
                 continue
-            new_val = (str(val) if val is not None else '').strip()
+            new_val = (str(val) if val is not None else "").strip()
             if not new_val:
                 continue
-            existing_val = (str(matched.get(col, '')) if matched.get(col) is not None else '').strip()
+            existing_val = (
+                str(matched.get(col, "")) if matched.get(col) is not None else ""
+            ).strip()
             if col in PROTECTED_COLS and existing_val:
                 continue
             if new_val != existing_val:
@@ -816,54 +855,60 @@ def upsert_row(table: str, data: dict) -> tuple[str, str]:
                 values.append(new_val)
 
         if not set_clauses:
-            return ('SKIP', matched_key)
+            return ("SKIP", matched_key)
 
-        if table == '交易' and not pk:
+        if table == "交易" and not pk:
             if _is_pg():
                 # PG: use ctid
                 cur = conn.cursor()
                 cur.execute(
                     f'SELECT ctid FROM "交易" WHERE "交易名称"={ph} LIMIT 1',
-                    ((matched.get('交易名称') or ''),)
+                    ((matched.get("交易名称") or ""),),
                 )
                 row = cur.fetchone()
                 if row:
                     values.append(row[0])
-                    cur.execute(f'UPDATE "{phys}" SET {", ".join(set_clauses)} WHERE ctid={ph}', values)
+                    cur.execute(
+                        f'UPDATE "{phys}" SET {", ".join(set_clauses)} WHERE ctid={ph}', values
+                    )
                     conn.commit()
-                    return ('UPDATE', matched.get('交易名称', ''))
-                return ('SKIP', matched.get('交易名称', ''))
+                    return ("UPDATE", matched.get("交易名称", ""))
+                return ("SKIP", matched.get("交易名称", ""))
             else:
                 cursor = conn.execute(
                     f'SELECT rowid FROM "交易" WHERE "交易名称"={ph} LIMIT 1',
-                    ((matched.get('交易名称') or ''),)
+                    ((matched.get("交易名称") or ""),),
                 )
                 row = cursor.fetchone()
                 if row:
                     values.append(row[0])
-                    conn.execute(f'UPDATE "{phys}" SET {", ".join(set_clauses)} WHERE rowid={ph}', values)
+                    conn.execute(
+                        f'UPDATE "{phys}" SET {", ".join(set_clauses)} WHERE rowid={ph}', values
+                    )
                     conn.commit()
-                    return ('UPDATE', matched.get('交易名称', ''))
-                return ('SKIP', matched.get('交易名称', ''))
+                    return ("UPDATE", matched.get("交易名称", ""))
+                return ("SKIP", matched.get("交易名称", ""))
         else:
             values.append(matched_key)
-            _execute(conn, f'UPDATE "{phys}" SET {", ".join(set_clauses)} WHERE "{pk}"={ph}', values)
+            _execute(
+                conn, f'UPDATE "{phys}" SET {", ".join(set_clauses)} WHERE "{pk}"={ph}', values
+            )
             conn.commit()
-            return ('UPDATE', matched_key)
+            return ("UPDATE", matched_key)
 
     # ── Step 4: INSERT新行 ──
     data_cols = list(data.keys())
-    quoted = ', '.join(f'"{c}"' for c in data_cols)
-    placeholders = ', '.join([ph] * len(data_cols))
-    data_values = [data.get(c, '') for c in data_cols]
+    quoted = ", ".join(f'"{c}"' for c in data_cols)
+    placeholders = ", ".join([ph] * len(data_cols))
+    data_values = [data.get(c, "") for c in data_cols]
 
     _execute(conn, f'INSERT INTO "{phys}" ({quoted}) VALUES ({placeholders})', data_values)
     conn.commit()
-    new_key = (data.get(pk) or '').strip() if pk else ''
-    return ('INSERT', new_key)
+    new_key = (data.get(pk) or "").strip() if pk else ""
+    return ("INSERT", new_key)
 
 
-def backup(tag: str = '', force: bool = False):
+def backup(tag: str = "", force: bool = False):
     """创建数据库备份
     SQLite: 文件级备份
     PostgreSQL: pg_dump到备份目录
@@ -874,18 +919,18 @@ def backup(tag: str = '', force: bool = False):
         return _backup_sqlite(tag, force)
 
 
-def _backup_sqlite(tag: str = '', force: bool = False):
+def _backup_sqlite(tag: str = "", force: bool = False):
     if not DB_PATH.exists():
         return
-    today = datetime.now().strftime('%Y%m%d')
+    today = datetime.now().strftime("%Y%m%d")
     if not force:
         BACKUP_DIR.mkdir(exist_ok=True)
-        if any(BACKUP_DIR.glob(f'crm_{today}_*.db')):
+        if any(BACKUP_DIR.glob(f"crm_{today}_*.db")):
             return
     BACKUP_DIR.mkdir(exist_ok=True)
-    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-    suffix = f'_{tag}' if tag else ''
-    dst = BACKUP_DIR / f'crm_{ts}{suffix}.db'
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    suffix = f"_{tag}" if tag else ""
+    dst = BACKUP_DIR / f"crm_{ts}{suffix}.db"
     conn = get_conn()
     bak = sqlite3.connect(str(dst))
     conn.backup(bak)
@@ -894,22 +939,22 @@ def _backup_sqlite(tag: str = '', force: bool = False):
     return dst
 
 
-def _backup_pg(tag: str = '', force: bool = False):
+def _backup_pg(tag: str = "", force: bool = False):
     """PostgreSQL备份：pg_dump到SQL文件"""
     import subprocess
-    today = datetime.now().strftime('%Y%m%d')
+
+    today = datetime.now().strftime("%Y%m%d")
     BACKUP_DIR.mkdir(exist_ok=True)
     if not force:
-        if any(BACKUP_DIR.glob(f'crm_{today}_*.sql')):
+        if any(BACKUP_DIR.glob(f"crm_{today}_*.sql")):
             return
-    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-    suffix = f'_{tag}' if tag else ''
-    dst = BACKUP_DIR / f'crm_{ts}{suffix}.sql'
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    suffix = f"_{tag}" if tag else ""
+    dst = BACKUP_DIR / f"crm_{ts}{suffix}.sql"
     # Use pg_dump
-    pg_dump = shutil.which('pg_dump') or '/opt/homebrew/opt/postgresql@17/bin/pg_dump'
+    pg_dump = shutil.which("pg_dump") or "/opt/homebrew/opt/postgresql@17/bin/pg_dump"
     result = subprocess.run(
-        [pg_dump, PG_DSN.replace('dbname=', ''), '-f', str(dst)],
-        capture_output=True, text=True
+        [pg_dump, PG_DSN.replace("dbname=", ""), "-f", str(dst)], capture_output=True, text=True
     )
     if result.returncode != 0:
         print(f"  [backup] pg_dump error: {result.stderr}")
@@ -923,11 +968,11 @@ def _cleanup_old_backups(keep_days: int = 7):
         return
     cutoff = datetime.now() - timedelta(days=keep_days)
     removed = 0
-    for pattern in ('crm_*.db', 'crm_*.sql'):
+    for pattern in ("crm_*.db", "crm_*.sql"):
         for f in BACKUP_DIR.glob(pattern):
             try:
-                date_str = f.name.split('_')[1]
-                file_date = datetime.strptime(date_str, '%Y%m%d')
+                date_str = f.name.split("_")[1]
+                file_date = datetime.strptime(date_str, "%Y%m%d")
                 if file_date < cutoff:
                     f.unlink()
                     removed += 1
@@ -941,10 +986,10 @@ def export_csv(table: str, path: Path = None):
     """导出表为 CSV"""
     rows, cols = load(table)
     if path is None:
-        path = CRM_DIR / f'{table}.csv'
+        path = CRM_DIR / f"{table}.csv"
     path = Path(path)
-    with open(path, 'w', encoding='utf-8-sig', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=cols, extrasaction='ignore')
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
     return path
@@ -958,24 +1003,25 @@ def export_all_csv(out_dir: Path = None):
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = {}
     for t in TABLES:
-        paths[t] = export_csv(t, out_dir / f'{t}.csv')
+        paths[t] = export_csv(t, out_dir / f"{t}.csv")
     return paths
 
 
 # ─── CLI ───
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='CRM 数据库工具')
-    sub = parser.add_subparsers(dest='cmd')
 
-    sub.add_parser('info', help='显示数据库统计')
-    p_export = sub.add_parser('export', help='导出全部表为 CSV')
-    p_export.add_argument('--dir', type=Path, default=None, help='输出目录')
-    sub.add_parser('backup', help='创建数据库备份')
+    parser = argparse.ArgumentParser(description="CRM 数据库工具")
+    sub = parser.add_subparsers(dest="cmd")
+
+    sub.add_parser("info", help="显示数据库统计")
+    p_export = sub.add_parser("export", help="导出全部表为 CSV")
+    p_export.add_argument("--dir", type=Path, default=None, help="输出目录")
+    sub.add_parser("backup", help="创建数据库备份")
 
     args = parser.parse_args()
 
-    if args.cmd == 'info':
+    if args.cmd == "info":
         conn = get_conn()
         backend = "PostgreSQL" if _is_pg() else f"SQLite ({DB_PATH})"
         print(f"后端: {backend}")
@@ -984,18 +1030,18 @@ if __name__ == '__main__':
         for t in TABLES:
             phys = _physical_table(t)
             rows = _fetchall_dicts(conn, f'SELECT COUNT(*) as cnt FROM "{phys}"')
-            count = rows[0]['cnt'] if rows else 0
+            count = rows[0]["cnt"] if rows else 0
             print(f"  {t}: {count:,} rows")
         if not _is_pg():
-            rows = _fetchall_dicts(conn, 'PRAGMA integrity_check')
+            rows = _fetchall_dicts(conn, "PRAGMA integrity_check")
             print(f"\n完整性检查: {rows[0].get('integrity_check', 'unknown') if rows else 'N/A'}")
 
-    elif args.cmd == 'export':
+    elif args.cmd == "export":
         paths = export_all_csv(args.dir)
         for t, p in paths.items():
             print(f"  {t} → {p}")
 
-    elif args.cmd == 'backup':
+    elif args.cmd == "backup":
         dst = backup()
         print(f"备份: {dst}")
 

@@ -125,7 +125,10 @@ class DealTeaserService(ReportService):
             "target": {"type": "string"},
             "moa": {"type": "string"},
             "phase": {"type": "string", "enum": PHASE_VALUES},
-            "brief": {"type": "string", "description": "补充信息（临床读出 / IP / 竞品 / 可比交易）。可选。"},
+            "brief": {
+                "type": "string",
+                "description": "补充信息（临床读出 / IP / 竞品 / 可比交易）。可选。",
+            },
             "include_web_search": {"type": "boolean", "default": True},
         },
         "required": ["company_name", "asset_name", "indication", "target", "phase"],
@@ -177,12 +180,13 @@ class DealTeaserService(ReportService):
         data = _extract_json_object(raw)
         if not data:
             raise RuntimeError(
-                "LLM did not return parseable JSON teaser content. "
-                "Raw head: " + (raw or "")[:400]
+                "LLM did not return parseable JSON teaser content. Raw head: " + (raw or "")[:400]
             )
 
         highlights = [str(x) for x in (data.get("highlights") or [])][:5] or ["⚠️ 待补充 highlights"]
-        development_plan = [str(x) for x in (data.get("development_plan") or [])][:6] or ["⚠️ 待补充里程碑"]
+        development_plan = [str(x) for x in (data.get("development_plan") or [])][:6] or [
+            "⚠️ 待补充里程碑"
+        ]
         content = pptx_builder.TeaserContent(
             asset_name=inp.asset_name,
             indication=inp.indication,
@@ -264,7 +268,9 @@ def _build_exec_summary_md(inp: DealTeaserInput, c: pptx_builder.TeaserContent, 
             return "(no data)"
         headers = t[0]
         sep = "|" + "|".join(["---"] * len(headers)) + "|"
-        body = "\n".join("| " + " | ".join(r + [""] * (len(headers) - len(r))) + " |" for r in t[1:])
+        body = "\n".join(
+            "| " + " | ".join(r + [""] * (len(headers) - len(r))) + " |" for r in t[1:]
+        )
         return "| " + " | ".join(headers) + " |\n" + sep + "\n" + body
 
     return f"""# {inp.asset_name} — Deal Teaser Executive Summary

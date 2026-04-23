@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchReportStatus, generateReport } from "@/lib/api";
 import { addCompletedReport } from "@/lib/reports";
-import type {
-  ReportService,
-  ReportStage,
-  ReportStartInfo,
-} from "@/components/ui/report/types";
+import type { ReportService, ReportStage, ReportStartInfo } from "@/components/ui/report/types";
 
 /**
  * Owns the report-generation lifecycle: form → running → done/error.
@@ -41,8 +37,7 @@ export function useReportPolling({
 
         const nextLog = status.progress_log || [];
         setProgressLog((prev) =>
-          prev.length === nextLog.length &&
-          prev.every((line, i) => line === nextLog[i])
+          prev.length === nextLog.length && prev.every((line, i) => line === nextLog[i])
             ? prev
             : nextLog,
         );
@@ -76,7 +71,9 @@ export function useReportPolling({
     };
 
     setTimeout(poll, 1500);
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [stage, taskId, service, params]);
 
   const submit = useCallback(async () => {

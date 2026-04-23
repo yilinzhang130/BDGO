@@ -24,8 +24,10 @@ export function ChatHeaderControls({
         role="group"
         aria-label="搜索模式"
         style={{
-          display: "inline-flex", borderRadius: 8,
-          border: "1px solid #E2E8F0", overflow: "hidden",
+          display: "inline-flex",
+          borderRadius: 8,
+          border: "1px solid #E2E8F0",
+          overflow: "hidden",
         }}
       >
         {(["agent", "quick"] as const).map((m) => {
@@ -40,7 +42,9 @@ export function ChatHeaderControls({
                   : "Quick · Tavily搜索+总结，低延迟（查事实/新闻）"
               }
               style={{
-                padding: "4px 10px", fontSize: 12, fontWeight: 500,
+                padding: "4px 10px",
+                fontSize: 12,
+                fontWeight: 500,
                 background: on ? (m === "quick" ? "#ECFDF5" : "#F8FAFF") : "#fff",
                 color: on ? (m === "quick" ? "#059669" : "#1E3A8A") : "#64748B",
                 border: "none",
@@ -64,12 +68,17 @@ export function ChatHeaderControls({
               : "规划模式：关闭（直接执行）"
         }
         style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          padding: "4px 10px", fontSize: 12, fontWeight: 500,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "4px 10px",
+          fontSize: 12,
+          fontWeight: 500,
           background: planMode === "on" ? "#DBEAFE" : planMode === "off" ? "#F1F5F9" : "#F8FAFF",
           border: `1px solid ${planMode === "on" ? "#1E3A8A" : "#E2E8F0"}`,
           color: planMode === "on" ? "#1E3A8A" : planMode === "off" ? "#64748B" : "#475569",
-          borderRadius: 8, cursor: "pointer",
+          borderRadius: 8,
+          cursor: "pointer",
         }}
       >
         📋

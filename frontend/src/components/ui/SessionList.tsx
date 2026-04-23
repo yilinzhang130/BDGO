@@ -7,8 +7,7 @@ import { useSessionStore } from "@/lib/sessions";
 export function SessionList() {
   const router = useRouter();
   const pathname = usePathname();
-  const { sessions, activeId, setActiveId, deleteSession, renameSession } =
-    useSessionStore();
+  const { sessions, activeId, setActiveId, deleteSession, renameSession } = useSessionStore();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");

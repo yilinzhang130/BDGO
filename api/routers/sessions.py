@@ -10,12 +10,11 @@ import logging
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-
 from auth import get_current_user
 from crm_store import like_contains
 from database import transaction
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -24,6 +23,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Request / response models
 # ---------------------------------------------------------------------------
+
 
 class CreateSessionBody(BaseModel):
     title: str = "New Chat"
@@ -54,6 +54,7 @@ class UpsertEntityBody(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _gen_id() -> str:
     return uuid.uuid4().hex[:12]
 
@@ -64,8 +65,7 @@ def _verify_owner(cur, session_id: str, user_id: str) -> dict:
     Uses the caller's cursor so the check runs inside the same transaction.
     """
     cur.execute(
-        "SELECT id, user_id, title, created_at, updated_at "
-        "FROM sessions WHERE id = %s",
+        "SELECT id, user_id, title, created_at, updated_at FROM sessions WHERE id = %s",
         (session_id,),
     )
     row = cur.fetchone()
@@ -87,6 +87,7 @@ def _serialize_row(row: dict) -> dict:
 # 1. GET /api/sessions
 # ---------------------------------------------------------------------------
 
+
 @router.get("")
 def list_sessions(user: dict = Depends(get_current_user)):
     with transaction() as cur:
@@ -103,6 +104,7 @@ def list_sessions(user: dict = Depends(get_current_user)):
 # ---------------------------------------------------------------------------
 # Search sessions by title or message content
 # ---------------------------------------------------------------------------
+
 
 @router.get("/search")
 def search_sessions(q: str = "", limit: int = 6, user: dict = Depends(get_current_user)):
@@ -139,6 +141,7 @@ def search_sessions(q: str = "", limit: int = 6, user: dict = Depends(get_curren
 # 2. POST /api/sessions
 # ---------------------------------------------------------------------------
 
+
 @router.post("")
 def create_session(body: CreateSessionBody, user: dict = Depends(get_current_user)):
     sid = _gen_id()
@@ -155,6 +158,7 @@ def create_session(body: CreateSessionBody, user: dict = Depends(get_current_use
 # ---------------------------------------------------------------------------
 # 3. GET /api/sessions/{session_id}
 # ---------------------------------------------------------------------------
+
 
 @router.get("/{session_id}")
 def get_session(session_id: str, user: dict = Depends(get_current_user)):
@@ -185,8 +189,11 @@ def get_session(session_id: str, user: dict = Depends(get_current_user)):
 # 4. PUT /api/sessions/{session_id}
 # ---------------------------------------------------------------------------
 
+
 @router.put("/{session_id}")
-def rename_session(session_id: str, body: RenameSessionBody, user: dict = Depends(get_current_user)):
+def rename_session(
+    session_id: str, body: RenameSessionBody, user: dict = Depends(get_current_user)
+):
     with transaction() as cur:
         _verify_owner(cur, session_id, user["id"])
         cur.execute(
@@ -202,6 +209,7 @@ def rename_session(session_id: str, body: RenameSessionBody, user: dict = Depend
 # 5. DELETE /api/sessions/{session_id}
 # ---------------------------------------------------------------------------
 
+
 @router.delete("/{session_id}")
 def delete_session(session_id: str, user: dict = Depends(get_current_user)):
     with transaction() as cur:
@@ -214,6 +222,7 @@ def delete_session(session_id: str, user: dict = Depends(get_current_user)):
 # 6. POST /api/sessions/{session_id}/messages
 # ---------------------------------------------------------------------------
 
+
 @router.post("/{session_id}/messages")
 def add_message(session_id: str, body: AddMessageBody, user: dict = Depends(get_current_user)):
     with transaction() as cur:
@@ -222,8 +231,7 @@ def add_message(session_id: str, body: AddMessageBody, user: dict = Depends(get_
             "INSERT INTO messages (id, session_id, role, content, tools_json, attachments_json) "
             "VALUES (%s, %s, %s, %s, %s, %s) "
             "RETURNING id, role, content, tools_json, attachments_json, created_at",
-            (body.id, session_id, body.role, body.content,
-             body.tools_json, body.attachments_json),
+            (body.id, session_id, body.role, body.content, body.tools_json, body.attachments_json),
         )
         row = cur.fetchone()
         cur.execute(
@@ -236,6 +244,7 @@ def add_message(session_id: str, body: AddMessageBody, user: dict = Depends(get_
 # ---------------------------------------------------------------------------
 # 7. POST /api/sessions/{session_id}/entities
 # ---------------------------------------------------------------------------
+
 
 @router.post("/{session_id}/entities")
 def upsert_entity(session_id: str, body: UpsertEntityBody, user: dict = Depends(get_current_user)):
@@ -252,8 +261,15 @@ def upsert_entity(session_id: str, body: UpsertEntityBody, user: dict = Depends(
                    href = EXCLUDED.href,
                    added_at = NOW()
                RETURNING id, entity_type, title, subtitle, fields_json, href, added_at""",
-            (body.id, session_id, body.entity_type, body.title,
-             body.subtitle, body.fields_json, body.href),
+            (
+                body.id,
+                session_id,
+                body.entity_type,
+                body.title,
+                body.subtitle,
+                body.fields_json,
+                body.href,
+            ),
         )
         row = cur.fetchone()
     return _serialize_row(row)
@@ -262,6 +278,7 @@ def upsert_entity(session_id: str, body: UpsertEntityBody, user: dict = Depends(
 # ---------------------------------------------------------------------------
 # 8. DELETE /api/sessions/{session_id}/entities/{entity_id}
 # ---------------------------------------------------------------------------
+
 
 @router.delete("/{session_id}/entities/{entity_id}")
 def delete_entity(session_id: str, entity_id: str, user: dict = Depends(get_current_user)):

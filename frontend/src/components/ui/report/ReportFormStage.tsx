@@ -101,7 +101,8 @@ export function ReportFormStage({
         }}
       >
         <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-          {"\u23F1 ~"}{estimatedSeconds}s
+          {"\u23F1 ~"}
+          {estimatedSeconds}s
         </span>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button
@@ -154,7 +155,7 @@ function FieldInput({
 }) {
   const label = name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, " ");
   const description = spec.description || "";
-  const defaultValue = spec.type === "boolean" ? spec.default ?? false : spec.default ?? "";
+  const defaultValue = spec.type === "boolean" ? (spec.default ?? false) : (spec.default ?? "");
   const currentValue = value ?? defaultValue;
 
   if (spec.type === "boolean") {
@@ -204,14 +205,12 @@ function FieldInput({
         </div>
       )}
       {spec.enum ? (
-        <select
-          value={currentValue}
-          onChange={(e) => onChange(e.target.value)}
-          style={INPUT_STYLE}
-        >
+        <select value={currentValue} onChange={(e) => onChange(e.target.value)} style={INPUT_STYLE}>
           <option value="">-- select --</option>
           {spec.enum.map((opt: string) => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
           ))}
         </select>
       ) : spec.type === "integer" ? (

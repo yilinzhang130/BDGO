@@ -15,14 +15,13 @@ import logging
 import secrets
 import threading
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-
-from database import transaction
 from auth import get_current_user
 from config import REPORTS_DIR, safe_path_within
+from database import transaction
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
 from field_policy import is_admin_user
+from pydantic import BaseModel
 from services import get_service, list_services
 from services.helpers.llm import extract_params_from_text
 from services.report_builder import (
@@ -96,7 +95,7 @@ def generate_report(req: GenerateRequest, user: dict = Depends(get_current_user)
     try:
         service.input_model(**req.params)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid params: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid params: {e}") from e
 
     user_id = user["id"]
     task_id = create_task(req.slug, req.params, user_id=user_id)
@@ -220,7 +219,7 @@ def download_report(task_id: str, format: str, user: dict = Depends(get_current_
     if not filepath.exists():
         raise HTTPException(
             status_code=404,
-            detail=f"File missing on disk. The report may have been generated before the current deployment.",
+            detail="File missing on disk. The report may have been generated before the current deployment.",
         )
 
     return FileResponse(
@@ -233,6 +232,7 @@ def download_report(task_id: str, format: str, user: dict = Depends(get_current_
 # ---------------------------------------------------------------------------
 # Report history (Postgres-backed)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/history")
 def list_report_history(user: dict = Depends(get_current_user)):
@@ -278,6 +278,7 @@ def delete_report_history(task_id: str, user: dict = Depends(get_current_user)):
 # Report sharing (public links)
 # ---------------------------------------------------------------------------
 
+
 class ShareRequest(BaseModel):
     task_id: str
 
@@ -312,7 +313,14 @@ def create_share_link(req: ShareRequest, request: Request, user: dict = Depends(
         cur.execute(
             "INSERT INTO report_shares (token, task_id, user_id, title, files_json, markdown_preview) "
             "VALUES (%s, %s, %s, %s, %s, %s)",
-            (token, req.task_id, user["id"], report["title"], report["files_json"], report["markdown_preview"]),
+            (
+                token,
+                req.task_id,
+                user["id"],
+                report["title"],
+                report["files_json"],
+                report["markdown_preview"],
+            ),
         )
 
     return {"token": token, "url": f"{base_url}/share/{token}"}

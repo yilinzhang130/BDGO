@@ -11,8 +11,9 @@
 DB 相关的测试需要真实 Postgres，放到 integration/ 里。
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestCreditFormula:
@@ -69,8 +70,8 @@ class TestEnsureBalance:
 
     def test_raises_402_when_balance_zero(self):
         """余额为 0 时抛出 402"""
+        from credits import ensure_balance
         from fastapi import HTTPException
-        from credits import ensure_balance, MIN_CREDITS_PER_REQUEST
 
         # mock database.transaction 让它返回一个假余额
         mock_row = {"balance": "0.00"}
@@ -89,8 +90,8 @@ class TestEnsureBalance:
 
     def test_raises_402_when_balance_below_minimum(self):
         """余额低于最小要求时抛出 402"""
-        from fastapi import HTTPException
         from credits import ensure_balance
+        from fastapi import HTTPException
 
         mock_row = {"balance": "5.00"}  # 低于默认最小值 10
         mock_cur = MagicMock()

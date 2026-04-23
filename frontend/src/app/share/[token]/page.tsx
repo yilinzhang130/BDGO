@@ -36,7 +36,15 @@ export default function SharePage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f8fafc" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          background: "#f8fafc",
+        }}
+      >
         <div style={{ color: "#64748b", fontSize: 14 }}>Loading...</div>
       </div>
     );
@@ -44,10 +52,24 @@ export default function SharePage() {
 
   if (error || !report) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f8fafc" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          background: "#f8fafc",
+        }}
+      >
         <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>404</div>
-        <div style={{ fontSize: 16, color: "#64748b" }}>This share link is invalid or has expired.</div>
-        <a href="/" style={{ marginTop: 24, color: "#1e3a8a", fontSize: 14, textDecoration: "none" }}>
+        <div style={{ fontSize: 16, color: "#64748b" }}>
+          This share link is invalid or has expired.
+        </div>
+        <a
+          href="/"
+          style={{ marginTop: 24, color: "#1e3a8a", fontSize: 14, textDecoration: "none" }}
+        >
           Go to BD Go &rarr;
         </a>
       </div>
@@ -57,15 +79,26 @@ export default function SharePage() {
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
       {/* Header */}
-      <header style={{
-        background: "#fff",
-        borderBottom: "1px solid #e2e8f0",
-        padding: "16px 24px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}>
-        <a href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "#0f172a" }}>
+      <header
+        style={{
+          background: "#fff",
+          borderBottom: "1px solid #e2e8f0",
+          padding: "16px 24px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <a
+          href="/"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            textDecoration: "none",
+            color: "#0f172a",
+          }}
+        >
           <span style={{ fontWeight: 700, fontSize: 16 }}>BD Go</span>
           <span style={{ fontSize: 12, color: "#64748b" }}>Shared Report</span>
         </a>
@@ -98,8 +131,11 @@ export default function SharePage() {
         </h1>
         {report.created_at && (
           <div style={{ fontSize: 13, color: "#64748b", marginBottom: 32 }}>
-            Generated {new Date(report.created_at).toLocaleDateString("en-US", {
-              year: "numeric", month: "long", day: "numeric",
+            Generated{" "}
+            {new Date(report.created_at).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
             })}
           </div>
         )}
@@ -118,42 +154,52 @@ export default function SharePage() {
           >
             <ReactMarkdown>{report.markdown_preview}</ReactMarkdown>
             {report.markdown_preview.length >= 1990 && (
-              <div style={{
-                marginTop: 24,
-                padding: "12px 16px",
-                background: "#f1f5f9",
-                borderRadius: 8,
-                fontSize: 13,
-                color: "#64748b",
-                textAlign: "center",
-              }}>
+              <div
+                style={{
+                  marginTop: 24,
+                  padding: "12px 16px",
+                  background: "#f1f5f9",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: "#64748b",
+                  textAlign: "center",
+                }}
+              >
                 Preview truncated. Download the full report above.
               </div>
             )}
           </div>
         ) : (
-          <div style={{
-            background: "#fff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 12,
-            padding: "40px 32px",
-            textAlign: "center",
-            color: "#64748b",
-          }}>
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 12,
+              padding: "40px 32px",
+              textAlign: "center",
+              color: "#64748b",
+            }}
+          >
             No preview available. Download the report to view full content.
           </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer style={{
-        textAlign: "center",
-        padding: "24px",
-        fontSize: 12,
-        color: "#94a3b8",
-        borderTop: "1px solid #e2e8f0",
-      }}>
-        Powered by <a href="/" style={{ color: "#1e3a8a", textDecoration: "none", fontWeight: 600 }}>BD Go</a> — Biotech BD Intelligence Platform
+      <footer
+        style={{
+          textAlign: "center",
+          padding: "24px",
+          fontSize: 12,
+          color: "#94a3b8",
+          borderTop: "1px solid #e2e8f0",
+        }}
+      >
+        Powered by{" "}
+        <a href="/" style={{ color: "#1e3a8a", textDecoration: "none", fontWeight: 600 }}>
+          BD Go
+        </a>{" "}
+        — Biotech BD Intelligence Platform
       </footer>
     </div>
   );

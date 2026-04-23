@@ -51,6 +51,7 @@ if "crm_match" not in sys.modules:
 # 用户 fixtures — 各种权限的模拟用户 dict
 # ═════════════════════��══════════════════════════════════════════
 
+
 @pytest.fixture
 def external_user():
     """模拟一个普通外部用户（合作伙伴）"""
@@ -94,10 +95,12 @@ def admin_user():
 # JWT token fixtures — 生成真实可用的 token
 # ════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def external_token(external_user):
     """为外部用户生成 JWT token"""
     from auth import create_token
+
     return create_token(external_user["id"], external_user["email"])
 
 
@@ -105,6 +108,7 @@ def external_token(external_user):
 def internal_token(internal_user):
     """为内部用户生成 JWT token"""
     from auth import create_token
+
     return create_token(internal_user["id"], internal_user["email"])
 
 
@@ -112,12 +116,14 @@ def internal_token(internal_user):
 def admin_token(admin_user):
     """为管理员生成 JWT token"""
     from auth import create_token
+
     return create_token(admin_user["id"], admin_user["email"])
 
 
 # ═══════════════════════��════════════════════════════════════════
 # HTTP headers fixtures — 直接传给 TestClient
 # ═════════════════════════════════════════════════════���══════════
+
 
 @pytest.fixture
 def ext_headers(external_token):
@@ -138,6 +144,7 @@ def admin_headers(admin_token):
 # FastAPI TestClient fixture
 # ══════════════════════════════════════════════════��═════════════
 
+
 @pytest.fixture(scope="session")
 def app():
     """
@@ -147,6 +154,7 @@ def app():
     这样测试不需要连接真实 Postgres。
     """
     from main import app as fastapi_app
+
     return fastapi_app
 
 
@@ -158,17 +166,19 @@ def client(app, external_user, internal_user, admin_user, monkeypatch):
     monkeypatch 是 pytest 内置的：能临时替换任意函数/属性，
     测试结束后自动还原，不影响其他测试。
     """
-    from fastapi.testclient import TestClient
     from auth import get_current_user, get_optional_user
+    from fastapi.testclient import TestClient
 
     # 用一个查表函数来决定"这个 token 对应哪个用户"
     # 真实请求里 get_current_user 会去查 Postgres，测试里我们跳过
     def _fake_get_current_user(authorization: str = None):
-        from fastapi import HTTPException, Header
+        from fastapi import HTTPException
+
         if not authorization:
             raise HTTPException(status_code=401, detail="Missing token")
         token = authorization.replace("Bearer ", "")
         from auth import decode_token
+
         claims = decode_token(token)
         uid = claims["user_id"]
         users = {
@@ -203,6 +213,7 @@ def client(app, external_user, internal_user, admin_user, monkeypatch):
 # ════════════════════════════════════════════════════════════════
 # 常用测试数据 fixtures
 # ════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def sample_company_row():

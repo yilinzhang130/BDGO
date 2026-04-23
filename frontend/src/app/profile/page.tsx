@@ -9,7 +9,15 @@ import { parsePreferences, type UserPreferences } from "@/lib/auth";
 // Toast
 // ---------------------------------------------------------------------------
 
-function Toast({ message, type, onClose }: { message: string; type: "success" | "error"; onClose: () => void }) {
+function Toast({
+  message,
+  type,
+  onClose,
+}: {
+  message: string;
+  type: "success" | "error";
+  onClose: () => void;
+}) {
   useEffect(() => {
     const t = setTimeout(onClose, 3000);
     return () => clearTimeout(t);
@@ -146,10 +154,19 @@ function ToggleRow({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "14px 0",
+      }}
+    >
       <div>
         <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2, maxWidth: 520 }}>{description}</div>
+        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2, maxWidth: 520 }}>
+          {description}
+        </div>
       </div>
       <button
         role="switch"
@@ -248,7 +265,11 @@ export default function ProfilePage() {
     setSavingPrefs(true);
     try {
       let existing: UserPreferences = {};
-      try { existing = JSON.parse(user?.preferences_json || "{}") as UserPreferences; } catch { /* ignore */ }
+      try {
+        existing = JSON.parse(user?.preferences_json || "{}") as UserPreferences;
+      } catch {
+        /* ignore */
+      }
       const merged = JSON.stringify({ ...existing, ai_context: preferences });
       const updated = await updateProfile({ preferences_json: merged });
       updateUser(updated);
@@ -269,7 +290,11 @@ export default function ProfilePage() {
     setSavingDisplay(true);
     try {
       let existing: UserPreferences = {};
-      try { existing = JSON.parse(user?.preferences_json || "{}") as UserPreferences; } catch { /* use empty */ }
+      try {
+        existing = JSON.parse(user?.preferences_json || "{}") as UserPreferences;
+      } catch {
+        /* use empty */
+      }
       const merged = JSON.stringify({ ...existing, [key]: value });
       const updated = await updateProfile({ preferences_json: merged });
       updateUser(updated);
@@ -304,14 +329,25 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
-  const initial = user.name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || "U";
+  const initial =
+    user.name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || "U";
 
   const memberSince = user.created_at
-    ? new Date(user.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    ? new Date(user.created_at).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
     : "Unknown";
 
   const lastLogin = user.last_login
-    ? new Date(user.last_login).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    ? new Date(user.last_login).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     : "Unknown";
 
   return (
@@ -321,7 +357,9 @@ export default function ProfilePage() {
       {/* Page header */}
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#111827", margin: 0 }}>Settings</h1>
-        <p style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Manage your account and preferences</p>
+        <p style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
+          Manage your account and preferences
+        </p>
       </div>
 
       {/* ─── Personal Info ─── */}
@@ -375,17 +413,32 @@ export default function ProfilePage() {
         <div style={twoColStyle}>
           <div style={fieldRowStyle}>
             <label style={labelStyle}>Company</label>
-            <input style={inputStyle} value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Pfizer, BeiGene" />
+            <input
+              style={inputStyle}
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              placeholder="e.g. Pfizer, BeiGene"
+            />
           </div>
           <div style={fieldRowStyle}>
             <label style={labelStyle}>Title</label>
-            <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. BD Director" />
+            <input
+              style={inputStyle}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. BD Director"
+            />
           </div>
         </div>
 
         <div style={fieldRowStyle}>
           <label style={labelStyle}>Phone</label>
-          <input style={inputStyle} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" />
+          <input
+            style={inputStyle}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+1 (555) 000-0000"
+          />
         </div>
 
         <div style={fieldRowStyle}>
@@ -409,8 +462,8 @@ export default function ProfilePage() {
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>AI Preferences</div>
         <div style={sectionDescStyle}>
-          Tell BD Go about your role, therapeutic area focus, and what kind of insights matter to you.
-          This helps the AI personalize responses to your needs.
+          Tell BD Go about your role, therapeutic area focus, and what kind of insights matter to
+          you. This helps the AI personalize responses to your needs.
         </div>
 
         <div style={fieldRowStyle}>
@@ -419,7 +472,9 @@ export default function ProfilePage() {
             style={{ ...textareaStyle, minHeight: 140 }}
             value={preferences}
             onChange={(e) => setPreferences(e.target.value)}
-            placeholder={"Example: I'm a BD lead at a mid-size biotech focused on oncology and autoimmune. I'm primarily looking for licensing-in opportunities in Phase 2+ assets. I care about deal structure benchmarks and competitive landscape analysis."}
+            placeholder={
+              "Example: I'm a BD lead at a mid-size biotech focused on oncology and autoimmune. I'm primarily looking for licensing-in opportunities in Phase 2+ assets. I care about deal structure benchmarks and competitive landscape analysis."
+            }
           />
         </div>
 
@@ -433,7 +488,9 @@ export default function ProfilePage() {
       {/* ─── UI ─── */}
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>UI</div>
-        <div style={sectionDescStyle}>Toggle optional interface surfaces. Default is a minimal chat-first layout.</div>
+        <div style={sectionDescStyle}>
+          Toggle optional interface surfaces. Default is a minimal chat-first layout.
+        </div>
 
         <ToggleRow
           title="Show report cards"
@@ -455,10 +512,21 @@ export default function ProfilePage() {
 
         <div style={{ borderTop: "1px solid #f3f4f6" }} />
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", opacity: 0.5 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 0",
+            opacity: 0.5,
+          }}
+        >
           <div>
             <div style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>
-              Dark mode <span style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", marginLeft: 6 }}>Coming soon</span>
+              Dark mode{" "}
+              <span style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", marginLeft: 6 }}>
+                Coming soon
+              </span>
             </div>
             <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>
               Switch between light and dark themes.
@@ -470,11 +538,28 @@ export default function ProfilePage() {
             disabled
             style={{
               position: "relative",
-              width: 44, height: 24, borderRadius: 12, border: "none",
-              background: "#d1d5db", cursor: "not-allowed", flexShrink: 0, marginLeft: 16,
+              width: 44,
+              height: 24,
+              borderRadius: 12,
+              border: "none",
+              background: "#d1d5db",
+              cursor: "not-allowed",
+              flexShrink: 0,
+              marginLeft: 16,
             }}
           >
-            <span style={{ position: "absolute", top: 2, left: 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+            <span
+              style={{
+                position: "absolute",
+                top: 2,
+                left: 2,
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: "#fff",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              }}
+            />
           </button>
         </div>
       </div>
@@ -486,25 +571,63 @@ export default function ProfilePage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: "#6b7280",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 4,
+              }}
+            >
               Member Since
             </div>
             <div style={{ fontSize: 14, color: "#111827" }}>{memberSince}</div>
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: "#6b7280",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 4,
+              }}
+            >
               Last Login
             </div>
             <div style={{ fontSize: 14, color: "#111827" }}>{lastLogin}</div>
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: "#6b7280",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 4,
+              }}
+            >
               Auth Provider
             </div>
-            <div style={{ fontSize: 14, color: "#111827", textTransform: "capitalize" }}>{user.provider}</div>
+            <div style={{ fontSize: 14, color: "#111827", textTransform: "capitalize" }}>
+              {user.provider}
+            </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: "#6b7280",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 4,
+              }}
+            >
               User ID
             </div>
             <div style={{ color: "#111827", fontFamily: "monospace", fontSize: 12 }}>{user.id}</div>

@@ -5,10 +5,10 @@ import type { PlanProposal, PlanStatus } from "@/lib/sessions";
 
 interface Props {
   plan: PlanProposal;
-  status: PlanStatus;                // pending | confirmed | cancelled
-  selectedIds?: string[];            // remembered selection if already confirmed
+  status: PlanStatus; // pending | confirmed | cancelled
+  selectedIds?: string[]; // remembered selection if already confirmed
   onConfirm: (selectedStepIds: string[]) => void;
-  onSkip: () => void;                // run without plan constraints
+  onSkip: () => void; // run without plan constraints
   onCancel: () => void;
 }
 
@@ -70,24 +70,40 @@ export function PlanCard({ plan, status, selectedIds, onConfirm, onSkip, onCance
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <span style={{ fontSize: "1.1rem" }}>📋</span>
-        <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#0F172A" }}>
-          {plan.title}
-        </div>
+        <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#0F172A" }}>{plan.title}</div>
         {status === "confirmed" && (
-          <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "#16A34A", background: "#F0FDF4", padding: "2px 6px", borderRadius: 4 }}>
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#16A34A",
+              background: "#F0FDF4",
+              padding: "2px 6px",
+              borderRadius: 4,
+            }}
+          >
             已执行
           </span>
         )}
         {status === "cancelled" && (
-          <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "#64748B", background: "#F1F5F9", padding: "2px 6px", borderRadius: 4 }}>
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#64748B",
+              background: "#F1F5F9",
+              padding: "2px 6px",
+              borderRadius: 4,
+            }}
+          >
             已取消
           </span>
         )}
       </div>
       {plan.summary && (
-        <div style={{ color: "#64748B", fontSize: "0.8rem", marginBottom: 10 }}>
-          {plan.summary}
-        </div>
+        <div style={{ color: "#64748B", fontSize: "0.8rem", marginBottom: 10 }}>{plan.summary}</div>
       )}
 
       {/* Steps */}
@@ -98,7 +114,9 @@ export function PlanCard({ plan, status, selectedIds, onConfirm, onSkip, onCance
             <label
               key={step.id}
               style={{
-                display: "flex", alignItems: "flex-start", gap: 8,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
                 padding: "6px 8px",
                 background: isChecked ? "#fff" : "#F1F5F9",
                 border: `1px solid ${isChecked ? "#CBD5E1" : "#E2E8F0"}`,
@@ -120,7 +138,16 @@ export function PlanCard({ plan, status, selectedIds, onConfirm, onSkip, onCance
                     {idx + 1}. {step.title}
                   </span>
                   {step.required && (
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", padding: "1px 5px", borderRadius: 3 }}>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: "#DC2626",
+                        background: "#FEF2F2",
+                        padding: "1px 5px",
+                        borderRadius: 3,
+                      }}
+                    >
                       必选
                     </span>
                   )}
@@ -138,7 +165,9 @@ export function PlanCard({ plan, status, selectedIds, onConfirm, onSkip, onCance
                   </span>
                 </div>
                 {step.description && (
-                  <div style={{ fontSize: "0.78rem", color: "#64748B", marginTop: 2, lineHeight: 1.4 }}>
+                  <div
+                    style={{ fontSize: "0.78rem", color: "#64748B", marginTop: 2, lineHeight: 1.4 }}
+                  >
                     {step.description}
                   </div>
                 )}
@@ -152,8 +181,12 @@ export function PlanCard({ plan, status, selectedIds, onConfirm, onSkip, onCance
       {!readonly && (
         <div
           style={{
-            display: "flex", gap: 8, marginTop: 12, alignItems: "center",
-            paddingTop: 10, borderTop: "1px solid #E2E8F0",
+            display: "flex",
+            gap: 8,
+            marginTop: 12,
+            alignItems: "center",
+            paddingTop: 10,
+            borderTop: "1px solid #E2E8F0",
           }}
         >
           <div style={{ fontSize: 11, color: "#64748B" }}>
@@ -163,9 +196,13 @@ export function PlanCard({ plan, status, selectedIds, onConfirm, onSkip, onCance
             <button
               onClick={onCancel}
               style={{
-                padding: "5px 10px", fontSize: "0.78rem",
-                background: "#F1F5F9", color: "#64748B", border: "1px solid #E2E8F0",
-                borderRadius: 5, cursor: "pointer",
+                padding: "5px 10px",
+                fontSize: "0.78rem",
+                background: "#F1F5F9",
+                color: "#64748B",
+                border: "1px solid #E2E8F0",
+                borderRadius: 5,
+                cursor: "pointer",
               }}
             >
               取消
@@ -173,9 +210,13 @@ export function PlanCard({ plan, status, selectedIds, onConfirm, onSkip, onCance
             <button
               onClick={onSkip}
               style={{
-                padding: "5px 10px", fontSize: "0.78rem",
-                background: "#fff", color: "#1E3A8A", border: "1px solid #1E3A8A",
-                borderRadius: 5, cursor: "pointer",
+                padding: "5px 10px",
+                fontSize: "0.78rem",
+                background: "#fff",
+                color: "#1E3A8A",
+                border: "1px solid #1E3A8A",
+                borderRadius: 5,
+                cursor: "pointer",
               }}
               title="跳过规划，直接让 AI 自由发挥"
             >
@@ -185,10 +226,14 @@ export function PlanCard({ plan, status, selectedIds, onConfirm, onSkip, onCance
               onClick={() => onConfirm(Array.from(checked))}
               disabled={selectedCount === 0}
               style={{
-                padding: "5px 14px", fontSize: "0.78rem", fontWeight: 600,
+                padding: "5px 14px",
+                fontSize: "0.78rem",
+                fontWeight: 600,
                 background: selectedCount === 0 ? "#CBD5E1" : "var(--accent)",
-                color: "#fff", border: "none",
-                borderRadius: 5, cursor: selectedCount === 0 ? "not-allowed" : "pointer",
+                color: "#fff",
+                border: "none",
+                borderRadius: 5,
+                cursor: selectedCount === 0 ? "not-allowed" : "pointer",
               }}
             >
               执行选中 ({selectedCount})

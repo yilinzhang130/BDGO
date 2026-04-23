@@ -9,9 +9,9 @@ export type BlogPost = {
 };
 
 export const TAG_COLORS: Record<BlogPost["tag"], { bg: string; color: string }> = {
-  "产品更新": { bg: "#F0FDF4", color: "#16A34A" },
-  "方法论":   { bg: "#FFF7ED", color: "#C2410C" },
-  "行业洞察": { bg: "#EEF2FF", color: "#4338CA" },
+  产品更新: { bg: "#F0FDF4", color: "#16A34A" },
+  方法论: { bg: "#FFF7ED", color: "#C2410C" },
+  行业洞察: { bg: "#EEF2FF", color: "#4338CA" },
 };
 
 export const POSTS: BlogPost[] = [

@@ -12,13 +12,11 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-import re
 import sqlite3
-from typing import Any
-
-from pydantic import BaseModel
 
 from crm_store import LIKE_ESCAPE, like_contains
+from pydantic import BaseModel
+
 from services.helpers import docx_builder
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
@@ -47,6 +45,7 @@ def _gdb_query(sql: str, params: tuple = ()) -> list[dict]:
 # ─────────────────────────────────────────────────────────────
 # Input
 # ─────────────────────────────────────────────────────────────
+
 
 class ClinicalGuidelinesInput(BaseModel):
     disease: str
@@ -160,6 +159,7 @@ REPORT_PROMPT = """以下是 **{disease}** 的临床指南数据库查询结果�
 # Service
 # ─────────────────────────────────────────────────────────────
 
+
 class ClinicalGuidelinesService(ReportService):
     slug = "clinical-guidelines"
     display_name = "Clinical Guidelines"
@@ -210,9 +210,8 @@ class ClinicalGuidelinesService(ReportService):
         ctx.log(f"Querying guidelines DB for '{disease}'...")
 
         guidelines = _gdb_query(
-            f'SELECT * FROM "指南" WHERE "疾病" LIKE ? {LIKE_ESCAPE}' + (
-                f' AND "指南来源" LIKE ? {LIKE_ESCAPE}' if inp.source else ''
-            ),
+            f'SELECT * FROM "指南" WHERE "疾病" LIKE ? {LIKE_ESCAPE}'
+            + (f' AND "指南来源" LIKE ? {LIKE_ESCAPE}' if inp.source else ""),
             (like_contains(disease),) + ((like_contains(inp.source),) if inp.source else ()),
         )
 
@@ -234,7 +233,9 @@ class ClinicalGuidelinesService(ReportService):
             (like_contains(disease),),
         )
 
-        ctx.log(f"Found: {len(guidelines)} guidelines, {len(recs)} recommendations, {len(biomarkers)} biomarkers")
+        ctx.log(
+            f"Found: {len(guidelines)} guidelines, {len(recs)} recommendations, {len(biomarkers)} biomarkers"
+        )
 
         if not guidelines and not recs and not biomarkers:
             raise ValueError(
@@ -246,10 +247,13 @@ class ClinicalGuidelinesService(ReportService):
         web_results: list[dict] = []
         if inp.include_web_search:
             ctx.log("Searching web for latest guideline updates...")
-            web_results = search_and_deduplicate([
-                f"{disease} treatment guidelines update 2025 2026",
-                f"{disease} NCCN CSCO ESMO new recommendation 2026",
-            ], max_results_per_query=2)
+            web_results = search_and_deduplicate(
+                [
+                    f"{disease} treatment guidelines update 2025 2026",
+                    f"{disease} NCCN CSCO ESMO new recommendation 2026",
+                ],
+                max_results_per_query=2,
+            )
             ctx.log(f"Web: {len(web_results)} results")
 
         # 3. LLM
@@ -305,8 +309,8 @@ class ClinicalGuidelinesService(ReportService):
         if not rows:
             return "(无)"
         return "\n".join(
-            f"- {g.get('指南来源','?')} {g.get('版本','?')} ({g.get('发布年份','?')}) — {g.get('疾病','?')}"
-            + (f" [{g.get('疾病亚型','')}]" if g.get("疾病亚型") else "")
+            f"- {g.get('指南来源', '?')} {g.get('版本', '?')} ({g.get('发布年份', '?')}) — {g.get('疾病', '?')}"
+            + (f" [{g.get('疾病亚型', '')}]" if g.get("疾病亚型") else "")
             for g in rows
         )
 
@@ -337,8 +341,8 @@ class ClinicalGuidelinesService(ReportService):
         if not rows:
             return "(无)"
         return "\n".join(
-            f"- **{b.get('标志物','?')}** | 方法:{b.get('检测方法','-')} | "
-            f"阈值:{b.get('阳性阈值','-')} | 意义:{b.get('临床意义','-')} | "
-            f"来源:{b.get('指南来源','-')}"
+            f"- **{b.get('标志物', '?')}** | 方法:{b.get('检测方法', '-')} | "
+            f"阈值:{b.get('阳性阈值', '-')} | 意义:{b.get('临床意义', '-')} | "
+            f"来源:{b.get('指南来源', '-')}"
             for b in rows
         )

@@ -9,16 +9,14 @@ from __future__ import annotations
 import os
 import random
 import string
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
-
-from database import transaction
-from auth import get_current_user, serialize_user_row
-from field_policy import is_admin_user
 import credits as credits_mod
+from auth import get_current_user, serialize_user_row
+from database import transaction
+from fastapi import APIRouter, Depends, Header, HTTPException
+from field_policy import is_admin_user
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -51,7 +49,7 @@ class CreateCodeRequest(BaseModel):
     note: str | None = None
     max_uses: int = 1
     expires_days: int | None = None  # None = never expires
-    code: str | None = None          # custom code; auto-generated if omitted
+    code: str | None = None  # custom code; auto-generated if omitted
 
 
 def _fmt(row: dict) -> dict:
@@ -74,7 +72,8 @@ def create_invite_code(body: CreateCodeRequest, x_admin_key: str = Header(...)):
     expires_at = None
     if body.expires_days:
         from datetime import timedelta
-        expires_at = datetime.now(timezone.utc) + timedelta(days=body.expires_days)
+
+        expires_at = datetime.now(UTC) + timedelta(days=body.expires_days)
 
     with transaction() as cur:
         cur.execute(
@@ -114,6 +113,7 @@ def revoke_invite_code(code: str, x_admin_key: str = Header(...)):
 # ---------------------------------------------------------------------------
 # User admin management
 # ---------------------------------------------------------------------------
+
 
 def _set_admin_flag(email: str, value: bool) -> dict:
     with transaction() as cur:
@@ -158,6 +158,7 @@ def list_users(x_admin_key: str = Header(...)):
 # JWT-authenticated endpoints (for frontend admin dashboard)
 # ---------------------------------------------------------------------------
 
+
 @router.get("/llm-pool")
 def admin_llm_pool(_: dict = Depends(_require_admin)):
     """Live snapshot of the MiniMax key pool (in-flight / muted / totals).
@@ -167,11 +168,12 @@ def admin_llm_pool(_: dict = Depends(_require_admin)):
     """
     try:
         from llm_pool import get_pool, pool_available
+
         if not pool_available():
             return {"available": False, "reason": "pool not initialized — no keys configured"}
         return {"available": True, **get_pool().snapshot()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Pool snapshot failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Pool snapshot failed: {e}") from e
 
 
 @router.get("/dashboard")

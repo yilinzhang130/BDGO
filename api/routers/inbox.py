@@ -1,22 +1,23 @@
 """User feedback + data-quality reports → admin inbox."""
-from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from __future__ import annotations
 
 from auth import get_current_user, require_admin
 from database import transaction
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter()
 
 
 # ── Request models ────────────────────────────────────────────────────────────
 
+
 class DataReportRequest(BaseModel):
-    entity_type: str          # '公司' | '资产' | '临床' | '交易'
-    entity_key: str           # entity name / id shown to user
-    entity_url: str = ""      # frontend deep-link
-    message: str              # what's wrong
+    entity_type: str  # '公司' | '资产' | '临床' | '交易'
+    entity_key: str  # entity name / id shown to user
+    entity_url: str = ""  # frontend deep-link
+    message: str  # what's wrong
 
 
 class FeedbackRequest(BaseModel):
@@ -24,6 +25,7 @@ class FeedbackRequest(BaseModel):
 
 
 # ── User-facing endpoints ─────────────────────────────────────────────────────
+
 
 @router.post("/report")
 def submit_data_report(body: DataReportRequest, user: dict = Depends(get_current_user)):
@@ -36,9 +38,15 @@ def submit_data_report(body: DataReportRequest, user: dict = Depends(get_current
                (type, user_id, user_email, user_name,
                 entity_type, entity_key, entity_url, message)
                VALUES ('data_report', %s, %s, %s, %s, %s, %s, %s)""",
-            (user["id"], user["email"], user.get("name", ""),
-             body.entity_type, body.entity_key, body.entity_url,
-             body.message.strip()),
+            (
+                user["id"],
+                user["email"],
+                user.get("name", ""),
+                body.entity_type,
+                body.entity_key,
+                body.entity_url,
+                body.message.strip(),
+            ),
         )
     return {"ok": True}
 
@@ -53,13 +61,13 @@ def submit_feedback(body: FeedbackRequest, user: dict = Depends(get_current_user
             """INSERT INTO inbox_messages
                (type, user_id, user_email, user_name, message)
                VALUES ('feedback', %s, %s, %s, %s)""",
-            (user["id"], user["email"], user.get("name", ""),
-             body.message.strip()),
+            (user["id"], user["email"], user.get("name", ""), body.message.strip()),
         )
     return {"ok": True}
 
 
 # ── Admin-only endpoints ──────────────────────────────────────────────────────
+
 
 @router.get("/admin/messages")
 def list_messages(
@@ -82,9 +90,7 @@ def list_messages(
             (limit, offset),
         )
         rows = cur.fetchall()
-        cur.execute(
-            f"SELECT COUNT(*) AS total FROM inbox_messages {where}"
-        )
+        cur.execute(f"SELECT COUNT(*) AS total FROM inbox_messages {where}")
         total = cur.fetchone()["total"]
     return {"total": total, "items": [dict(r) for r in rows]}
 
@@ -92,9 +98,7 @@ def list_messages(
 @router.get("/admin/unread-count")
 def unread_count(_admin: dict = Depends(require_admin)):
     with transaction() as cur:
-        cur.execute(
-            "SELECT COUNT(*) AS n FROM inbox_messages WHERE read_at IS NULL"
-        )
+        cur.execute("SELECT COUNT(*) AS n FROM inbox_messages WHERE read_at IS NULL")
         return {"count": cur.fetchone()["n"]}
 
 
@@ -111,7 +115,5 @@ def mark_read(msg_id: int, _admin: dict = Depends(require_admin)):
 @router.patch("/admin/messages/read-all")
 def mark_all_read(_admin: dict = Depends(require_admin)):
     with transaction() as cur:
-        cur.execute(
-            "UPDATE inbox_messages SET read_at = NOW() WHERE read_at IS NULL"
-        )
+        cur.execute("UPDATE inbox_messages SET read_at = NOW() WHERE read_at IS NULL")
     return {"ok": True}

@@ -43,7 +43,8 @@ export function priorityBadgeClass(priority: string): string {
 export function resultBadgeClass(result: string): string {
   if (!result) return "badge-gray";
   if (result.includes("积极") || result.includes("positive")) return "badge-green";
-  if (result.includes("阴性") || result.includes("negative") || result.includes("未达成")) return "badge-red";
+  if (result.includes("阴性") || result.includes("negative") || result.includes("未达成"))
+    return "badge-red";
   if (result.includes("混合")) return "badge-amber";
   return "badge-gray";
 }
@@ -57,13 +58,33 @@ export function statusBadgeClass(status: string): string {
 export function safeJsonParse(val: any): any {
   if (!val) return null;
   if (typeof val === "object") return val;
-  try { return JSON.parse(val); } catch { return null; }
+  try {
+    return JSON.parse(val);
+  } catch {
+    return null;
+  }
 }
 
 // Chart colors palette
 export const COLORS = [
-  "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
-  "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
-  "#06b6d4", "#e11d48", "#a855f7", "#22c55e", "#eab308",
-  "#0ea5e9", "#d946ef", "#64748b", "#f43f5e", "#2dd4bf",
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#ec4899",
+  "#14b8a6",
+  "#f97316",
+  "#6366f1",
+  "#84cc16",
+  "#06b6d4",
+  "#e11d48",
+  "#a855f7",
+  "#22c55e",
+  "#eab308",
+  "#0ea5e9",
+  "#d946ef",
+  "#64748b",
+  "#f43f5e",
+  "#2dd4bf",
 ];

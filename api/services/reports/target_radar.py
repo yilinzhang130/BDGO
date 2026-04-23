@@ -14,14 +14,13 @@ from __future__ import annotations
 
 import datetime
 import logging
-import re
 from typing import Any
 
+from crm_store import LIKE_ESCAPE, like_contains
 from pydantic import BaseModel
 
-from crm_store import LIKE_ESCAPE, like_contains
 from services.helpers import docx_builder, search
-from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
+from services.helpers.text import format_web_results, safe_slug
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -34,6 +33,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 # Input
 # ─────────────────────────────────────────────────────────────
+
 
 class TargetRadarInput(BaseModel):
     target: str  # e.g. "KRAS G12C", "PD-L1", "GLP-1R", "NLRP3"
@@ -171,6 +171,7 @@ REPORT_PROMPT = """以下是靶点 **{target}** 的 CRM 数据 + 网络检索结
 # Service
 # ─────────────────────────────────────────────────────────────
 
+
 class TargetRadarService(ReportService):
     slug = "target-radar"
     display_name = "Target Radar"
@@ -296,8 +297,12 @@ class TargetRadarService(ReportService):
         )
 
     # ── CRM queries ─────────────────────────────────────────
-    def _query_assets(self, ctx: ReportContext, target: str, indication: str | None, limit: int) -> list[dict]:
-        conds = [f'("靶点" LIKE ? {LIKE_ESCAPE} OR "作用机制(MOA)" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE})']
+    def _query_assets(
+        self, ctx: ReportContext, target: str, indication: str | None, limit: int
+    ) -> list[dict]:
+        conds = [
+            f'("靶点" LIKE ? {LIKE_ESCAPE} OR "作用机制(MOA)" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE})'
+        ]
         params: list[Any] = [like_contains(target)] * 3
         if indication:
             conds.append(f'"适应症" LIKE ? {LIKE_ESCAPE}')
@@ -312,7 +317,9 @@ class TargetRadarService(ReportService):
         )
         return ctx.crm_query(sql, tuple(params))
 
-    def _query_clinical(self, ctx: ReportContext, target: str, indication: str | None, limit: int) -> list[dict]:
+    def _query_clinical(
+        self, ctx: ReportContext, target: str, indication: str | None, limit: int
+    ) -> list[dict]:
         conds = [f'("资产名称" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE})']
         params: list[Any] = [like_contains(target), like_contains(target)]
         if indication:
@@ -445,4 +452,3 @@ class TargetRadarService(ReportService):
             f"- Unique platforms: {stats['unique_platforms']}\n"
             f"- Top companies: {', '.join(stats['top_companies'][:10])}"
         )
-

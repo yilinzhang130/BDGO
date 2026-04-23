@@ -19,9 +19,9 @@ import logging
 import re
 from typing import Literal
 
+from crm_store import LIKE_ESCAPE, like_contains
 from pydantic import BaseModel, Field
 
-from crm_store import LIKE_ESCAPE, like_contains
 from services.helpers import docx_builder
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
@@ -87,28 +87,82 @@ def _infer_stage(phase: str | None) -> str | None:
 _WEIGHT_MATRIX: dict[tuple[str, str], list[str]] = {
     # FIC
     ("FIC", "Preclinical"): ["high", "high", "medium", "low", "medium", "medium", "low", "medium"],
-    ("FIC", "Phase 1"):     ["high", "high", "medium", "medium", "medium", "medium", "low", "medium"],
-    ("FIC", "Phase 2"):     ["medium", "high", "medium", "high", "medium", "medium", "medium", "medium"],
-    ("FIC", "Phase 3"):     ["medium", "medium", "medium", "high", "high", "medium", "high", "high"],
-    ("FIC", "Commercial"):  ["medium", "low", "medium", "medium", "medium", "high", "high", "high"],
+    ("FIC", "Phase 1"): ["high", "high", "medium", "medium", "medium", "medium", "low", "medium"],
+    ("FIC", "Phase 2"): [
+        "medium",
+        "high",
+        "medium",
+        "high",
+        "medium",
+        "medium",
+        "medium",
+        "medium",
+    ],
+    ("FIC", "Phase 3"): ["medium", "medium", "medium", "high", "high", "medium", "high", "high"],
+    ("FIC", "Commercial"): ["medium", "low", "medium", "medium", "medium", "high", "high", "high"],
     # BIC
     ("BIC", "Preclinical"): ["medium", "high", "medium", "low", "medium", "high", "low", "medium"],
-    ("BIC", "Phase 1"):     ["medium", "medium", "medium", "high", "medium", "high", "medium", "medium"],
-    ("BIC", "Phase 2"):     ["medium", "medium", "medium", "high", "medium", "high", "medium", "medium"],
-    ("BIC", "Phase 3"):     ["medium", "low", "medium", "high", "high", "high", "high", "high"],
-    ("BIC", "Commercial"):  ["medium", "low", "medium", "medium", "medium", "high", "high", "high"],
+    ("BIC", "Phase 1"): [
+        "medium",
+        "medium",
+        "medium",
+        "high",
+        "medium",
+        "high",
+        "medium",
+        "medium",
+    ],
+    ("BIC", "Phase 2"): [
+        "medium",
+        "medium",
+        "medium",
+        "high",
+        "medium",
+        "high",
+        "medium",
+        "medium",
+    ],
+    ("BIC", "Phase 3"): ["medium", "low", "medium", "high", "high", "high", "high", "high"],
+    ("BIC", "Commercial"): ["medium", "low", "medium", "medium", "medium", "high", "high", "high"],
     # Me-too
-    ("Me-too", "Preclinical"): ["medium", "low", "medium", "low", "medium", "high", "low", "medium"],
-    ("Me-too", "Phase 1"):     ["medium", "low", "medium", "medium", "medium", "high", "medium", "medium"],
-    ("Me-too", "Phase 2"):     ["medium", "low", "medium", "high", "high", "high", "high", "medium"],
-    ("Me-too", "Phase 3"):     ["medium", "low", "medium", "high", "high", "high", "high", "medium"],
-    ("Me-too", "Commercial"):  ["medium", "low", "medium", "medium", "medium", "high", "high", "high"],
+    ("Me-too", "Preclinical"): [
+        "medium",
+        "low",
+        "medium",
+        "low",
+        "medium",
+        "high",
+        "low",
+        "medium",
+    ],
+    ("Me-too", "Phase 1"): [
+        "medium",
+        "low",
+        "medium",
+        "medium",
+        "medium",
+        "high",
+        "medium",
+        "medium",
+    ],
+    ("Me-too", "Phase 2"): ["medium", "low", "medium", "high", "high", "high", "high", "medium"],
+    ("Me-too", "Phase 3"): ["medium", "low", "medium", "high", "high", "high", "high", "medium"],
+    ("Me-too", "Commercial"): [
+        "medium",
+        "low",
+        "medium",
+        "medium",
+        "medium",
+        "high",
+        "high",
+        "high",
+    ],
     # Generic
     ("Generic", "Preclinical"): ["low", "low", "high", "low", "high", "high", "medium", "medium"],
-    ("Generic", "Phase 1"):     ["low", "low", "high", "medium", "high", "high", "medium", "medium"],
-    ("Generic", "Phase 2"):     ["low", "low", "high", "medium", "high", "high", "high", "medium"],
-    ("Generic", "Phase 3"):     ["low", "low", "high", "medium", "high", "high", "high", "medium"],
-    ("Generic", "Commercial"):  ["low", "low", "high", "low", "high", "high", "high", "medium"],
+    ("Generic", "Phase 1"): ["low", "low", "high", "medium", "high", "high", "medium", "medium"],
+    ("Generic", "Phase 2"): ["low", "low", "high", "medium", "high", "high", "high", "medium"],
+    ("Generic", "Phase 3"): ["low", "low", "high", "medium", "high", "high", "high", "medium"],
+    ("Generic", "Commercial"): ["low", "low", "high", "low", "high", "high", "high", "medium"],
 }
 
 _CHAPTER_TITLES = [
@@ -134,12 +188,17 @@ def _get_weights(positioning: str, stage: str) -> list[str]:
 # Input model
 # ─────────────────────────────────────────────────────────────
 
+
 class DDChecklistInput(BaseModel):
     company: str = Field(..., description="Company to investigate (CRM 公司名 or free text)")
-    asset_name: str | None = Field(None, description="Specific asset; blank = use CRM core pipeline")
+    asset_name: str | None = Field(
+        None, description="Specific asset; blank = use CRM core pipeline"
+    )
     positioning_hint: Literal["FIC", "BIC", "Me-too", "Generic"] | None = None
     stage_hint: Literal["Preclinical", "Phase 1", "Phase 2", "Phase 3", "Commercial"] | None = None
-    extra_context: str | None = Field(None, description="Anything the seller already disclosed or analyst already searched")
+    extra_context: str | None = Field(
+        None, description="Anything the seller already disclosed or analyst already searched"
+    )
     include_web_search: bool = True
 
 
@@ -163,7 +222,7 @@ SYSTEM_PROMPT = """你是 BD Go 平台的资深 Due Diligence 负责人，代表
 
 
 def _chapter_prompt(
-    chapter_indices: list[int],   # 1-based
+    chapter_indices: list[int],  # 1-based
     chapter_titles: list[str],
     chapter_weights: list[str],
     asset_info: str,
@@ -183,9 +242,9 @@ def _chapter_prompt(
         )
 
     weight_guidance = {
-        "FIC":     "重点关注靶点验证 / MoA / translational biomarker；不要把 BIC 语言套进去",
-        "BIC":     "**每章必须含 'vs 对标 FIC' 的 specific 对比问题**。没有 head-to-head 数据也要追问为什么没做",
-        "Me-too":  "重点问 CMC / 市场 / 份额获取；科学章节简短带过",
+        "FIC": "重点关注靶点验证 / MoA / translational biomarker；不要把 BIC 语言套进去",
+        "BIC": "**每章必须含 'vs 对标 FIC' 的 specific 对比问题**。没有 head-to-head 数据也要追问为什么没做",
+        "Me-too": "重点问 CMC / 市场 / 份额获取；科学章节简短带过",
         "Generic": "重点问 CMC 比对 / 杂质谱 / BE / 监管路径；临床章节聚焦 BE 而非 efficacy",
     }[positioning]
 
@@ -199,7 +258,7 @@ def _chapter_prompt(
 {asset_info}
 
 ### 项目方已披露/分析师已搜到的上下文
-{extra_context or '(无)'}
+{extra_context or "(无)"}
 
 ### Tavily 网络搜索结果（用于生成 specific 的问题，例如 "请说明你们如何回应 [竞品] 2025Q4 的 {{具体数据}}"）
 {web_block}
@@ -273,6 +332,7 @@ EXECUTIVE_SUMMARY_PROMPT = """## 任务：为本次 DD 写一份 Executive Summa
 # ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
+
 
 class DDChecklistService(ReportService):
     slug = "dd-checklist"
@@ -366,7 +426,9 @@ class DDChecklistService(ReportService):
 
         inferred_note = ""
         if not inp.positioning_hint and inferred_positioning is None:
-            inferred_note += "（⚠️ positioning 未能从 CRM 推断，默认 FIC；如不准请用 positioning_hint 重跑）"
+            inferred_note += (
+                "（⚠️ positioning 未能从 CRM 推断，默认 FIC；如不准请用 positioning_hint 重跑）"
+            )
         if not inp.stage_hint and inferred_stage is None:
             inferred_note += "（⚠️ stage 未能从 CRM 推断，默认 P1；如不准请用 stage_hint 重跑）"
         ctx.log(f"判定: positioning={positioning}, stage={stage} {inferred_note}")
@@ -390,15 +452,17 @@ class DDChecklistService(ReportService):
         ctx.log("生成 Executive Summary...")
         exec_summary = ctx.llm(
             system=SYSTEM_PROMPT,
-            messages=[{
-                "role": "user",
-                "content": EXECUTIVE_SUMMARY_PROMPT.format(
-                    asset_info=asset_info,
-                    positioning=positioning,
-                    stage=stage,
-                    extra_context_or_none=inp.extra_context or "(无)",
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": EXECUTIVE_SUMMARY_PROMPT.format(
+                        asset_info=asset_info,
+                        positioning=positioning,
+                        stage=stage,
+                        extra_context_or_none=inp.extra_context or "(无)",
+                    ),
+                }
+            ],
             max_tokens=800,
         )
 
@@ -450,8 +514,7 @@ class DDChecklistService(ReportService):
                 body_chapters.append(chapter_texts[idx].strip())
             else:
                 body_chapters.append(
-                    f"## {_CHAPTER_TITLES[idx-1]}\n\n"
-                    f"[章节生成失败，请重跑任务或联系管理员]"
+                    f"## {_CHAPTER_TITLES[idx - 1]}\n\n[章节生成失败，请重跑任务或联系管理员]"
                 )
 
         markdown = header + exec_summary.strip() + "\n\n---\n\n" + "\n\n---\n\n".join(body_chapters)
@@ -505,9 +568,7 @@ class DDChecklistService(ReportService):
         )
         return rows[0] if rows else None
 
-    def _query_assets(
-        self, ctx: ReportContext, company: str, asset_name: str | None
-    ) -> list[dict]:
+    def _query_assets(self, ctx: ReportContext, company: str, asset_name: str | None) -> list[dict]:
         if asset_name:
             rows = ctx.crm_query(
                 f'SELECT "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", '
@@ -591,9 +652,7 @@ class DDChecklistService(ReportService):
 
         return "\n".join(lines)
 
-    def _split_chapters(
-        self, batch_md: str, expected_indices: list[int]
-    ) -> list[tuple[int, str]]:
+    def _split_chapters(self, batch_md: str, expected_indices: list[int]) -> list[tuple[int, str]]:
         """Split an LLM batch output into (chapter_index, chunk) pairs."""
         # Match headers like "## Q1." / "## Q2." etc.
         pattern = re.compile(r"^(##\s+Q(\d)\.[^\n]*)$", re.MULTILINE)

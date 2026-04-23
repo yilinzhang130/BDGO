@@ -40,17 +40,17 @@ interface Props {
 // ── Tool display config ──────────────────────────────────────────────
 // icon + label for each backend tool
 const TOOL_META: Record<string, { icon: string; label: string }> = {
-  search_companies:             { icon: "🏢", label: "Searching companies" },
-  get_company:                  { icon: "🏢", label: "Fetching company details" },
-  search_assets:                { icon: "🧬", label: "Searching pipeline assets" },
-  get_asset:                    { icon: "🧬", label: "Fetching asset details" },
-  search_clinical:              { icon: "🔬", label: "Searching clinical trials" },
-  search_deals:                 { icon: "🤝", label: "Searching BD deals" },
-  search_patents:               { icon: "📜", label: "Searching patents" },
-  get_buyer_profile:            { icon: "🎯", label: "Fetching buyer profile" },
-  count_by:                     { icon: "📊", label: "Aggregating data" },
-  search_global:                { icon: "🔍", label: "Global search" },
-  query_treatment_guidelines:   { icon: "🏥", label: "Querying treatment landscape" },
+  search_companies: { icon: "🏢", label: "Searching companies" },
+  get_company: { icon: "🏢", label: "Fetching company details" },
+  search_assets: { icon: "🧬", label: "Searching pipeline assets" },
+  get_asset: { icon: "🧬", label: "Fetching asset details" },
+  search_clinical: { icon: "🔬", label: "Searching clinical trials" },
+  search_deals: { icon: "🤝", label: "Searching BD deals" },
+  search_patents: { icon: "📜", label: "Searching patents" },
+  get_buyer_profile: { icon: "🎯", label: "Fetching buyer profile" },
+  count_by: { icon: "📊", label: "Aggregating data" },
+  search_global: { icon: "🔍", label: "Global search" },
+  query_treatment_guidelines: { icon: "🏥", label: "Querying treatment landscape" },
 };
 
 function getToolMeta(name: string) {
@@ -74,7 +74,7 @@ function ToolStepsPanel({ tools, isStreaming }: { tools: ToolEvent[]; isStreamin
   const callCounts: Record<string, number> = {};
   for (const t of tools) {
     if (t.type === "tool_call") {
-      const idx = (callCounts[t.name] || 0);
+      const idx = callCounts[t.name] || 0;
       callCounts[t.name] = idx + 1;
       const completed = idx < (resultCounts[t.name] || 0);
       uniqueTools.push({ name: t.name, completed });
@@ -219,8 +219,30 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
 
   if (status === "polling") {
     return (
-      <div style={{ margin: "10px 0", padding: "12px 16px", background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 10, display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ width: 14, height: 14, border: "2px solid #A5B4FC", borderTopColor: "#4F46E5", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+      <div
+        style={{
+          margin: "10px 0",
+          padding: "12px 16px",
+          background: "#EEF2FF",
+          border: "1px solid #C7D2FE",
+          borderRadius: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <span
+          style={{
+            width: 14,
+            height: 14,
+            border: "2px solid #A5B4FC",
+            borderTopColor: "#4F46E5",
+            borderRadius: "50%",
+            display: "inline-block",
+            animation: "spin 0.8s linear infinite",
+            flexShrink: 0,
+          }}
+        />
         <span style={{ fontSize: 13, color: "#4338CA", fontWeight: 500 }}>
           正在生成{label}报告…预计 {estimated_seconds} 秒
         </span>
@@ -230,19 +252,38 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
 
   if (status === "failed") {
     return (
-      <div style={{ margin: "10px 0", padding: "12px 14px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+      <div
+        style={{
+          margin: "10px 0",
+          padding: "12px 14px",
+          background: "#FEF2F2",
+          border: "1px solid #FECACA",
+          borderRadius: 10,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
           <span style={{ fontSize: 13, color: "#DC2626", fontWeight: 500 }}>
             ⚠️ {label}报告生成失败
           </span>
           <div style={{ display: "flex", gap: 6 }}>
             {errorDetail && (
               <button
-                onClick={() => setErrorExpanded(v => !v)}
+                onClick={() => setErrorExpanded((v) => !v)}
                 style={{
-                  fontSize: 11, padding: "4px 10px",
-                  background: "#fff", color: "#991B1B",
-                  border: "1px solid #FECACA", borderRadius: 6, cursor: "pointer",
+                  fontSize: 11,
+                  padding: "4px 10px",
+                  background: "#fff",
+                  color: "#991B1B",
+                  border: "1px solid #FECACA",
+                  borderRadius: 6,
+                  cursor: "pointer",
                 }}
               >
                 {errorExpanded ? "收起详情" : "查看详情"}
@@ -252,9 +293,13 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
               onClick={handleRetry}
               disabled={retrying}
               style={{
-                fontSize: 11, padding: "4px 10px", fontWeight: 600,
-                background: retrying ? "#FCA5A5" : "#DC2626", color: "#fff",
-                border: "none", borderRadius: 6,
+                fontSize: 11,
+                padding: "4px 10px",
+                fontWeight: 600,
+                background: retrying ? "#FCA5A5" : "#DC2626",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
                 cursor: retrying ? "default" : "pointer",
               }}
             >
@@ -263,37 +308,85 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
           </div>
         </div>
         {errorExpanded && errorDetail && (
-          <pre style={{
-            marginTop: 8, padding: "8px 10px",
-            background: "#fff", border: "1px solid #FECACA", borderRadius: 6,
-            fontSize: 11, color: "#7F1D1D", whiteSpace: "pre-wrap",
-            wordBreak: "break-word", maxHeight: 200, overflow: "auto",
-          }}>{errorDetail}</pre>
+          <pre
+            style={{
+              marginTop: 8,
+              padding: "8px 10px",
+              background: "#fff",
+              border: "1px solid #FECACA",
+              borderRadius: 6,
+              fontSize: 11,
+              color: "#7F1D1D",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              maxHeight: 200,
+              overflow: "auto",
+            }}
+          >
+            {errorDetail}
+          </pre>
         )}
       </div>
     );
   }
 
   return (
-    <div style={{ margin: "10px 0", border: "1px solid #BBF7D0", borderRadius: 10, overflow: "hidden" }}>
-      <div style={{ background: "#F0FDF4", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+    <div
+      style={{
+        margin: "10px 0",
+        border: "1px solid #BBF7D0",
+        borderRadius: 10,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          background: "#F0FDF4",
+          padding: "10px 14px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ color: "#16A34A", fontWeight: 700, fontSize: 13 }}>✓ {label}报告已生成</span>
+          <span style={{ color: "#16A34A", fontWeight: 700, fontSize: 13 }}>
+            ✓ {label}报告已生成
+          </span>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {files.map((f) => (
             <button
               key={f.format}
-              onClick={() => downloadWithAuth(`/api/reports/download/${task_id}/${f.format}`, f.filename)}
-              style={{ fontSize: 11, fontWeight: 600, padding: "4px 10px", background: "#16A34A", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+              onClick={() =>
+                downloadWithAuth(`/api/reports/download/${task_id}/${f.format}`, f.filename)
+              }
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "4px 10px",
+                background: "#16A34A",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+              }}
             >
               下载 {f.format.toUpperCase()}
             </button>
           ))}
           {markdown && (
             <button
-              onClick={() => setExpanded(v => !v)}
-              style={{ fontSize: 11, color: "#16A34A", background: "none", border: "1px solid #BBF7D0", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}
+              onClick={() => setExpanded((v) => !v)}
+              style={{
+                fontSize: 11,
+                color: "#16A34A",
+                background: "none",
+                border: "1px solid #BBF7D0",
+                borderRadius: 6,
+                padding: "4px 10px",
+                cursor: "pointer",
+              }}
             >
               {expanded ? "收起预览" : "展开预览"}
             </button>
@@ -301,7 +394,15 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
         </div>
       </div>
       {expanded && markdown && (
-        <div style={{ padding: "14px 16px", maxHeight: 400, overflowY: "auto", fontSize: 13, lineHeight: 1.7 }}>
+        <div
+          style={{
+            padding: "14px 16px",
+            maxHeight: 400,
+            overflowY: "auto",
+            fontSize: 13,
+            lineHeight: 1.7,
+          }}
+        >
           <Markdown remarkPlugins={[remarkGfm]}>{markdown.slice(0, 3000)}</Markdown>
         </div>
       )}
@@ -309,24 +410,32 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
   );
 }
 
-
 // ── Quick-search source list (numbered [1][2]… citations) ────────────
 function QuickSourcesList({ sources }: { sources: QuickSource[] }) {
   if (!sources.length) return null;
   return (
-    <div style={{
-      marginBottom: 10, padding: "8px 10px",
-      background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8,
-      fontSize: 12,
-    }}>
+    <div
+      style={{
+        marginBottom: 10,
+        padding: "8px 10px",
+        background: "#F0FDF4",
+        border: "1px solid #BBF7D0",
+        borderRadius: 8,
+        fontSize: 12,
+      }}
+    >
       <div style={{ color: "#059669", fontWeight: 600, marginBottom: 4 }}>
         ⚡ Quick · {sources.length} 条来源
       </div>
       <ol style={{ margin: 0, paddingLeft: 20, color: "#334155", lineHeight: 1.6 }}>
         {sources.map((s, i) => (
           <li key={i}>
-            <a href={s.url} target="_blank" rel="noopener noreferrer"
-               style={{ color: "#1E3A8A", textDecoration: "none" }}>
+            <a
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#1E3A8A", textDecoration: "none" }}
+            >
               {s.title || s.url}
             </a>
           </li>
@@ -339,20 +448,34 @@ function QuickSourcesList({ sources }: { sources: QuickSource[] }) {
 // ── Error box with retry button ──────────────────────────────────────
 function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div style={{
-      marginTop: 8, padding: "10px 12px",
-      background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8,
-      fontSize: 13, color: "#991B1B",
-      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-    }}>
+    <div
+      style={{
+        marginTop: 8,
+        padding: "10px 12px",
+        background: "#FEF2F2",
+        border: "1px solid #FECACA",
+        borderRadius: 8,
+        fontSize: 13,
+        color: "#991B1B",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
       <span>⚠️ {message}</span>
       {onRetry && (
         <button
           onClick={onRetry}
           style={{
-            padding: "4px 12px", fontSize: 12, fontWeight: 500,
-            background: "#fff", color: "#991B1B",
-            border: "1px solid #FECACA", borderRadius: 6, cursor: "pointer",
+            padding: "4px 12px",
+            fontSize: 12,
+            fontWeight: 500,
+            background: "#fff",
+            color: "#991B1B",
+            border: "1px solid #FECACA",
+            borderRadius: 6,
+            cursor: "pointer",
             whiteSpace: "nowrap",
           }}
         >
@@ -365,9 +488,21 @@ function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void 
 
 // ── ChatMessage ──────────────────────────────────────────────────────
 export function ChatMessage({
-  role, content, streaming, tools, attachments, reportTasks,
-  plan, planStatus, planSelectedIds, quickSources, error,
-  onRetry, onPlanConfirm, onPlanSkip, onPlanCancel,
+  role,
+  content,
+  streaming,
+  tools,
+  attachments,
+  reportTasks,
+  plan,
+  planStatus,
+  planSelectedIds,
+  quickSources,
+  error,
+  onRetry,
+  onPlanConfirm,
+  onPlanSkip,
+  onPlanCancel,
 }: Props) {
   if (role === "user") {
     return (
@@ -414,9 +549,7 @@ export function ChatMessage({
         {hasTools && <ToolStepsPanel tools={tools!} isStreaming={!!streaming} />}
         {quickSources && quickSources.length > 0 && <QuickSourcesList sources={quickSources} />}
         {content && <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>}
-        {reportTasks && reportTasks.map((rt) => (
-          <ReportTaskCard key={rt.task_id} {...rt} />
-        ))}
+        {reportTasks && reportTasks.map((rt) => <ReportTaskCard key={rt.task_id} {...rt} />)}
         {error && <ErrorBox message={error} onRetry={onRetry} />}
         {streaming && !hasTools && !plan && <span className="chat-cursor">|</span>}
       </div>

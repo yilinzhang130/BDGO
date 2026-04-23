@@ -44,6 +44,7 @@ def _get_company_names() -> list[dict]:
         if now - _company_ts < _CACHE_TTL and _company_cache:
             return _company_cache
         from crm_store import query
+
         _company_cache = query('SELECT "客户名称","英文名","中文名" FROM "公司"', ())
         _company_ts = now
     return _company_cache
@@ -59,11 +60,11 @@ def _get_mnc_names() -> list[dict]:
         if now - _mnc_ts < _CACHE_TTL and _mnc_cache:
             return _mnc_cache
         from crm_store import query
+
         rows = query('SELECT "company_name","company_cn" FROM "MNC画像"', ())
         # Adapt to 公司 shape so find_existing_company works
         _mnc_cache = [
-            {"客户名称": r.get("company_name", ""), "中文名": r.get("company_cn", "")}
-            for r in rows
+            {"客户名称": r.get("company_name", ""), "中文名": r.get("company_cn", "")} for r in rows
         ]
         _mnc_ts = now
     return _mnc_cache
@@ -80,6 +81,7 @@ def get_mnc_profiles() -> list[dict]:
         if now - _mnc_full_ts < _CACHE_TTL and _mnc_full_cache:
             return _mnc_full_cache
         from crm_store import query
+
         _mnc_full_cache = query(
             'SELECT "company_name","company_cn","heritage_ta","innovation_philosophy",'
             '"risk_appetite","deal_size_preference","sunk_cost_by_ta","bd_pattern_theses",'
@@ -114,11 +116,12 @@ def _suggest(name: str, rows: list[dict], n: int = 5) -> list[str]:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+
 class ResolveResult(NamedTuple):
     row: dict | None
-    canonical: str | None     # actual name in CRM (may differ from input)
-    fuzzy: bool               # True if a fuzzy match was used
-    suggestions: list[str]    # top alternatives when not found
+    canonical: str | None  # actual name in CRM (may differ from input)
+    fuzzy: bool  # True if a fuzzy match was used
+    suggestions: list[str]  # top alternatives when not found
 
 
 def resolve_company(name: str) -> ResolveResult:

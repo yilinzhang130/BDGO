@@ -12,7 +12,6 @@ import re
 import time
 
 import httpx
-
 from models import DEFAULT_MODEL_ID, MODELS, OVERLOAD_MSG, ModelSpec, fallback_chain
 
 logger = logging.getLogger(__name__)
@@ -54,8 +53,13 @@ def _call_one_sync(
 
                 if resp.status_code == 529:
                     if attempt < 2:
-                        wait = 2 ** attempt
-                        logger.warning("%s 529 overload (attempt %d/3), retrying in %ds", model.id, attempt + 1, wait)
+                        wait = 2**attempt
+                        logger.warning(
+                            "%s 529 overload (attempt %d/3), retrying in %ds",
+                            model.id,
+                            attempt + 1,
+                            wait,
+                        )
                         time.sleep(wait)
                         continue
                     return None  # signal overload to caller for fallback

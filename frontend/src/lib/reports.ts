@@ -50,10 +50,14 @@ function setLocalState(next: CompletedReport[]) {
 
 function mapServerReport(raw: any): CompletedReport {
   const files: ReportFile[] = raw.files_json
-    ? (typeof raw.files_json === "string" ? JSON.parse(raw.files_json) : raw.files_json)
+    ? typeof raw.files_json === "string"
+      ? JSON.parse(raw.files_json)
+      : raw.files_json
     : [];
   const meta: Record<string, any> = raw.meta_json
-    ? (typeof raw.meta_json === "string" ? JSON.parse(raw.meta_json) : raw.meta_json)
+    ? typeof raw.meta_json === "string"
+      ? JSON.parse(raw.meta_json)
+      : raw.meta_json
     : {};
   return {
     taskId: raw.task_id || raw.id,

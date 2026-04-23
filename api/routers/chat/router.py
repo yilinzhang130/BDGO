@@ -10,12 +10,11 @@ from __future__ import annotations
 import asyncio
 import re
 
+import credits as credits_mod
+from auth import get_current_user
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
-
-import credits as credits_mod
-from auth import get_current_user
 from rate_limit import chat_slot, check_rpm
 
 from .planning import should_plan
@@ -28,6 +27,7 @@ _STEP_ID_RE = re.compile(r"^s\d+$")
 # ─────────────────────────────────────────────────────────────
 # Request models
 # ─────────────────────────────────────────────────────────────
+
 
 class PlanStep(BaseModel):
     id: str
@@ -73,7 +73,7 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
     file_ids: list[str] = []
-    model_id: str | None = None   # selected from /api/models; falls back to default
+    model_id: str | None = None  # selected from /api/models; falls back to default
     # Plan mode: "auto" (heuristic), "on" (always plan), "off" (skip planning)
     plan_mode: str = "auto"
     plan_confirm: PlanConfirm | None = None

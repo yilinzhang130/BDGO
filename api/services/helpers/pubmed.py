@@ -11,9 +11,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-import urllib.parse
 from pathlib import Path
-from typing import Any
 
 import httpx
 
@@ -49,6 +47,7 @@ def search_articles(
     full_query = query
     if years_back and years_back > 0:
         from datetime import datetime
+
         this_year = datetime.now().year
         full_query = f'({query}) AND ("{this_year - years_back}"[dp] : "{this_year}"[dp])'
 
@@ -161,17 +160,19 @@ def get_article_metadata(pmids: list[str]) -> list[dict]:
             if name:
                 authors.append(name)
 
-        results.append({
-            "pmid": pmid,
-            "title": title,
-            "journal": journal,
-            "pubdate": pubdate,
-            "year": year,
-            "doi": doi,
-            "authors": authors,
-            "abstract": per_pmid_abs.get(pmid, ""),
-            "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-        })
+        results.append(
+            {
+                "pmid": pmid,
+                "title": title,
+                "journal": journal,
+                "pubdate": pubdate,
+                "year": year,
+                "doi": doi,
+                "authors": authors,
+                "abstract": per_pmid_abs.get(pmid, ""),
+                "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+            }
+        )
 
     return results
 
@@ -219,6 +220,7 @@ def extract_pdf_text(filepath: Path) -> str:
         return ""
     try:
         from pypdf import PdfReader
+
         reader = PdfReader(str(filepath))
         parts = []
         for page in reader.pages:

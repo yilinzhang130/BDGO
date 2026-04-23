@@ -1,33 +1,53 @@
 """Global cross-table search endpoint — with Chinese bigram fuzzy matching."""
 
-from fastapi import APIRouter, Query
 from crm_store import LIKE_ESCAPE, like_escape, query
+from fastapi import APIRouter, Query
 from services.helpers.resolve import fuzzy_company_names
 
 router = APIRouter()
 
 # (category, physical_table, search_cols, display_cols, pk_col, link_template)
 _SEARCH_TABLES = [
-    ("companies", "公司",
-     ["客户名称", "英文名", "中文名"],
-     ["客户名称", "客户类型", "所处国家"],
-     "客户名称", "/companies/{客户名称}"),
-    ("assets", "资产",
-     ["文本", "资产代号", "靶点"],
-     ["文本", "所属客户", "临床阶段"],
-     "文本", "/assets/{所属客户}/{文本}"),
-    ("clinical", "临床",
-     ["试验ID", "资产名称", "公司名称", "适应症"],
-     ["试验ID", "资产名称", "临床期次"],
-     "记录ID", "/clinical/{记录ID}"),
-    ("deals", "交易",
-     ["交易名称", "买方公司", "卖方/合作方", "资产名称"],
-     ["交易名称", "交易类型", "宣布日期"],
-     "交易名称", "/deals/{交易名称}"),
-    ("ip", "IP",
-     ["专利号", "关联公司", "关联资产"],
-     ["专利号", "关联公司", "状态"],
-     "专利号", "/ip/{专利号}"),
+    (
+        "companies",
+        "公司",
+        ["客户名称", "英文名", "中文名"],
+        ["客户名称", "客户类型", "所处国家"],
+        "客户名称",
+        "/companies/{客户名称}",
+    ),
+    (
+        "assets",
+        "资产",
+        ["文本", "资产代号", "靶点"],
+        ["文本", "所属客户", "临床阶段"],
+        "文本",
+        "/assets/{所属客户}/{文本}",
+    ),
+    (
+        "clinical",
+        "临床",
+        ["试验ID", "资产名称", "公司名称", "适应症"],
+        ["试验ID", "资产名称", "临床期次"],
+        "记录ID",
+        "/clinical/{记录ID}",
+    ),
+    (
+        "deals",
+        "交易",
+        ["交易名称", "买方公司", "卖方/合作方", "资产名称"],
+        ["交易名称", "交易类型", "宣布日期"],
+        "交易名称",
+        "/deals/{交易名称}",
+    ),
+    (
+        "ip",
+        "IP",
+        ["专利号", "关联公司", "关联资产"],
+        ["专利号", "关联公司", "状态"],
+        "专利号",
+        "/ip/{专利号}",
+    ),
 ]
 
 
@@ -103,10 +123,12 @@ def global_search(
                 link = link_tpl
                 for col in all_cols:
                     link = link.replace("{" + col + "}", str(row.get(col, "") or ""))
-                items.append({
-                    "display": {c: row.get(c, "") for c in display_cols},
-                    "link": link,
-                })
+                items.append(
+                    {
+                        "display": {c: row.get(c, "") for c in display_cols},
+                        "link": link,
+                    }
+                )
             if items:
                 results[category] = items[:limit]
         elif category == "companies":

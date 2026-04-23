@@ -8,13 +8,21 @@ from __future__ import annotations
 from crm_store import LIKE_ESCAPE, like_contains, query
 
 _ASSET_KEEP_FIELDS = [
-    "资产名称", "所属客户", "靶点", "作用机制(MOA)", "临床阶段", "适应症",
-    "差异化分级", "差异化描述", "峰值销售预测", "竞品情况", "知识产权",
+    "资产名称",
+    "所属客户",
+    "靶点",
+    "作用机制(MOA)",
+    "临床阶段",
+    "适应症",
+    "差异化分级",
+    "差异化描述",
+    "峰值销售预测",
+    "竞品情况",
+    "知识产权",
 ]
 
 
-def asset_crm_block(company_name: str, asset_name: str,
-                    *, include_clinical: bool = False) -> str:
+def asset_crm_block(company_name: str, asset_name: str, *, include_clinical: bool = False) -> str:
     """Return a markdown block of CRM data for the given (company, asset).
 
     Includes up to 5 linked clinical trials when ``include_clinical`` is set

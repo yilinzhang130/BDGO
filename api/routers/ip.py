@@ -1,8 +1,9 @@
 """IP/Patent endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
 from urllib.parse import unquote
+
 from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter()
 
@@ -23,7 +24,9 @@ def list_ip(
     params: list = []
 
     if q:
-        conditions.append(f'("专利号" LIKE ? {LIKE_ESCAPE} OR "关联公司" LIKE ? {LIKE_ESCAPE} OR "关联资产" LIKE ? {LIKE_ESCAPE} OR "专利持有人" LIKE ? {LIKE_ESCAPE})')
+        conditions.append(
+            f'("专利号" LIKE ? {LIKE_ESCAPE} OR "关联公司" LIKE ? {LIKE_ESCAPE} OR "关联资产" LIKE ? {LIKE_ESCAPE} OR "专利持有人" LIKE ? {LIKE_ESCAPE})'
+        )
         params.extend([like_contains(q)] * 4)
     if company:
         conditions.append(f'"关联公司" LIKE ? {LIKE_ESCAPE}')
@@ -39,7 +42,16 @@ def list_ip(
         params.append(jurisdiction)
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {"专利号", "关联公司", "关联资产", "到期日", "状态", "管辖区", "专利持有人", "专利类型"}
+    allowed_sorts = {
+        "专利号",
+        "关联公司",
+        "关联资产",
+        "到期日",
+        "状态",
+        "管辖区",
+        "专利持有人",
+        "专利类型",
+    }
     sort_col = sort if sort in allowed_sorts else "到期日"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 

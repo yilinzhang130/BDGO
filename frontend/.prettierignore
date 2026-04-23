@@ -1,0 +1,8 @@
+# Prettier 忽略清单 —— 不格式化这些路径
+# 语法同 .gitignore
+.next
+node_modules
+public
+next-env.d.ts
+tsconfig.tsbuildinfo
+package-lock.json

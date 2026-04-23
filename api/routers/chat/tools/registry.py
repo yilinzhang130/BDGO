@@ -41,12 +41,11 @@ def _clamp_tool_input(inp: dict | None) -> dict:
         if isinstance(v, str):
             out[k] = v[:_MAX_TOOL_STRING_LEN]
         elif isinstance(v, list):
-            out[k] = [
-                (x[:_MAX_TOOL_STRING_LEN] if isinstance(x, str) else x) for x in v
-            ]
+            out[k] = [(x[:_MAX_TOOL_STRING_LEN] if isinstance(x, str) else x) for x in v]
         else:
             out[k] = v
     return out
+
 
 # ── Populated by __init__.py at import time ────────────────────────────────
 

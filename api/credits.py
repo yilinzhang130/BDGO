@@ -25,9 +25,8 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import HTTPException
-
 import database
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +74,7 @@ CREATE INDEX IF NOT EXISTS idx_usage_logs_session
 # ─────────────────────────────────────────────────────────────
 # Core operations
 # ─────────────────────────────────────────────────────────────
+
 
 def _ensure_row(cur, user_id: str) -> None:
     """Make sure a credits row exists for user_id; grant welcome credits on first touch."""
@@ -140,9 +140,7 @@ def record_usage(
     """
     input_tokens = max(0, int(input_tokens or 0))
     output_tokens = max(0, int(output_tokens or 0))
-    credits_charged = round(
-        input_tokens * input_weight + output_tokens * output_weight, 2
-    )
+    credits_charged = round(input_tokens * input_weight + output_tokens * output_weight, 2)
 
     try:
         with database.transaction() as cur:
@@ -168,7 +166,9 @@ def record_usage(
     except Exception:
         logger.exception(
             "Failed to record usage for user=%s session=%s model=%s",
-            user_id, session_id, model_id,
+            user_id,
+            session_id,
+            model_id,
         )
         # Don't surface billing errors to the user mid-chat
         return 0.0

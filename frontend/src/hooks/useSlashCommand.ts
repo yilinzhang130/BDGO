@@ -175,7 +175,10 @@ export function useSlashCommand(getInput: () => string, setInput: (v: string) =>
 
       const current = getInput();
       const rest = current.startsWith("/")
-        ? current.slice(1).replace(/^\S+\s*/, "").trim()
+        ? current
+            .slice(1)
+            .replace(/^\S+\s*/, "")
+            .trim()
         : "";
 
       if (!rest) {

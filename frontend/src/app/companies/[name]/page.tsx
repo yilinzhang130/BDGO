@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchCompany, fetchCompanyAssets, fetchCompanyTrials, fetchCompanyDeals, fetchBuyer, updateRecord, deleteRecord } from "@/lib/api";
+import {
+  fetchCompany,
+  fetchCompanyAssets,
+  fetchCompanyTrials,
+  fetchCompanyDeals,
+  fetchBuyer,
+  updateRecord,
+  deleteRecord,
+} from "@/lib/api";
 import { phaseBadgeClass, priorityBadgeClass, resultBadgeClass } from "@/lib/utils";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
 import { EditableField } from "@/components/ui/EditableField";
@@ -10,7 +18,11 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ReportButton } from "@/components/ui/ReportButton";
 import { useAuth } from "@/components/AuthProvider";
 
-interface Section { title: string; fields: [string, string][]; defaultOpen?: boolean; }
+interface Section {
+  title: string;
+  fields: [string, string][];
+  defaultOpen?: boolean;
+}
 
 const SECTIONS: Section[] = [
   {
@@ -92,18 +104,24 @@ export default function CompanyDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    SECTIONS.forEach((s) => { init[s.title] = s.defaultOpen ?? false; });
+    SECTIONS.forEach((s) => {
+      init[s.title] = s.defaultOpen ?? false;
+    });
     return init;
   });
 
   const isAdmin = user?.is_admin === true;
 
   useEffect(() => {
-    fetchCompany(name).then(setCompany).catch(() => setNotFound(true));
+    fetchCompany(name)
+      .then(setCompany)
+      .catch(() => setNotFound(true));
     fetchCompanyAssets(name).then(setAssets);
     fetchCompanyTrials(name).then(setTrials);
     fetchCompanyDeals(name).then(setDeals);
-    fetchBuyer(name).then(setBuyerProfile).catch(() => {});
+    fetchBuyer(name)
+      .then(setBuyerProfile)
+      .catch(() => {});
   }, [name]);
 
   if (notFound) return <div className="loading">Company not found</div>;
@@ -124,12 +142,21 @@ export default function CompanyDetailPage() {
       <button
         onClick={() => router.back()}
         style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          margin: "12px 0 0 16px", padding: "4px 10px",
-          background: "none", border: "1px solid #d1d5db", borderRadius: 6,
-          fontSize: 13, color: "#6b7280", cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          margin: "12px 0 0 16px",
+          padding: "4px 10px",
+          background: "none",
+          border: "1px solid #d1d5db",
+          borderRadius: 6,
+          fontSize: 13,
+          color: "#6b7280",
+          cursor: "pointer",
         }}
-      >← 返回</button>
+      >
+        ← 返回
+      </button>
       <div className="detail-header">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -152,7 +179,15 @@ export default function CompanyDetailPage() {
           {isAdmin && (
             <button
               onClick={() => setShowDelete(true)}
-              style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
+              style={{
+                padding: "0.4rem 0.9rem",
+                background: "white",
+                color: "var(--red)",
+                border: "1px solid var(--red)",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
             >
               Delete
             </button>
@@ -162,7 +197,15 @@ export default function CompanyDetailPage() {
 
       {/* BP Attachment */}
       {company["BP来源"] && (
-        <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem" }}>
+        <div
+          style={{
+            marginBottom: "1rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontSize: "0.85rem",
+          }}
+        >
           <span style={{ color: "var(--text-secondary)" }}>BP Attached:</span>
           <a
             href={`/api/files/bp/${encodeURIComponent(company["BP来源"])}`}
@@ -178,8 +221,17 @@ export default function CompanyDetailPage() {
       {SECTIONS.map((section) => (
         <div key={section.title} className="card" style={{ marginBottom: "0.75rem" }}>
           <h3
-            onClick={() => setOpenSections((prev) => ({ ...prev, [section.title]: !prev[section.title] }))}
-            style={{ margin: 0, fontSize: "0.95rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
+            onClick={() =>
+              setOpenSections((prev) => ({ ...prev, [section.title]: !prev[section.title] }))
+            }
+            style={{
+              margin: 0,
+              fontSize: "0.95rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
           >
             <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
               {openSections[section.title] ? "▼" : "▶"}
@@ -187,7 +239,15 @@ export default function CompanyDetailPage() {
             {section.title}
           </h3>
           {openSections[section.title] && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.6rem", fontSize: "0.85rem", marginTop: "0.75rem" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+                gap: "0.6rem",
+                fontSize: "0.85rem",
+                marginTop: "0.75rem",
+              }}
+            >
               {section.fields.map(([label, dbCol]) =>
                 isAdmin ? (
                   <EditableField
@@ -198,10 +258,27 @@ export default function CompanyDetailPage() {
                   />
                 ) : (
                   <div key={dbCol} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
-                    <span style={{ fontSize: "0.85rem", color: company[dbCol] ? "var(--text)" : "var(--text-secondary)" }}>{company[dbCol] || "—"}</span>
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "var(--text-secondary)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "0.85rem",
+                        color: company[dbCol] ? "var(--text)" : "var(--text-secondary)",
+                      }}
+                    >
+                      {company[dbCol] || "—"}
+                    </span>
                   </div>
-                )
+                ),
               )}
             </div>
           )}
@@ -210,17 +287,29 @@ export default function CompanyDetailPage() {
 
       {/* Tabs */}
       <div className="tabs">
-        <button className={`tab ${tab === "assets" ? "active" : ""}`} onClick={() => setTab("assets")}>
+        <button
+          className={`tab ${tab === "assets" ? "active" : ""}`}
+          onClick={() => setTab("assets")}
+        >
           Assets ({assets?.total ?? "..."})
         </button>
-        <button className={`tab ${tab === "trials" ? "active" : ""}`} onClick={() => setTab("trials")}>
+        <button
+          className={`tab ${tab === "trials" ? "active" : ""}`}
+          onClick={() => setTab("trials")}
+        >
           Clinical ({trials?.total ?? "..."})
         </button>
-        <button className={`tab ${tab === "deals" ? "active" : ""}`} onClick={() => setTab("deals")}>
+        <button
+          className={`tab ${tab === "deals" ? "active" : ""}`}
+          onClick={() => setTab("deals")}
+        >
           Deals ({deals?.length ?? "..."})
         </button>
         {buyerProfile && (
-          <button className={`tab ${tab === "buyer" ? "active" : ""}`} onClick={() => setTab("buyer")}>
+          <button
+            className={`tab ${tab === "buyer" ? "active" : ""}`}
+            onClick={() => setTab("buyer")}
+          >
             Buyer Profile
           </button>
         )}
@@ -231,16 +320,35 @@ export default function CompanyDetailPage() {
           <div className="data-table-wrapper">
             <table className="data-table">
               <thead>
-                <tr><th>Asset</th><th>Platform</th><th>Disease</th><th>Indication</th><th>Phase</th><th>Target</th><th>Score</th></tr>
+                <tr>
+                  <th>Asset</th>
+                  <th>Platform</th>
+                  <th>Disease</th>
+                  <th>Indication</th>
+                  <th>Phase</th>
+                  <th>Target</th>
+                  <th>Score</th>
+                </tr>
               </thead>
               <tbody>
                 {assets?.data?.map((a: any) => (
-                  <tr key={`${a["资产名称"]}-${a["所属客户"]}`} onClick={() => router.push(`/assets/${encodeURIComponent(a["所属客户"])}/${encodeURIComponent(a["资产名称"])}`)}>
+                  <tr
+                    key={`${a["资产名称"]}-${a["所属客户"]}`}
+                    onClick={() =>
+                      router.push(
+                        `/assets/${encodeURIComponent(a["所属客户"])}/${encodeURIComponent(a["资产名称"])}`,
+                      )
+                    }
+                  >
                     <td style={{ fontWeight: 600 }}>{a["资产名称"]}</td>
                     <td>{a["技术平台类别"] || "-"}</td>
                     <td>{a["疾病领域"] || "-"}</td>
                     <td>{a["适应症"] || "-"}</td>
-                    <td><span className={`badge ${phaseBadgeClass(a["临床阶段"])}`}>{a["临床阶段"] || "-"}</span></td>
+                    <td>
+                      <span className={`badge ${phaseBadgeClass(a["临床阶段"])}`}>
+                        {a["临床阶段"] || "-"}
+                      </span>
+                    </td>
                     <td>{a["靶点"] || "-"}</td>
                     <td>{a["质量评分"] || "-"}</td>
                   </tr>
@@ -256,7 +364,15 @@ export default function CompanyDetailPage() {
           <div className="data-table-wrapper">
             <table className="data-table">
               <thead>
-                <tr><th>Trial ID</th><th>Asset</th><th>Indication</th><th>Phase</th><th>Primary Endpoint</th><th>Result</th><th>Status</th></tr>
+                <tr>
+                  <th>Trial ID</th>
+                  <th>Asset</th>
+                  <th>Indication</th>
+                  <th>Phase</th>
+                  <th>Primary Endpoint</th>
+                  <th>Result</th>
+                  <th>Status</th>
+                </tr>
               </thead>
               <tbody>
                 {trials?.data?.map((t: any) => (
@@ -264,9 +380,17 @@ export default function CompanyDetailPage() {
                     <td>{t["试验ID"]}</td>
                     <td>{t["资产名称"]}</td>
                     <td>{t["适应症"]?.slice(0, 40) || "-"}</td>
-                    <td><span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>{t["临床期次"] || "-"}</span></td>
+                    <td>
+                      <span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>
+                        {t["临床期次"] || "-"}
+                      </span>
+                    </td>
                     <td>{t["主要终点名称"] || "-"}</td>
-                    <td><span className={`badge ${resultBadgeClass(t["结果判定"])}`}>{t["结果判定"] || "-"}</span></td>
+                    <td>
+                      <span className={`badge ${resultBadgeClass(t["结果判定"])}`}>
+                        {t["结果判定"] || "-"}
+                      </span>
+                    </td>
                     <td>{t["数据状态"] || "-"}</td>
                   </tr>
                 ))}
@@ -281,11 +405,23 @@ export default function CompanyDetailPage() {
           <div className="data-table-wrapper">
             <table className="data-table">
               <thead>
-                <tr><th>Deal</th><th>Type</th><th>Buyer</th><th>Seller</th><th>Asset</th><th>Upfront ($M)</th><th>Total ($M)</th><th>Date</th></tr>
+                <tr>
+                  <th>Deal</th>
+                  <th>Type</th>
+                  <th>Buyer</th>
+                  <th>Seller</th>
+                  <th>Asset</th>
+                  <th>Upfront ($M)</th>
+                  <th>Total ($M)</th>
+                  <th>Date</th>
+                </tr>
               </thead>
               <tbody>
                 {deals?.map((d: any) => (
-                  <tr key={d["交易名称"]} onClick={() => router.push(`/deals?q=${encodeURIComponent(d["交易名称"])}`)}>
+                  <tr
+                    key={d["交易名称"]}
+                    onClick={() => router.push(`/deals?q=${encodeURIComponent(d["交易名称"])}`)}
+                  >
                     <td style={{ fontWeight: 600 }}>{d["交易名称"]}</td>
                     <td>{d["交易类型"] || "-"}</td>
                     <td>{d["买方公司"] || "-"}</td>
@@ -307,18 +443,54 @@ export default function CompanyDetailPage() {
           {buyerProfile.dna_summary && (
             <div style={{ marginBottom: "1rem" }}>
               <h3 style={{ margin: "0 0 0.5rem", fontSize: "0.95rem" }}>DNA Summary</h3>
-              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{buyerProfile.dna_summary}</p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.85rem",
+                  color: "var(--text-secondary)",
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {buyerProfile.dna_summary}
+              </p>
             </div>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.5rem", fontSize: "0.85rem", marginBottom: "1rem" }}>
-            {[["Heritage TA", buyerProfile.heritage_ta], ["Risk Appetite", buyerProfile.risk_appetite], ["Deal Size", buyerProfile.deal_size_preference], ["CEO", buyerProfile.ceo_name], ["Head of BD", buyerProfile.head_bd_name]].map(([label, value]) => (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: "0.5rem",
+              fontSize: "0.85rem",
+              marginBottom: "1rem",
+            }}
+          >
+            {[
+              ["Heritage TA", buyerProfile.heritage_ta],
+              ["Risk Appetite", buyerProfile.risk_appetite],
+              ["Deal Size", buyerProfile.deal_size_preference],
+              ["CEO", buyerProfile.ceo_name],
+              ["Head of BD", buyerProfile.head_bd_name],
+            ].map(([label, value]) => (
               <div key={label}>
                 <span style={{ color: "var(--text-secondary)" }}>{label}: </span>
                 <strong>{value || "-"}</strong>
               </div>
             ))}
           </div>
-          <button onClick={() => router.push(`/buyers/${encodeURIComponent(name)}`)} style={{ padding: "0.4rem 0.9rem", background: "var(--accent)", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }}>
+          <button
+            onClick={() => router.push(`/buyers/${encodeURIComponent(name)}`)}
+            style={{
+              padding: "0.4rem 0.9rem",
+              background: "var(--accent)",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+            }}
+          >
             View Full Profile &rarr;
           </button>
         </div>

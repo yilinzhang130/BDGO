@@ -1,10 +1,11 @@
 """Asset endpoints — field visibility enforced by field_policy."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
 from urllib.parse import unquote
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+
 from auth import get_current_user
-from field_policy import strip_hidden, is_admin_user
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from fastapi import APIRouter, Depends, HTTPException, Query
+from field_policy import strip_hidden
 
 router = APIRouter()
 
@@ -28,7 +29,9 @@ def list_assets(
     params: list = []
 
     if q:
-        conditions.append(f'("资产名称" LIKE ? {LIKE_ESCAPE} OR "资产代号" LIKE ? {LIKE_ESCAPE} OR "靶点" LIKE ? {LIKE_ESCAPE})')
+        conditions.append(
+            f'("资产名称" LIKE ? {LIKE_ESCAPE} OR "资产代号" LIKE ? {LIKE_ESCAPE} OR "靶点" LIKE ? {LIKE_ESCAPE})'
+        )
         params.extend([like_contains(q)] * 3)
     if company:
         conditions.append('"所属客户" = ?')
@@ -46,15 +49,24 @@ def list_assets(
         conditions.append('"追踪状态" = ?')
         params.append(tracked)
     if scored == "yes":
-        conditions.append('''(
+        conditions.append("""(
             ("Q1_生物学" IS NOT NULL AND "Q1_生物学" != '')
             OR ("Q2_药物形式" IS NOT NULL AND "Q2_药物形式" != '')
             OR ("Q3_临床监管" IS NOT NULL AND "Q3_临床监管" != '')
             OR ("Q4_商业交易性" IS NOT NULL AND "Q4_商业交易性" != '')
-        )''')
+        )""")
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {"资产名称", "所属客户", "临床阶段", "疾病领域", "靶点", "BD优先级", "技术平台类别", "作用机制(MOA)"}
+    allowed_sorts = {
+        "资产名称",
+        "所属客户",
+        "临床阶段",
+        "疾病领域",
+        "靶点",
+        "BD优先级",
+        "技术平台类别",
+        "作用机制(MOA)",
+    }
     sort_col = sort if sort in allowed_sorts else "资产名称"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 

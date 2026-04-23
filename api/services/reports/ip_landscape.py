@@ -20,14 +20,13 @@ from __future__ import annotations
 
 import datetime
 import logging
-import re
 from typing import Any
 
+from crm_store import LIKE_ESCAPE, like_contains
 from pydantic import BaseModel
 
-from crm_store import LIKE_ESCAPE, like_contains
 from services.helpers import docx_builder, search
-from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
+from services.helpers.text import format_web_results, safe_slug
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -40,6 +39,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────
 # Input
 # ─────────────────────────────────────────────────────────────
+
 
 class IPLandscapeInput(BaseModel):
     query: str  # company, asset, target, or technology keyword
@@ -229,6 +229,7 @@ _IP_CH7_PROMPT = """
 # ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
+
 
 class IPLandscapeService(ReportService):
     slug = "ip-landscape"
@@ -463,7 +464,11 @@ class IPLandscapeService(ReportService):
 
     # ── CRM queries ─────────────────────────────────────────
     def _query_patents(
-        self, ctx: ReportContext, query: str, query_type: str, limit: int,
+        self,
+        ctx: ReportContext,
+        query: str,
+        query_type: str,
+        limit: int,
     ) -> list[dict]:
         """Query IP table by company, asset, or keyword. Auto tries all."""
         conds: list[str] = []
@@ -477,7 +482,9 @@ class IPLandscapeService(ReportService):
             conds.append(f'"关联资产" LIKE ? {LIKE_ESCAPE}')
             params.append(q)
         elif query_type == "target":
-            conds.append(f'("关联资产" LIKE ? {LIKE_ESCAPE} OR "权利要求摘要" LIKE ? {LIKE_ESCAPE})')
+            conds.append(
+                f'("关联资产" LIKE ? {LIKE_ESCAPE} OR "权利要求摘要" LIKE ? {LIKE_ESCAPE})'
+            )
             params.extend([q, q])
         else:  # auto
             conds.append(
@@ -493,7 +500,7 @@ class IPLandscapeService(ReportService):
             '"专利族", "状态", "管辖区", "Orange_Book", "来源", "备注", "追踪状态" '
             f'FROM "IP" WHERE {where} '
             'ORDER BY "到期日" ASC '
-            f'LIMIT {limit}'
+            f"LIMIT {limit}"
         )
         return ctx.crm_query(sql, tuple(params))
 
@@ -597,4 +604,3 @@ class IPLandscapeService(ReportService):
             f"- Top holders: {stats.get('top_holders', {})}",
         ]
         return "\n".join(lines)
-

@@ -12,19 +12,18 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-
 # ── Structured JSON logging ───────────────────────────────────
 # Enabled in production (LOG_FORMAT=json env var or when DATABASE_URL is set).
 # Keeps dev logs human-readable by default.
 
-class _JSONFormatter(logging.Formatter):
 
+class _JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         obj: dict = {
-            "ts":      self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
-            "level":   record.levelname,
-            "logger":  record.name,
-            "msg":     record.getMessage(),
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
         }
         if record.exc_info:
             obj["exc"] = traceback.format_exception(*record.exc_info)[-1].strip()
@@ -33,12 +32,14 @@ class _JSONFormatter(logging.Formatter):
 
 _use_json_logs = (
     os.environ.get("LOG_FORMAT", "").lower() == "json"
-    or bool(os.environ.get("DATABASE_URL"))   # production heuristic
+    or bool(os.environ.get("DATABASE_URL"))  # production heuristic
 )
 
 _handler = logging.StreamHandler()
 _handler.setFormatter(
-    _JSONFormatter() if _use_json_logs else logging.Formatter(
+    _JSONFormatter()
+    if _use_json_logs
+    else logging.Formatter(
         "%(asctime)s %(levelname)-8s %(name)s  %(message)s",
         datefmt="%H:%M:%S",
     )
@@ -59,10 +60,30 @@ logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 from auth import get_current_user
 from llm_pool import close_pool, init_pool
-from routers import stats, companies, assets, clinical, deals, write, ip, buyers, upload, tasks, search, chat, reports, catalysts, watchlist, admin, aidd_sso, inbox, conference
+from routers import (
+    admin,
+    aidd_sso,
+    assets,
+    buyers,
+    catalysts,
+    chat,
+    clinical,
+    companies,
+    conference,
+    deals,
+    inbox,
+    ip,
+    reports,
+    search,
+    stats,
+    tasks,
+    upload,
+    watchlist,
+    write,
+)
 from routers import auth as auth_router
-from routers import sessions as sessions_router
 from routers import credits as credits_router
+from routers import sessions as sessions_router
 
 
 @asynccontextmanager
@@ -84,7 +105,9 @@ app = FastAPI(title="OpenClaw CRM Dashboard API", version="0.1.0", lifespan=life
 
 _default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 _cors_env = os.environ.get("CORS_ORIGINS", "")
-_allowed_origins = [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else _default_origins
+_allowed_origins = (
+    [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else _default_origins
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,7 +127,9 @@ app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 _auth = [Depends(get_current_user)]
 
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"], dependencies=_auth)
-app.include_router(companies.router, prefix="/api/companies", tags=["companies"], dependencies=_auth)
+app.include_router(
+    companies.router, prefix="/api/companies", tags=["companies"], dependencies=_auth
+)
 app.include_router(assets.router, prefix="/api/assets", tags=["assets"], dependencies=_auth)
 app.include_router(clinical.router, prefix="/api/clinical", tags=["clinical"], dependencies=_auth)
 app.include_router(deals.router, prefix="/api/deals", tags=["deals"], dependencies=_auth)
@@ -115,13 +140,21 @@ app.include_router(upload.router, prefix="/api", tags=["upload"], dependencies=_
 app.include_router(tasks.router, prefix="/api/tasks", tags=["tasks"], dependencies=_auth)
 app.include_router(search.router, prefix="/api/search", tags=["search"], dependencies=_auth)
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"], dependencies=_auth)
-app.include_router(sessions_router.router, prefix="/api/sessions", tags=["sessions"], dependencies=_auth)
+app.include_router(
+    sessions_router.router, prefix="/api/sessions", tags=["sessions"], dependencies=_auth
+)
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"], dependencies=_auth)
-app.include_router(catalysts.router, prefix="/api/catalysts", tags=["catalysts"], dependencies=_auth)
-app.include_router(watchlist.router, prefix="/api/watchlist", tags=["watchlist"], dependencies=_auth)
+app.include_router(
+    catalysts.router, prefix="/api/catalysts", tags=["catalysts"], dependencies=_auth
+)
+app.include_router(
+    watchlist.router, prefix="/api/watchlist", tags=["watchlist"], dependencies=_auth
+)
 app.include_router(aidd_sso.router, prefix="/api", tags=["aidd-sso"], dependencies=_auth)
 app.include_router(inbox.router, prefix="/api/inbox", tags=["inbox"], dependencies=_auth)
-app.include_router(conference.router, prefix="/api/conference", tags=["conference"], dependencies=_auth)
+app.include_router(
+    conference.router, prefix="/api/conference", tags=["conference"], dependencies=_auth
+)
 # Credits + models router — routes handle their own auth via Depends(get_current_user)
 app.include_router(credits_router.router)
 

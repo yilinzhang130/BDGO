@@ -75,8 +75,7 @@ export const updateProfile = (fields: Record<string, string>) =>
   put(`${BASE}/auth/profile`, fields);
 
 // Global Search
-export const globalSearch = (q: string, limit = 5) =>
-  get(`${BASE}/search/global`, { q, limit });
+export const globalSearch = (q: string, limit = 5) => get(`${BASE}/search/global`, { q, limit });
 
 // Session search
 export const searchSessions = (q: string, limit = 6) =>
@@ -140,8 +139,7 @@ export interface CreditBalance {
   total_spent: number;
   updated_at: string | null;
 }
-export const fetchCreditBalance = () =>
-  get<CreditBalance>(`${BASE}/credits/balance`);
+export const fetchCreditBalance = () => get<CreditBalance>(`${BASE}/credits/balance`);
 export const fetchCreditUsage = (limit = 50) =>
   get<{ items: any[] }>(`${BASE}/credits/usage`, { limit });
 
@@ -154,8 +152,7 @@ export interface ModelInfo {
   context_note: string;
   available: boolean;
 }
-export const fetchModels = () =>
-  get<{ models: ModelInfo[] }>(`${BASE}/models`);
+export const fetchModels = () => get<{ models: ModelInfo[] }>(`${BASE}/models`);
 
 // Stats
 export const fetchOverview = () => get(`${BASE}/stats/overview`);
@@ -168,8 +165,7 @@ export const fetchDealsTimeline = () => get(`${BASE}/stats/deals-timeline`);
 // Companies
 export const fetchCompanies = (params: Record<string, string | number>) =>
   get(`${BASE}/companies`, params);
-export const fetchCompany = (name: string) =>
-  get(`${BASE}/companies/${encodeURIComponent(name)}`);
+export const fetchCompany = (name: string) => get(`${BASE}/companies/${encodeURIComponent(name)}`);
 export const fetchCompanyAssets = (name: string, page = 1) =>
   get(`${BASE}/companies/${encodeURIComponent(name)}/assets`, { page });
 export const fetchCompanyTrials = (name: string, page = 1) =>
@@ -192,16 +188,12 @@ export const fetchClinicalRecord = (id: string) =>
   get(`${BASE}/clinical/${encodeURIComponent(id)}`);
 
 // Deals
-export const fetchDeals = (params: Record<string, string | number>) =>
-  get(`${BASE}/deals`, params);
-export const fetchDeal = (name: string) =>
-  get(`${BASE}/deals/${encodeURIComponent(name)}`);
+export const fetchDeals = (params: Record<string, string | number>) => get(`${BASE}/deals`, params);
+export const fetchDeal = (name: string) => get(`${BASE}/deals/${encodeURIComponent(name)}`);
 
 // IP
-export const fetchIP = (params: Record<string, string | number>) =>
-  get(`${BASE}/ip`, params);
-export const fetchPatent = (id: string) =>
-  get(`${BASE}/ip/${encodeURIComponent(id)}`);
+export const fetchIP = (params: Record<string, string | number>) => get(`${BASE}/ip`, params);
+export const fetchPatent = (id: string) => get(`${BASE}/ip/${encodeURIComponent(id)}`);
 
 // Catalysts
 export const fetchCatalysts = (params: Record<string, string | number>) =>
@@ -210,13 +202,19 @@ export const fetchCatalysts = (params: Record<string, string | number>) =>
 // Buyers (MNC Profiles)
 export const fetchBuyers = (params: Record<string, string | number>) =>
   get(`${BASE}/buyers`, params);
-export const fetchBuyer = (name: string) =>
-  get(`${BASE}/buyers/${encodeURIComponent(name)}`);
+export const fetchBuyer = (name: string) => get(`${BASE}/buyers/${encodeURIComponent(name)}`);
 
 // Write (edit/delete)
 export const updateRecord = (
-  table: string, pk: string, fields: Record<string, string>, pk2?: string,
-) => put(`${BASE}/write/${encodeURIComponent(table)}/${encodeURIComponent(pk)}`, { fields, pk2: pk2 || null });
+  table: string,
+  pk: string,
+  fields: Record<string, string>,
+  pk2?: string,
+) =>
+  put(`${BASE}/write/${encodeURIComponent(table)}/${encodeURIComponent(pk)}`, {
+    fields,
+    pk2: pk2 || null,
+  });
 
 export async function deleteRecord(table: string, pk: string, pk2?: string) {
   // Uses DELETE with JSON body — can't use generic del() which has no body
@@ -234,8 +232,7 @@ export async function deleteRecord(table: string, pk: string, pk2?: string) {
 export const runTask = (agent: string, message: string) =>
   post<{ task_id: string; status: string }>(`${BASE}/tasks/run`, { agent, message });
 
-export const fetchTaskStatus = (taskId: string) =>
-  get(`${BASE}/tasks/status/${taskId}`);
+export const fetchTaskStatus = (taskId: string) => get(`${BASE}/tasks/status/${taskId}`);
 
 // Upload with XHR so callers can receive progress events (Fetch has no upload progress)
 export function uploadBP(
@@ -272,8 +269,11 @@ export function uploadBP(
         reject(new Error(`Upload failed: ${xhr.status} ${xhr.responseText.slice(0, 200)}`));
         return;
       }
-      try { resolve(JSON.parse(xhr.responseText)); }
-      catch { reject(new Error("Invalid JSON response from upload")); }
+      try {
+        resolve(JSON.parse(xhr.responseText));
+      } catch {
+        reject(new Error("Invalid JSON response from upload"));
+      }
     };
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.ontimeout = () => reject(new Error("Upload timed out after 2 minutes"));
@@ -298,11 +298,9 @@ export const parseReportArgs = (slug: string, text: string) =>
     { slug, text },
   );
 
-export const fetchReportStatus = (taskId: string) =>
-  get(`${BASE}/reports/status/${taskId}`);
+export const fetchReportStatus = (taskId: string) => get(`${BASE}/reports/status/${taskId}`);
 
-export const fetchReportTasks = () =>
-  get<{ tasks: any[] }>(`${BASE}/reports/tasks`);
+export const fetchReportTasks = () => get<{ tasks: any[] }>(`${BASE}/reports/tasks`);
 
 export function reportDownloadUrl(taskId: string, format: string): string {
   return `${BASE}/reports/download/${taskId}/${format}`;
@@ -322,23 +320,34 @@ export const fetchSessions = () => get<any[]>(`${BASE}/sessions`);
 
 export const fetchSession = (id: string) => get<any>(`${BASE}/sessions/${id}`);
 
-export const createSessionAPI = (title?: string) =>
-  post(`${BASE}/sessions`, { title });
+export const createSessionAPI = (title?: string) => post(`${BASE}/sessions`, { title });
 
 export const renameSessionAPI = (id: string, title: string) =>
   put(`${BASE}/sessions/${id}`, { title });
 
-export const deleteSessionAPI = (id: string) =>
-  del(`${BASE}/sessions/${id}`);
+export const deleteSessionAPI = (id: string) => del(`${BASE}/sessions/${id}`);
 
 export const postMessage = (
   sessionId: string,
-  msg: { id: string; role: string; content: string; tools_json?: string; attachments_json?: string },
+  msg: {
+    id: string;
+    role: string;
+    content: string;
+    tools_json?: string;
+    attachments_json?: string;
+  },
 ) => post(`${BASE}/sessions/${sessionId}/messages`, msg);
 
 export const postEntity = (
   sessionId: string,
-  entity: { id: string; entity_type: string; title: string; subtitle?: string; fields_json?: string; href?: string },
+  entity: {
+    id: string;
+    entity_type: string;
+    title: string;
+    subtitle?: string;
+    fields_json?: string;
+    href?: string;
+  },
 ) => post(`${BASE}/sessions/${sessionId}/entities`, entity);
 
 export const deleteEntity = (sessionId: string, entityId: string) =>
@@ -366,8 +375,7 @@ export const fetchWatchlist = (params: Record<string, string | number>) =>
 export const addToWatchlist = (body: { entity_type: string; entity_key: string; notes?: string }) =>
   post(`${BASE}/watchlist`, body);
 
-export const removeFromWatchlist = (id: number) =>
-  del(`${BASE}/watchlist/${id}`);
+export const removeFromWatchlist = (id: number) => del(`${BASE}/watchlist/${id}`);
 
 export const checkWatchlist = (entity_type: string, entity_key: string) =>
   get<{ watched: boolean; id?: number }>(`${BASE}/watchlist/check`, { entity_type, entity_key });
@@ -379,7 +387,12 @@ export const checkWatchlist = (entity_type: string, entity_key: string) =>
 export const createShareLink = (taskId: string) =>
   post<{ token: string; url: string }>(`${BASE}/reports/share`, { task_id: taskId });
 
-export async function fetchSharedReport(token: string): Promise<{ title: string; markdown_preview: string; files: { filename: string; format: string; size: number; download_url: string }[]; created_at: string | null }> {
+export async function fetchSharedReport(token: string): Promise<{
+  title: string;
+  markdown_preview: string;
+  files: { filename: string; format: string; size: number; download_url: string }[];
+  created_at: string | null;
+}> {
   const res = await fetch(`${BASE}/reports/share/${token}`);
   if (!res.ok) throw new Error(`Share fetch failed: ${res.status}`);
   return res.json();
@@ -415,8 +428,7 @@ export interface InviteCode {
   created_at: string | null;
 }
 
-export const fetchAdminDashboard = () =>
-  get<{ users: AdminUser[] }>(`${BASE}/admin/dashboard`);
+export const fetchAdminDashboard = () => get<{ users: AdminUser[] }>(`${BASE}/admin/dashboard`);
 
 export const grantCredits = (userId: string, amount: number) =>
   post(`${BASE}/admin/credits/grant-ui`, { user_id: userId, amount });
@@ -455,19 +467,18 @@ export interface InboxMessage {
 }
 
 export const fetchInboxMessages = (unreadOnly = false, limit = 50, offset = 0) =>
-  get<{ total: number; items: InboxMessage[] }>(
-    `${BASE}/inbox/admin/messages`,
-    { unread_only: unreadOnly ? 1 : 0, limit, offset },
-  );
+  get<{ total: number; items: InboxMessage[] }>(`${BASE}/inbox/admin/messages`, {
+    unread_only: unreadOnly ? 1 : 0,
+    limit,
+    offset,
+  });
 
 export const fetchInboxUnreadCount = () =>
   get<{ count: number }>(`${BASE}/inbox/admin/unread-count`);
 
-export const markMessageRead = (id: number) =>
-  patch(`${BASE}/inbox/admin/messages/${id}/read`);
+export const markMessageRead = (id: number) => patch(`${BASE}/inbox/admin/messages/${id}/read`);
 
-export const markAllRead = () =>
-  patch(`${BASE}/inbox/admin/messages/read-all`);
+export const markAllRead = () => patch(`${BASE}/inbox/admin/messages/read-all`);
 
 // ── Conference Insight ─────────────────────────────────────────────────────────
 
@@ -528,20 +539,19 @@ export const fetchConferenceCompanies = (
     page_size?: number;
   } = {},
 ) =>
-  get<ConferenceListResponse>(
-    `${BASE}/conference/${encodeURIComponent(sessionId)}/companies`,
-    {
-      ...(params.q ? { q: params.q } : {}),
-      ...(params.company_type ? { company_type: params.company_type } : {}),
-      ...(params.country ? { country: params.country } : {}),
-      ...(params.ct_only ? { ct_only: 1 } : {}),
-      page: params.page ?? 1,
-      page_size: params.page_size ?? 24,
-    },
-  );
+  get<ConferenceListResponse>(`${BASE}/conference/${encodeURIComponent(sessionId)}/companies`, {
+    ...(params.q ? { q: params.q } : {}),
+    ...(params.company_type ? { company_type: params.company_type } : {}),
+    ...(params.country ? { country: params.country } : {}),
+    ...(params.ct_only ? { ct_only: 1 } : {}),
+    page: params.page ?? 1,
+    page_size: params.page_size ?? 24,
+  });
 
 export const fetchConferenceCompany = (sessionId: string, companyName: string) =>
-  get(`${BASE}/conference/${encodeURIComponent(sessionId)}/companies/${encodeURIComponent(companyName)}`);
+  get(
+    `${BASE}/conference/${encodeURIComponent(sessionId)}/companies/${encodeURIComponent(companyName)}`,
+  );
 
 export interface ConferenceAbstract {
   doi: string;
@@ -590,4 +600,3 @@ export const fetchConferenceAbstracts = (
       page_size: params.page_size ?? 24,
     },
   );
-

@@ -29,10 +29,14 @@ export default function AssetsPage() {
   const [page, setPage] = useState(1);
 
   const load = useCallback(() => {
-    fetchAssets({ q, phase, disease, scored, tracked, sort, order, page, page_size: 50 }).then(setData);
+    fetchAssets({ q, phase, disease, scored, tracked, sort, order, page, page_size: 50 }).then(
+      setData,
+    );
   }, [q, phase, disease, scored, tracked, sort, order, page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSort = (col: string) => {
     if (sort === col) {
@@ -54,29 +58,80 @@ export default function AssetsPage() {
         <input
           placeholder="Search asset / target..."
           value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
           style={{ width: 220 }}
         />
-        <select value={phase} onChange={(e) => { setPhase(e.target.value); setPage(1); }}>
+        <select
+          value={phase}
+          onChange={(e) => {
+            setPhase(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Phases</option>
-          {["Pre-clinical", "Phase 1", "Phase 1/2", "Phase 2", "Phase 2/3", "Phase 3", "Phase 4", "Approved"].map((p) => (
-            <option key={p} value={p}>{p}</option>
+          {[
+            "Pre-clinical",
+            "Phase 1",
+            "Phase 1/2",
+            "Phase 2",
+            "Phase 2/3",
+            "Phase 3",
+            "Phase 4",
+            "Approved",
+          ].map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
           ))}
         </select>
-        <select value={disease} onChange={(e) => { setDisease(e.target.value); setPage(1); }}>
+        <select
+          value={disease}
+          onChange={(e) => {
+            setDisease(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Disease Areas</option>
-          {["Oncology", "Immunology", "Neurology", "Rare Disease", "Cardiology", "Infectious Disease", "Metabolic", "Ophthalmology"].map((d) => (
-            <option key={d} value={d}>{d}</option>
+          {[
+            "Oncology",
+            "Immunology",
+            "Neurology",
+            "Rare Disease",
+            "Cardiology",
+            "Infectious Disease",
+            "Metabolic",
+            "Ophthalmology",
+          ].map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
           ))}
         </select>
-        <select value={scored} onChange={(e) => { setScored(e.target.value); setPage(1); }}>
+        <select
+          value={scored}
+          onChange={(e) => {
+            setScored(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All</option>
           <option value="yes">With Q Scores</option>
         </select>
-        <select value={tracked} onChange={(e) => { setTracked(e.target.value); setPage(1); }}>
+        <select
+          value={tracked}
+          onChange={(e) => {
+            setTracked(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Status</option>
           {["追踪中", "待分类", "非追踪"].map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s}
+            </option>
           ))}
         </select>
       </div>
@@ -98,13 +153,21 @@ export default function AssetsPage() {
               {data?.data?.map((a: any, i: number) => (
                 <tr
                   key={`${a["资产名称"]}-${a["所属客户"]}-${i}`}
-                  onClick={() => router.push(`/assets/${encodeURIComponent(a["所属客户"])}/${encodeURIComponent(a["资产名称"])}`)}
+                  onClick={() =>
+                    router.push(
+                      `/assets/${encodeURIComponent(a["所属客户"])}/${encodeURIComponent(a["资产名称"])}`,
+                    )
+                  }
                 >
                   <td style={{ fontWeight: 600 }}>{a["资产名称"]}</td>
                   <td>{a["所属客户"]}</td>
                   <td>{a["技术平台类别"] || "-"}</td>
                   <td>{a["疾病领域"] || "-"}</td>
-                  <td><span className={`badge ${phaseBadgeClass(a["临床阶段"])}`}>{a["临床阶段"] || "-"}</span></td>
+                  <td>
+                    <span className={`badge ${phaseBadgeClass(a["临床阶段"])}`}>
+                      {a["临床阶段"] || "-"}
+                    </span>
+                  </td>
                   <td>{a["靶点"] || "-"}</td>
                   <td>{a["作用机制(MOA)"]?.slice(0, 30) || "-"}</td>
                   <td>{a["质量评分"] || "-"}</td>
@@ -116,9 +179,15 @@ export default function AssetsPage() {
 
         {data && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-            <span>Page {data.page} of {data.total_pages}</span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Prev
+            </button>
+            <span>
+              Page {data.page} of {data.total_pages}
+            </span>
+            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
+              Next
+            </button>
           </div>
         )}
       </div>

@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import {
-  fetchCreditBalance,
-  fetchModels,
-  type CreditBalance,
-  type ModelInfo,
-} from "@/lib/api";
+import { fetchCreditBalance, fetchModels, type CreditBalance, type ModelInfo } from "@/lib/api";
 
 // ═══════════════════════════════════════════
 // Credits hook

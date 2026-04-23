@@ -2,11 +2,12 @@
 
 import logging
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
 from urllib.parse import unquote
-from crm_store import update_row
+
 from config import BP_DIR, safe_path_within
+from crm_store import update_row
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -88,9 +89,11 @@ def list_bp_files():
         for f in sorted(BP_DIR.iterdir()):
             if f.is_file() and f.suffix.lower() in ALLOWED_EXTENSIONS:
                 stat = f.stat()
-                files.append({
-                    "filename": f.name,
-                    "size": stat.st_size,
-                    "modified": stat.st_mtime,
-                })
+                files.append(
+                    {
+                        "filename": f.name,
+                        "size": stat.st_size,
+                        "modified": stat.st_mtime,
+                    }
+                )
     return {"files": files, "total": len(files)}

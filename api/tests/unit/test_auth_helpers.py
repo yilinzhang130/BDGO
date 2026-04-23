@@ -8,21 +8,20 @@
     - 密码 hash/verify 正确
 """
 
-import time
 import datetime
-import pytest
-import jwt
+import time
 
 import config
+import jwt
+import pytest
 from auth import create_token, decode_token, hash_password, verify_password
-
 
 # ════════════════════════════════════════════════════════════════
 # JWT create / decode
 # ════════════════════════════════════════════════════════════════
 
-class TestJWT:
 
+class TestJWT:
     def test_create_and_decode_roundtrip(self):
         """创建 token 后能正确解码"""
         token = create_token("user-123", "test@example.com")
@@ -45,7 +44,7 @@ class TestJWT:
         payload = {
             "user_id": "user-123",
             "email": "test@example.com",
-            "exp": datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=1),
+            "exp": datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=1),
         }
         expired_token = jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
 
@@ -57,7 +56,7 @@ class TestJWT:
         payload = {
             "user_id": "user-123",
             "email": "test@example.com",
-            "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1),
+            "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=1),
         }
         evil_token = jwt.encode(payload, "completely-wrong-secret", algorithm="HS256")
 
@@ -69,11 +68,18 @@ class TestJWT:
         token = create_token("user-123", "test@example.com")
         # token 格式是 header.payload.signature，篡改 payload
         parts = token.split(".")
-        import base64, json
-        fake_payload = base64.urlsafe_b64encode(
-            json.dumps({"user_id": "admin-000", "email": "hacker@evil.com",
-                        "exp": time.time() + 86400}).encode()
-        ).decode().rstrip("=")
+        import base64
+        import json
+
+        fake_payload = (
+            base64.urlsafe_b64encode(
+                json.dumps(
+                    {"user_id": "admin-000", "email": "hacker@evil.com", "exp": time.time() + 86400}
+                ).encode()
+            )
+            .decode()
+            .rstrip("=")
+        )
         tampered = f"{parts[0]}.{fake_payload}.{parts[2]}"
 
         with pytest.raises(jwt.InvalidSignatureError):
@@ -93,8 +99,8 @@ class TestJWT:
 # 密码 hash / verify
 # ════════════════════════════════════════════════════════════════
 
-class TestPassword:
 
+class TestPassword:
     def test_hash_and_verify(self):
         """正确密码能验证通过"""
         hashed = hash_password("MySecurePassword123")
@@ -127,8 +133,8 @@ class TestPassword:
 # JWT_SECRET 配置检查
 # ════════════════════════════════════════════════════════════════
 
-class TestJWTSecretConfig:
 
+class TestJWTSecretConfig:
     def test_jwt_secret_is_set(self):
         """JWT_SECRET 不能为空"""
         assert config.JWT_SECRET, "JWT_SECRET 不能为空字符串"
@@ -149,6 +155,5 @@ class TestJWTSecretConfig:
     def test_jwt_secret_minimum_length(self):
         """JWT_SECRET 长度至少 32 字符"""
         assert len(config.JWT_SECRET) >= 32, (
-            f"JWT_SECRET 太短（{len(config.JWT_SECRET)} 字符），"
-            "建议至少 32 字符"
+            f"JWT_SECRET 太短（{len(config.JWT_SECRET)} 字符），建议至少 32 字符"
         )

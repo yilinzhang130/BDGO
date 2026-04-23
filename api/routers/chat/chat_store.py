@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # Sessions
 # ─────────────────────────────────────────────────────────────
 
+
 def ensure_session(session_id: str, user_id: str) -> None:
     """Create the session row if it doesn't exist yet."""
     with transaction() as cur:
@@ -44,6 +45,7 @@ def ensure_session(session_id: str, user_id: str) -> None:
 # ─────────────────────────────────────────────────────────────
 # Messages
 # ─────────────────────────────────────────────────────────────
+
 
 def load_history(session_id: str) -> list[dict]:
     """Load recent messages for a session from Postgres.
@@ -123,8 +125,14 @@ def save_message(
                 cur.execute(
                     "INSERT INTO messages (id, session_id, role, content, tools_json, attachments_json) "
                     "VALUES (%s, %s, %s, %s, %s, %s)",
-                    (uuid.uuid4().hex[:12], session_id, role, content_str,
-                     tools_json, attachments_json),
+                    (
+                        uuid.uuid4().hex[:12],
+                        session_id,
+                        role,
+                        content_str,
+                        tools_json,
+                        attachments_json,
+                    ),
                 )
                 cur.execute(
                     "UPDATE sessions SET updated_at = NOW() WHERE id = %s",
@@ -142,15 +150,21 @@ def save_message(
 # Context entities (Postgres-backed sidebar state)
 # ─────────────────────────────────────────────────────────────
 
+
 def save_entities(session_id: str, entities: list[dict]) -> None:
     """Upsert context entities extracted from tool results."""
     if not entities:
         return
     params = [
-        (e.get("id"), session_id, e.get("entity_type", ""),
-         e.get("title", ""), e.get("subtitle"),
-         json.dumps(e.get("fields", []), ensure_ascii=False) if e.get("fields") else None,
-         e.get("href"))
+        (
+            e.get("id"),
+            session_id,
+            e.get("entity_type", ""),
+            e.get("title", ""),
+            e.get("subtitle"),
+            json.dumps(e.get("fields", []), ensure_ascii=False) if e.get("fields") else None,
+            e.get("href"),
+        )
         for e in entities
     ]
     for attempt in range(2):
@@ -179,6 +193,7 @@ def save_entities(session_id: str, entities: list[dict]) -> None:
 # ─────────────────────────────────────────────────────────────
 # Session brief (context-compaction cache)
 # ─────────────────────────────────────────────────────────────
+
 
 def get_session_brief(session_id: str) -> tuple[str | None, str | None]:
     """Return (brief_text, brief_ts_iso) for a session, or (None, None)."""

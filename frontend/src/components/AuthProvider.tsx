@@ -1,21 +1,8 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import {
-  getToken,
-  getUser,
-  setAuth,
-  clearAuth,
-  type AuthUser,
-} from "@/lib/auth";
+import { getToken, getUser, setAuth, clearAuth, type AuthUser } from "@/lib/auth";
 
 // ═══════════════════════════════════════════
 // Context type
@@ -74,8 +61,7 @@ async function parseErrorDetail(res: Response): Promise<string | undefined> {
   try {
     const body = await res.json();
     if (typeof body?.detail === "string") return body.detail;
-    if (Array.isArray(body?.detail) && body.detail[0]?.msg)
-      return body.detail[0].msg;
+    if (Array.isArray(body?.detail) && body.detail[0]?.msg) return body.detail[0].msg;
   } catch {}
   return undefined;
 }
@@ -149,9 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Route protection: redirect unauthenticated users to /login
   useEffect(() => {
     if (loading) return;
-    const isPublic = PUBLIC_PATHS.some(
-      (p) => pathname === p || pathname.startsWith(p + "/"),
-    );
+    const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (!user && !isPublic) {
       router.replace("/login");
     }
@@ -160,27 +144,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, loading, pathname, router]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    let res: Response;
-    try {
-      res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-    } catch {
-      throw new Error(friendlyAuthError("login", 0));
-    }
-    if (!res.ok) {
-      const detail = await parseErrorDetail(res);
-      throw new Error(friendlyAuthError("login", res.status, detail));
-    }
-    const data = await res.json();
-    setAuth(data.token, data.user);
-    setUser(data.user);
-    setToken(data.token);
-    router.replace("/chat");
-  }, [router]);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      let res: Response;
+      try {
+        res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+      } catch {
+        throw new Error(friendlyAuthError("login", 0));
+      }
+      if (!res.ok) {
+        const detail = await parseErrorDetail(res);
+        throw new Error(friendlyAuthError("login", res.status, detail));
+      }
+      const data = await res.json();
+      setAuth(data.token, data.user);
+      setUser(data.user);
+      setToken(data.token);
+      router.replace("/chat");
+    },
+    [router],
+  );
 
   const register = useCallback(
     async (email: string, password: string, name: string, inviteCode: string) => {
@@ -259,7 +246,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, register, loginWithGoogle, logout, refreshUser, updateUser }}
+      value={{
+        user,
+        token,
+        loading,
+        login,
+        register,
+        loginWithGoogle,
+        logout,
+        refreshUser,
+        updateUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,11 +1,11 @@
 """Credits router — balance, usage history, model list, admin top-up."""
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
-
 import credits as credits_mod
 from auth import get_current_user
+from fastapi import APIRouter, Depends, Header, HTTPException
 from models import available_models
+from pydantic import BaseModel
+
 from routers.admin import _check_admin  # reuse admin guard
 
 router = APIRouter(prefix="/api", tags=["credits"])
@@ -30,6 +30,7 @@ def list_models(user: dict = Depends(get_current_user)):
 # ─────────────────────────────────────────────────────────────
 # Admin top-up
 # ─────────────────────────────────────────────────────────────
+
 
 class GrantBody(BaseModel):
     user_id: str

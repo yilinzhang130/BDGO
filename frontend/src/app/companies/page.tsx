@@ -29,10 +29,14 @@ export default function CompaniesPage() {
   const [page, setPage] = useState(1);
 
   const load = useCallback(() => {
-    fetchCompanies({ q, country, type, priority, tracked, sort, order, page, page_size: 50 }).then(setData);
+    fetchCompanies({ q, country, type, priority, tracked, sort, order, page, page_size: 50 }).then(
+      setData,
+    );
   }, [q, country, type, priority, tracked, sort, order, page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSort = (col: string) => {
     if (sort === col) {
@@ -54,31 +58,84 @@ export default function CompaniesPage() {
         <input
           placeholder="Search company..."
           value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
           style={{ width: 220 }}
         />
-        <select value={country} onChange={(e) => { setCountry(e.target.value); setPage(1); }}>
+        <select
+          value={country}
+          onChange={(e) => {
+            setCountry(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Countries</option>
-          {["USA", "China", "Korea", "UK", "France", "Germany", "Japan", "Switzerland", "Canada", "Israel"].map((c) => (
-            <option key={c} value={c}>{c}</option>
+          {[
+            "USA",
+            "China",
+            "Korea",
+            "UK",
+            "France",
+            "Germany",
+            "Japan",
+            "Switzerland",
+            "Canada",
+            "Israel",
+          ].map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
           ))}
         </select>
-        <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
+        <select
+          value={type}
+          onChange={(e) => {
+            setType(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Types</option>
-          {["Biotech(USA)", "Biotech(China)", "Biotech(Europe)", "Biotech(Other)", "海外药企", "中国药企"].map((t) => (
-            <option key={t} value={t}>{t}</option>
+          {[
+            "Biotech(USA)",
+            "Biotech(China)",
+            "Biotech(Europe)",
+            "Biotech(Other)",
+            "海外药企",
+            "中国药企",
+          ].map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
           ))}
         </select>
-        <select value={priority} onChange={(e) => { setPriority(e.target.value); setPage(1); }}>
+        <select
+          value={priority}
+          onChange={(e) => {
+            setPriority(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Priorities</option>
           {["A", "B", "C", "D"].map((p) => (
-            <option key={p} value={p}>{p}</option>
+            <option key={p} value={p}>
+              {p}
+            </option>
           ))}
         </select>
-        <select value={tracked} onChange={(e) => { setTracked(e.target.value); setPage(1); }}>
+        <select
+          value={tracked}
+          onChange={(e) => {
+            setTracked(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All Status</option>
           {["追踪中", "待分类", "排除"].map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s}
+            </option>
           ))}
         </select>
       </div>
@@ -89,7 +146,11 @@ export default function CompaniesPage() {
             <thead>
               <tr>
                 {COLUMNS.map((col) => (
-                  <th key={col.key} style={{ width: col.width }} onClick={() => handleSort(col.key)}>
+                  <th
+                    key={col.key}
+                    style={{ width: col.width }}
+                    onClick={() => handleSort(col.key)}
+                  >
                     {col.label}
                     {sort === col.key ? (order === "asc" ? " \u25B2" : " \u25BC") : ""}
                   </th>
@@ -98,7 +159,10 @@ export default function CompaniesPage() {
             </thead>
             <tbody>
               {data?.data?.map((row: any) => (
-                <tr key={row["客户名称"]} onClick={() => router.push(`/companies/${encodeURIComponent(row["客户名称"])}`)}>
+                <tr
+                  key={row["客户名称"]}
+                  onClick={() => router.push(`/companies/${encodeURIComponent(row["客户名称"])}`)}
+                >
                   <td style={{ fontWeight: 600 }}>{row["客户名称"]}</td>
                   <td>{row["客户类型"]}</td>
                   <td>{row["所处国家"]}</td>
@@ -114,7 +178,9 @@ export default function CompaniesPage() {
                       <span className={`badge ${priorityBadgeClass(row["BD跟进优先级"])}`}>
                         {row["BD跟进优先级"]}
                       </span>
-                    ) : "-"}
+                    ) : (
+                      "-"
+                    )}
                   </td>
                   <td>{row["追踪状态"] || "-"}</td>
                 </tr>
@@ -125,9 +191,15 @@ export default function CompaniesPage() {
 
         {data && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-            <span>Page {data.page} of {data.total_pages}</span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Prev
+            </button>
+            <span>
+              Page {data.page} of {data.total_pages}
+            </span>
+            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
+              Next
+            </button>
           </div>
         )}
       </div>

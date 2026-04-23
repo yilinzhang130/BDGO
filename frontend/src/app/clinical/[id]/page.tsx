@@ -129,12 +129,16 @@ export default function ClinicalDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    SECTIONS.forEach((s) => { init[s.title] = s.defaultOpen ?? false; });
+    SECTIONS.forEach((s) => {
+      init[s.title] = s.defaultOpen ?? false;
+    });
     return init;
   });
 
   useEffect(() => {
-    fetchClinicalRecord(id).then(setRecord).catch(() => setNotFound(true));
+    fetchClinicalRecord(id)
+      .then(setRecord)
+      .catch(() => setNotFound(true));
   }, [id]);
 
   if (notFound) return <div className="loading">Clinical record not found</div>;
@@ -167,17 +171,23 @@ export default function ClinicalDetailPage() {
               {record["公司名称"] && (
                 <span
                   style={{ cursor: "pointer", textDecoration: "underline" }}
-                  onClick={() => router.push(`/companies/${encodeURIComponent(record["公司名称"])}`)}
+                  onClick={() =>
+                    router.push(`/companies/${encodeURIComponent(record["公司名称"])}`)
+                  }
                 >
                   {record["公司名称"]}
                 </span>
               )}
               {record["资产名称"] && <span>{record["资产名称"]}</span>}
               {record["临床期次"] && (
-                <span className={`badge ${phaseBadgeClass(record["临床期次"])}`}>{record["临床期次"]}</span>
+                <span className={`badge ${phaseBadgeClass(record["临床期次"])}`}>
+                  {record["临床期次"]}
+                </span>
               )}
               {record["结果判定"] && (
-                <span className={`badge ${resultBadgeClass(record["结果判定"])}`}>{record["结果判定"]}</span>
+                <span className={`badge ${resultBadgeClass(record["结果判定"])}`}>
+                  {record["结果判定"]}
+                </span>
               )}
               {record["数据状态"] && <span>{record["数据状态"]}</span>}
             </div>
@@ -185,7 +195,15 @@ export default function ClinicalDetailPage() {
           {isAdmin && (
             <button
               onClick={() => setShowDelete(true)}
-              style={{ padding: "0.4rem 0.9rem", background: "white", color: "var(--red)", border: "1px solid var(--red)", borderRadius: 6, cursor: "pointer", fontSize: "0.8rem" }}
+              style={{
+                padding: "0.4rem 0.9rem",
+                background: "white",
+                color: "var(--red)",
+                border: "1px solid var(--red)",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: "0.8rem",
+              }}
             >
               Delete
             </button>
@@ -197,7 +215,14 @@ export default function ClinicalDetailPage() {
         <div key={section.title} className="card" style={{ marginBottom: "0.75rem" }}>
           <h3
             onClick={() => toggleSection(section.title)}
-            style={{ margin: 0, fontSize: "0.95rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
+            style={{
+              margin: 0,
+              fontSize: "0.95rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
           >
             <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
               {openSections[section.title] ? "\u25BC" : "\u25B6"}
@@ -205,7 +230,15 @@ export default function ClinicalDetailPage() {
             {section.title}
           </h3>
           {openSections[section.title] && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "0.6rem", fontSize: "0.85rem", marginTop: "0.75rem" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                gap: "0.6rem",
+                fontSize: "0.85rem",
+                marginTop: "0.75rem",
+              }}
+            >
               {section.fields.map(([label, dbCol]) =>
                 isAdmin ? (
                   <EditableField
@@ -216,10 +249,27 @@ export default function ClinicalDetailPage() {
                   />
                 ) : (
                   <div key={dbCol} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{label}</span>
-                    <span style={{ fontSize: "0.85rem", color: record[dbCol] ? "var(--text)" : "var(--text-secondary)" }}>{record[dbCol] || "\u2014"}</span>
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "var(--text-secondary)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "0.85rem",
+                        color: record[dbCol] ? "var(--text)" : "var(--text-secondary)",
+                      }}
+                    >
+                      {record[dbCol] || "\u2014"}
+                    </span>
                   </div>
-                )
+                ),
               )}
             </div>
           )}

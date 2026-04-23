@@ -1,11 +1,10 @@
 """Watchlist endpoints — per-user entity favorites (company/asset/disease/target)."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-
 from auth import get_current_user
 from crm_store import like_contains
 from database import transaction
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -16,6 +15,7 @@ VALID_ENTITY_TYPES = {"company", "asset", "disease", "target", "incubator"}
 # Models
 # ---------------------------------------------------------------------------
 
+
 class WatchlistAdd(BaseModel):
     entity_type: str
     entity_key: str
@@ -25,6 +25,7 @@ class WatchlistAdd(BaseModel):
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("")
 def list_watchlist(
@@ -85,7 +86,9 @@ def list_watchlist(
 def add_to_watchlist(body: WatchlistAdd, user: dict = Depends(get_current_user)):
     """Add an entity to the user's watchlist."""
     if body.entity_type not in VALID_ENTITY_TYPES:
-        raise HTTPException(400, f"Invalid entity_type. Must be one of: {', '.join(VALID_ENTITY_TYPES)}")
+        raise HTTPException(
+            400, f"Invalid entity_type. Must be one of: {', '.join(VALID_ENTITY_TYPES)}"
+        )
 
     entity_key = body.entity_key.strip()
     if not entity_key:
@@ -133,7 +136,9 @@ def check_watchlist(
 ):
     """Check if an entity is in the user's watchlist."""
     if entity_type not in VALID_ENTITY_TYPES:
-        raise HTTPException(400, f"Invalid entity_type. Must be one of: {', '.join(VALID_ENTITY_TYPES)}")
+        raise HTTPException(
+            400, f"Invalid entity_type. Must be one of: {', '.join(VALID_ENTITY_TYPES)}"
+        )
 
     with transaction() as cur:
         cur.execute(

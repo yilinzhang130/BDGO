@@ -8,17 +8,16 @@ import datetime as _dt
 import logging
 
 import bcrypt
+import config
 import jwt
 from fastapi import Depends, Header, HTTPException
-
-import config
-import database
 
 _logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Password helpers
 # ---------------------------------------------------------------------------
+
 
 def hash_password(password: str) -> str:
     """Return a bcrypt hash of *password*."""
@@ -43,8 +42,7 @@ def create_token(user_id: str, email: str) -> str:
     payload = {
         "user_id": user_id,
         "email": email,
-        "exp": _dt.datetime.now(_dt.timezone.utc)
-        + _dt.timedelta(days=_JWT_EXPIRY_DAYS),
+        "exp": _dt.datetime.now(_dt.UTC) + _dt.timedelta(days=_JWT_EXPIRY_DAYS),
     }
     return jwt.encode(payload, config.JWT_SECRET, algorithm=_JWT_ALGORITHM)
 
@@ -61,6 +59,7 @@ def decode_token(token: str) -> dict:
 # ---------------------------------------------------------------------------
 # FastAPI dependencies
 # ---------------------------------------------------------------------------
+
 
 def _extract_bearer(authorization: str | None) -> str:
     """Pull the token out of 'Bearer <token>'."""
@@ -93,6 +92,7 @@ _USER_COLUMNS = (
 def _lookup_user(user_id: str) -> dict:
     """Fetch user row from Postgres by id. Returns dict or raises 401."""
     from database import transaction
+
     with transaction() as cur:
         cur.execute(
             f"SELECT {_USER_COLUMNS} FROM users WHERE id = %s",
@@ -117,7 +117,7 @@ def get_current_user(authorization: str = Header(None)) -> dict:
     try:
         claims = decode_token(token)
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from None
     return _lookup_user(claims["user_id"])
 
 

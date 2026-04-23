@@ -11,7 +11,6 @@ Usage:
 import argparse
 import json
 import math
-import os
 import sys
 from datetime import datetime
 
@@ -57,8 +56,8 @@ LINK_FONT = Font(name="Calibri", size=10, color="008000")  # Green = cross-sheet
 INPUT_FONT = Font(name="Calibri", size=10, color="0000FF")  # Blue = user input
 PCT_FORMAT = "0.0%"
 PCT2_FORMAT = "0.00%"
-USD_FORMAT = '$#,##0'
-USD_M_FORMAT = '$#,##0.0'
+USD_FORMAT = "$#,##0"
+USD_M_FORMAT = "$#,##0.0"
 NUM_FORMAT = "#,##0"
 THIN_BORDER = Border(
     left=Side(style="thin", color="D9D9D9"),
@@ -73,6 +72,7 @@ WARN_FILL = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="sol
 
 
 # ── CellTracker — Cross-sheet reference management ──
+
 
 class CellTracker:
     """Track cell locations for cross-sheet formula references."""
@@ -99,6 +99,7 @@ class CellTracker:
 
 
 # ── Helpers ──
+
 
 def s_curve(year, peak, ramp_years=7):
     if year <= 0:
@@ -163,7 +164,9 @@ def write_formula_row(ws, row, label, formulas, font=None, fill=None, num_fmt=No
         cell.alignment = Alignment(horizontal="right", vertical="center")
 
 
-def write_label_value(ws, row, col, label, val, fmt=None, label_font=None, val_font=None, fill=None):
+def write_label_value(
+    ws, row, col, label, val, fmt=None, label_font=None, val_font=None, fill=None
+):
     c1 = ws.cell(row=row, column=col, value=label)
     c1.font = label_font or BOLD_FONT
     c1.border = THIN_BORDER
@@ -205,6 +208,7 @@ def write_input_cell(ws, row, col, val, fmt=None, tracker=None, key=None, sheet_
 
 # ── Sheet 1: Assumptions (Single Source of Truth) ──
 
+
 def build_assumptions_sheet(wb, config, tracker):
     ws = wb.active
     ws.title = "Assumptions"
@@ -224,10 +228,16 @@ def build_assumptions_sheet(wb, config, tracker):
     ws.cell(row=r, column=1, value=f"rNPV Valuation Model — {meta['company']} / {meta['asset']}")
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=14, bold=True, color=DARK_BLUE)
     r += 1
-    ws.cell(row=r, column=1, value=f"Analyst: {meta.get('analyst', 'N/A')}  |  Date: {meta.get('date', datetime.now().strftime('%Y-%m-%d'))}")
+    ws.cell(
+        row=r,
+        column=1,
+        value=f"Analyst: {meta.get('analyst', 'N/A')}  |  Date: {meta.get('date', datetime.now().strftime('%Y-%m-%d'))}",
+    )
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=10, color="808080")
     r += 1
-    ws.cell(row=r, column=1, value="Color Legend:").font = Font(name="Calibri", size=9, bold=True, color="808080")
+    ws.cell(row=r, column=1, value="Color Legend:").font = Font(
+        name="Calibri", size=9, bold=True, color="808080"
+    )
     c = ws.cell(row=r, column=2, value="User Input (Blue)")
     c.fill = INPUT_FILL
     c.font = Font(name="Calibri", size=9, color="0000FF")
@@ -247,8 +257,12 @@ def build_assumptions_sheet(wb, config, tracker):
     r += 1
 
     # Company / Asset info (static)
-    for label, val in [("Company", meta["company"]), ("Asset / Drug", meta["asset"]),
-                       ("Modality", meta.get("modality", "N/A")), ("Therapeutic Area", meta.get("therapeutic_area", "N/A"))]:
+    for label, val in [
+        ("Company", meta["company"]),
+        ("Asset / Drug", meta["asset"]),
+        ("Modality", meta.get("modality", "N/A")),
+        ("Therapeutic Area", meta.get("therapeutic_area", "N/A")),
+    ]:
         ws.cell(row=r, column=1, value=label).font = NORMAL_FONT
         ws.cell(row=r, column=2, value=val).font = NORMAL_FONT
         for col in range(1, 4):
@@ -258,7 +272,9 @@ def build_assumptions_sheet(wb, config, tracker):
     # WACC
     ws.cell(row=r, column=1, value="WACC").font = NORMAL_FONT
     write_input_cell(ws, r, 2, discount["wacc"], PCT_FORMAT, tracker, "wacc", SN)
-    ws.cell(row=r, column=3, value=discount.get("wacc_source", "Default biotech")).font = NORMAL_FONT
+    ws.cell(
+        row=r, column=3, value=discount.get("wacc_source", "Default biotech")
+    ).font = NORMAL_FONT
     for col in range(1, 4):
         ws.cell(row=r, column=col).border = THIN_BORDER
     r += 1
@@ -287,14 +303,16 @@ def build_assumptions_sheet(wb, config, tracker):
 
     # COGS margin
     ws.cell(row=r, column=1, value="COGS (% of Net Revenue)").font = NORMAL_FONT
-    write_input_cell(ws, r, 2, costs.get("cogs_margin", 0.20), PCT_FORMAT, tracker, "cogs_margin", SN)
+    write_input_cell(
+        ws, r, 2, costs.get("cogs_margin", 0.20), PCT_FORMAT, tracker, "cogs_margin", SN
+    )
     for col in range(1, 4):
         ws.cell(row=r, column=col).border = THIN_BORDER
     r += 2
 
     # ── Per-Indication ──
     for ind_idx, ind in enumerate(indications):
-        section_title(ws, r, 1, f"INDICATION {ind_idx+1}: {ind['name']}")
+        section_title(ws, r, 1, f"INDICATION {ind_idx + 1}: {ind['name']}")
         if ind.get("line_of_therapy"):
             ws.cell(row=r, column=3, value=f"Line: {ind['line_of_therapy']}")
             ws.cell(row=r, column=3).font = Font(name="Calibri", size=10, bold=True, color=ORANGE)
@@ -323,9 +341,13 @@ def build_assumptions_sheet(wb, config, tracker):
             ws.cell(row=r, column=1).border = THIN_BORDER
             for g_idx, geo in enumerate(geo_keys):
                 val = ind["geography_data"][geo].get(key, 0)
-                write_input_cell(ws, r, 2 + g_idx, val, fmt, tracker, f"ind{ind_idx}.{geo}.{key}", SN)
+                write_input_cell(
+                    ws, r, 2 + g_idx, val, fmt, tracker, f"ind{ind_idx}.{geo}.{key}", SN
+                )
             source = ind.get("data_sources", {}).get(key, "")
-            ws.cell(row=r, column=n_geos + 2, value=source).font = Font(name="Calibri", size=9, color="808080")
+            ws.cell(row=r, column=n_geos + 2, value=source).font = Font(
+                name="Calibri", size=9, color="808080"
+            )
             ws.cell(row=r, column=n_geos + 2).border = THIN_BORDER
             r += 1
 
@@ -347,15 +369,20 @@ def build_assumptions_sheet(wb, config, tracker):
             c.border = THIN_BORDER
             c.fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
             tracker.set(f"ind{ind_idx}.{geo}.addressable", SN, r, col)
-        ws.cell(row=r, column=n_geos + 2, value="Prev x Diag x Elig x Line x Treat x Access").font = Font(
-            name="Calibri", size=9, italic=True, color="808080")
+        ws.cell(
+            row=r, column=n_geos + 2, value="Prev x Diag x Elig x Line x Treat x Access"
+        ).font = Font(name="Calibri", size=9, italic=True, color="808080")
         r += 2
 
         # Pricing
-        ws.cell(row=r, column=1, value="PRICING").font = Font(name="Calibri", size=10, bold=True, color=GREEN)
+        ws.cell(row=r, column=1, value="PRICING").font = Font(
+            name="Calibri", size=10, bold=True, color=GREEN
+        )
         r += 1
-        for label, key, fmt in [("List Price ($)", "list_price", USD_FORMAT),
-                                ("Gross-to-Net Ratio", "gtn", PCT_FORMAT)]:
+        for label, key, fmt in [
+            ("List Price ($)", "list_price", USD_FORMAT),
+            ("Gross-to-Net Ratio", "gtn", PCT_FORMAT),
+        ]:
             ws.cell(row=r, column=1, value=label).font = NORMAL_FONT
             ws.cell(row=r, column=1).border = THIN_BORDER
             for g_idx, geo in enumerate(geo_keys):
@@ -363,7 +390,9 @@ def build_assumptions_sheet(wb, config, tracker):
                     val = ind.get("pricing", {}).get(geo, 0)
                 else:
                     val = ind.get("gross_to_net", {}).get(geo, 0.70)
-                write_input_cell(ws, r, 2 + g_idx, val, fmt, tracker, f"ind{ind_idx}.{geo}.{key}", SN)
+                write_input_cell(
+                    ws, r, 2 + g_idx, val, fmt, tracker, f"ind{ind_idx}.{geo}.{key}", SN
+                )
             r += 1
 
         # Net Price (formula)
@@ -382,7 +411,9 @@ def build_assumptions_sheet(wb, config, tracker):
         r += 2
 
         # Penetration curve (pre-computed as editable year-by-year inputs)
-        ws.cell(row=r, column=1, value="MARKET PENETRATION").font = Font(name="Calibri", size=10, bold=True, color=GREEN)
+        ws.cell(row=r, column=1, value="MARKET PENETRATION").font = Font(
+            name="Calibri", size=10, bold=True, color=GREEN
+        )
         r += 1
 
         pen = ind.get("penetration_curve", {})
@@ -392,21 +423,33 @@ def build_assumptions_sheet(wb, config, tracker):
         post_loe = pen.get("post_loe_erosion_per_year", 0.30)
         launch_offset = ind.get("years_to_launch", 5)
 
-        for label, val, fmt in [("Peak Penetration", peak_pen, PCT_FORMAT),
-                                ("Ramp-up Years", ramp_yrs, None),
-                                ("LOE Year (from launch)", loe_year, None),
-                                ("Post-LOE Erosion/yr", post_loe, PCT_FORMAT),
-                                ("Years to Launch", launch_offset, None)]:
+        for label, val, fmt in [
+            ("Peak Penetration", peak_pen, PCT_FORMAT),
+            ("Ramp-up Years", ramp_yrs, None),
+            ("LOE Year (from launch)", loe_year, None),
+            ("Post-LOE Erosion/yr", post_loe, PCT_FORMAT),
+            ("Years to Launch", launch_offset, None),
+        ]:
             ws.cell(row=r, column=1, value=f"  {label}").font = NORMAL_FONT
-            write_input_cell(ws, r, 2, val, fmt, tracker, f"ind{ind_idx}.pen.{label.lower().replace(' ', '_').replace('/', '_')}", SN)
+            write_input_cell(
+                ws,
+                r,
+                2,
+                val,
+                fmt,
+                tracker,
+                f"ind{ind_idx}.pen.{label.lower().replace(' ', '_').replace('/', '_')}",
+                SN,
+            )
             r += 1
 
-        tracker.set(f"ind{ind_idx}.years_to_launch", SN,
-                    r - 1, 2)  # last one was Years to Launch
+        tracker.set(f"ind{ind_idx}.years_to_launch", SN, r - 1, 2)  # last one was Years to Launch
 
         # Year-by-year penetration % (pre-computed, editable)
         r += 1
-        ws.cell(row=r, column=1, value="Penetration by Year:").font = Font(name="Calibri", size=10, bold=True, color=GREEN)
+        ws.cell(row=r, column=1, value="Penetration by Year:").font = Font(
+            name="Calibri", size=10, bold=True, color=GREEN
+        )
         r += 1
         year_headers = ["Year"] + [str(base_year + y) for y in range(proj_years)]
         for i, h in enumerate(year_headers, 1):
@@ -433,11 +476,15 @@ def build_assumptions_sheet(wb, config, tracker):
         ws.cell(row=r, column=1).border = THIN_BORDER
         for y in range(proj_years):
             col = 2 + y
-            write_input_cell(ws, r, col, pen_vals[y], PCT2_FORMAT, tracker, f"ind{ind_idx}.pen_y{y}", SN)
+            write_input_cell(
+                ws, r, col, pen_vals[y], PCT2_FORMAT, tracker, f"ind{ind_idx}.pen_y{y}", SN
+            )
         r += 2
 
         # PoS
-        ws.cell(row=r, column=1, value="PROBABILITY OF SUCCESS").font = Font(name="Calibri", size=10, bold=True, color=GREEN)
+        ws.cell(row=r, column=1, value="PROBABILITY OF SUCCESS").font = Font(
+            name="Calibri", size=10, bold=True, color=GREEN
+        )
         r += 1
         pos = ind.get("pos", {})
         ws.cell(row=r, column=1, value="  Current Phase").font = NORMAL_FONT
@@ -448,8 +495,9 @@ def build_assumptions_sheet(wb, config, tracker):
         for trans_name, trans_val in phase_trans.items():
             label = trans_name.replace("_to_", " -> ").replace("_", " ").title()
             ws.cell(row=r, column=1, value=f"  {label}").font = NORMAL_FONT
-            write_input_cell(ws, r, 2, trans_val, PCT_FORMAT, tracker,
-                             f"ind{ind_idx}.pos.{trans_name}", SN)
+            write_input_cell(
+                ws, r, 2, trans_val, PCT_FORMAT, tracker, f"ind{ind_idx}.pos.{trans_name}", SN
+            )
             r += 1
 
         cum_pos = pos.get("cumulative", 0.10)
@@ -461,8 +509,16 @@ def build_assumptions_sheet(wb, config, tracker):
     # ── R&D Costs ──
     section_title(ws, r, 1, "R&D COST ASSUMPTIONS ($M)")
     r += 1
-    rd_headers = ["Phase", "Total Cost ($M)", "Duration (Yr)", "Start Year (offset)",
-                  "# Trials", "Patients/Trial", "# Sites", "Source"]
+    rd_headers = [
+        "Phase",
+        "Total Cost ($M)",
+        "Duration (Yr)",
+        "Start Year (offset)",
+        "# Trials",
+        "Patients/Trial",
+        "# Sites",
+        "Source",
+    ]
     for i, h in enumerate(rd_headers, 1):
         ws.cell(row=r, column=i, value=h)
     apply_header_row(ws, r, len(rd_headers))
@@ -471,13 +527,21 @@ def build_assumptions_sheet(wb, config, tracker):
     for p_idx, phase in enumerate(costs.get("rd_by_phase", [])):
         ws.cell(row=r, column=1, value=phase.get("phase", "")).font = NORMAL_FONT
         ws.cell(row=r, column=1).border = THIN_BORDER
-        write_input_cell(ws, r, 2, phase.get("cost_mm", 0), USD_M_FORMAT, tracker, f"rd{p_idx}.cost", SN)
-        write_input_cell(ws, r, 3, phase.get("duration_years", 1), None, tracker, f"rd{p_idx}.duration", SN)
-        write_input_cell(ws, r, 4, phase.get("start_year", 0), None, tracker, f"rd{p_idx}.start", SN)
+        write_input_cell(
+            ws, r, 2, phase.get("cost_mm", 0), USD_M_FORMAT, tracker, f"rd{p_idx}.cost", SN
+        )
+        write_input_cell(
+            ws, r, 3, phase.get("duration_years", 1), None, tracker, f"rd{p_idx}.duration", SN
+        )
+        write_input_cell(
+            ws, r, 4, phase.get("start_year", 0), None, tracker, f"rd{p_idx}.start", SN
+        )
         write_input_cell(ws, r, 5, phase.get("num_trials", 1), None)
         write_input_cell(ws, r, 6, phase.get("patients_per_trial", ""), None)
         write_input_cell(ws, r, 7, phase.get("num_sites", ""), None)
-        ws.cell(row=r, column=8, value=phase.get("source", "")).font = Font(name="Calibri", size=9, color="808080")
+        ws.cell(row=r, column=8, value=phase.get("source", "")).font = Font(
+            name="Calibri", size=9, color="808080"
+        )
         ws.cell(row=r, column=8).border = THIN_BORDER
         r += 1
 
@@ -490,7 +554,9 @@ def build_assumptions_sheet(wb, config, tracker):
         cmc_total = sum(v for v in cmc.values() if isinstance(v, (int, float)))
         ws.cell(row=r, column=1, value="CMC / Manufacturing Total ($M)").font = NORMAL_FONT
         write_input_cell(ws, r, 2, cmc_total, USD_M_FORMAT, tracker, "cmc_total", SN)
-        ws.cell(row=r, column=3, value="Spread over 5 years").font = Font(name="Calibri", size=9, color="808080")
+        ws.cell(row=r, column=3, value="Spread over 5 years").font = Font(
+            name="Calibri", size=9, color="808080"
+        )
         r += 2
 
     # ── SG&A ──
@@ -503,17 +569,25 @@ def build_assumptions_sheet(wb, config, tracker):
         write_input_cell(ws, r, 2, sales.get("reps", 100), None, tracker, "sga.reps", SN)
         r += 1
         ws.cell(row=r, column=1, value="Cost per Rep ($K/yr)").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, sales.get("cost_per_rep_k", 280), USD_FORMAT, tracker, "sga.cost_per_rep", SN)
+        write_input_cell(
+            ws, r, 2, sales.get("cost_per_rep_k", 280), USD_FORMAT, tracker, "sga.cost_per_rep", SN
+        )
         r += 1
         ramp = sales.get("ramp_schedule", [0.3, 0.6, 1.0])
         ws.cell(row=r, column=1, value="Ramp: Pre-launch %").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, ramp[0] if len(ramp) > 0 else 0.3, PCT_FORMAT, tracker, "sga.ramp0", SN)
+        write_input_cell(
+            ws, r, 2, ramp[0] if len(ramp) > 0 else 0.3, PCT_FORMAT, tracker, "sga.ramp0", SN
+        )
         r += 1
         ws.cell(row=r, column=1, value="Ramp: Launch %").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, ramp[1] if len(ramp) > 1 else 0.6, PCT_FORMAT, tracker, "sga.ramp1", SN)
+        write_input_cell(
+            ws, r, 2, ramp[1] if len(ramp) > 1 else 0.6, PCT_FORMAT, tracker, "sga.ramp1", SN
+        )
         r += 1
         ws.cell(row=r, column=1, value="Ramp: Year 2+ %").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, ramp[2] if len(ramp) > 2 else 1.0, PCT_FORMAT, tracker, "sga.ramp2", SN)
+        write_input_cell(
+            ws, r, 2, ramp[2] if len(ramp) > 2 else 1.0, PCT_FORMAT, tracker, "sga.ramp2", SN
+        )
         r += 1
 
     msls = sga.get("msls", {})
@@ -522,26 +596,38 @@ def build_assumptions_sheet(wb, config, tracker):
         write_input_cell(ws, r, 2, msls.get("count", 20), None, tracker, "sga.msl_count", SN)
         r += 1
         ws.cell(row=r, column=1, value="Cost per MSL ($K/yr)").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, msls.get("cost_per_msl_k", 350), USD_FORMAT, tracker, "sga.msl_cost", SN)
+        write_input_cell(
+            ws, r, 2, msls.get("cost_per_msl_k", 350), USD_FORMAT, tracker, "sga.msl_cost", SN
+        )
         r += 1
 
     mktg = sga.get("marketing", {})
     if mktg:
         ws.cell(row=r, column=1, value="Congress/KOL ($M/yr)").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, mktg.get("congress_annual_mm", 3), USD_M_FORMAT, tracker, "sga.congress", SN)
+        write_input_cell(
+            ws, r, 2, mktg.get("congress_annual_mm", 3), USD_M_FORMAT, tracker, "sga.congress", SN
+        )
         r += 1
         ws.cell(row=r, column=1, value="Publications ($M/yr)").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, mktg.get("publications_mm", 1), USD_M_FORMAT, tracker, "sga.pubs", SN)
+        write_input_cell(
+            ws, r, 2, mktg.get("publications_mm", 1), USD_M_FORMAT, tracker, "sga.pubs", SN
+        )
         r += 1
         ws.cell(row=r, column=1, value="Digital Marketing ($M/yr)").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, mktg.get("digital_marketing_mm", 2), USD_M_FORMAT, tracker, "sga.digital", SN)
+        write_input_cell(
+            ws, r, 2, mktg.get("digital_marketing_mm", 2), USD_M_FORMAT, tracker, "sga.digital", SN
+        )
         r += 1
         ws.cell(row=r, column=1, value="Pre-Launch Mktg Total ($M)").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, mktg.get("prelaunch_total_mm", 5), USD_M_FORMAT, tracker, "sga.prelaunch", SN)
+        write_input_cell(
+            ws, r, 2, mktg.get("prelaunch_total_mm", 5), USD_M_FORMAT, tracker, "sga.prelaunch", SN
+        )
         r += 1
 
     ws.cell(row=r, column=1, value="G&A (% of Revenue)").font = NORMAL_FONT
-    write_input_cell(ws, r, 2, sga.get("ga_pct_of_revenue", 0.05), PCT_FORMAT, tracker, "sga.ga_pct", SN)
+    write_input_cell(
+        ws, r, 2, sga.get("ga_pct_of_revenue", 0.05), PCT_FORMAT, tracker, "sga.ga_pct", SN
+    )
     r += 1
 
     ws.freeze_panes = "A5"
@@ -549,6 +635,7 @@ def build_assumptions_sheet(wb, config, tracker):
 
 
 # ── Sheet 2: Patient Funnel (Formulas -> Assumptions) ──
+
 
 def build_patient_funnel_sheet(wb, config, tracker):
     ws = wb.create_sheet("Patient Funnel")
@@ -565,7 +652,12 @@ def build_patient_funnel_sheet(wb, config, tracker):
     ws.cell(row=r, column=1, value="PATIENT FUNNEL — FORMULA-BASED DERIVATION")
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=14, bold=True, color=DARK_BLUE)
     r += 1
-    calc_note(ws, r, 1, "All values are Excel formulas linking to Assumptions. Change inputs there to update.")
+    calc_note(
+        ws,
+        r,
+        1,
+        "All values are Excel formulas linking to Assumptions. Change inputs there to update.",
+    )
     r += 2
 
     for ind_idx, ind in enumerate(indications):
@@ -660,7 +752,9 @@ def build_patient_funnel_sheet(wb, config, tracker):
                 c.font = FORMULA_FONT
                 c.number_format = NUM_FORMAT
                 c.border = THIN_BORDER
-                c.fill = PatternFill(start_color=LIGHT_GREEN, end_color=LIGHT_GREEN, fill_type="solid")
+                c.fill = PatternFill(
+                    start_color=LIGHT_GREEN, end_color=LIGHT_GREEN, fill_type="solid"
+                )
                 tracker.set(f"funnel.ind{ind_idx}.{geo}.treated.y{y}", SN, r, col)
             treated_row = r
             r += 2
@@ -707,8 +801,12 @@ def build_patient_funnel_sheet(wb, config, tracker):
     chart.style = 10
     chart.width = 22
     chart.height = 12
-    data_ref = Reference(ws, min_col=2, max_col=proj_years + 1, min_row=grand_total_row, max_row=grand_total_row)
-    cats_ref = Reference(ws, min_col=2, max_col=proj_years + 1, min_row=grand_total_row - 2 - len(indications) * 5)
+    data_ref = Reference(
+        ws, min_col=2, max_col=proj_years + 1, min_row=grand_total_row, max_row=grand_total_row
+    )
+    cats_ref = Reference(
+        ws, min_col=2, max_col=proj_years + 1, min_row=grand_total_row - 2 - len(indications) * 5
+    )
     # Use year headers from the last header row
     chart.add_data(data_ref, from_rows=True, titles_from_data=False)
     chart.series[0].graphicalProperties.line.width = 25000
@@ -719,6 +817,7 @@ def build_patient_funnel_sheet(wb, config, tracker):
 
 
 # ── Sheet 3: Revenue Build (Formulas -> Funnel + Assumptions) ──
+
 
 def build_revenue_sheet(wb, config, tracker):
     ws = wb.create_sheet("Revenue Build")
@@ -802,8 +901,11 @@ def build_revenue_sheet(wb, config, tracker):
                 tracker.set(f"rev.ind{ind_idx}.{geo}.y{y}", SN, r, col)
             # Total column
             total_col = proj_years + 2
-            c = ws.cell(row=r, column=total_col,
-                        value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+            c = ws.cell(
+                row=r,
+                column=total_col,
+                value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+            )
             c.font = FORMULA_FONT
             c.number_format = USD_M_FORMAT
             c.border = THIN_BORDER
@@ -827,8 +929,11 @@ def build_revenue_sheet(wb, config, tracker):
             tracker.set(f"rev.ind{ind_idx}.total.y{y}", SN, r, col)
         # Total column
         total_col = proj_years + 2
-        c = ws.cell(row=r, column=total_col,
-                    value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+        c = ws.cell(
+            row=r,
+            column=total_col,
+            value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+        )
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
@@ -858,8 +963,11 @@ def build_revenue_sheet(wb, config, tracker):
         c.fill = PatternFill(start_color=YELLOW, end_color=YELLOW, fill_type="solid")
         tracker.set(f"rev.total.y{y}", SN, r, col)
     total_col = proj_years + 2
-    c = ws.cell(row=r, column=total_col,
-                value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+    c = ws.cell(
+        row=r,
+        column=total_col,
+        value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+    )
     c.font = FORMULA_FONT
     c.number_format = USD_M_FORMAT
     c.border = THIN_BORDER
@@ -871,6 +979,7 @@ def build_revenue_sheet(wb, config, tracker):
 
 
 # ── Sheet 4: Cost Structure (Formulas -> Assumptions + Revenue) ──
+
 
 def build_cost_sheet(wb, config, tracker):
     ws = wb.create_sheet("Cost Structure")
@@ -889,7 +998,12 @@ def build_cost_sheet(wb, config, tracker):
     ws.cell(row=r, column=1, value="COST STRUCTURE — FORMULA-BASED ($M)")
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=14, bold=True, color=DARK_BLUE)
     r += 1
-    calc_note(ws, r, 1, "All costs use formulas referencing Assumptions. R&D spread linearly over duration.")
+    calc_note(
+        ws,
+        r,
+        1,
+        "All costs use formulas referencing Assumptions. R&D spread linearly over duration.",
+    )
     r += 2
 
     headers = ["Cost Item"] + [str(base_year + y) for y in range(proj_years)] + ["Total"]
@@ -921,14 +1035,17 @@ def build_cost_sheet(wb, config, tracker):
         for y in range(proj_years):
             col = 2 + y
             # IF(AND(year_offset >= start, year_offset < start + CEILING(duration,1)), cost/duration, 0)
-            formula = f'=IF(AND({y}>={start_ref},{y}<{start_ref}+CEILING({dur_ref},1)),{cost_ref}/{dur_ref},0)'
+            formula = f"=IF(AND({y}>={start_ref},{y}<{start_ref}+CEILING({dur_ref},1)),{cost_ref}/{dur_ref},0)"
             c = ws.cell(row=r, column=col, value=formula)
             c.font = FORMULA_FONT
             c.number_format = USD_M_FORMAT
             c.border = THIN_BORDER
 
-        c = ws.cell(row=r, column=total_col,
-                    value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+        c = ws.cell(
+            row=r,
+            column=total_col,
+            value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+        )
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
@@ -948,8 +1065,11 @@ def build_cost_sheet(wb, config, tracker):
             c.font = FORMULA_FONT
             c.number_format = USD_M_FORMAT
             c.border = THIN_BORDER
-        c = ws.cell(row=r, column=total_col,
-                    value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+        c = ws.cell(
+            row=r,
+            column=total_col,
+            value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+        )
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
@@ -970,8 +1090,11 @@ def build_cost_sheet(wb, config, tracker):
         c.border = THIN_BORDER
         c.fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
         tracker.set(f"cost.rd.y{y}", SN, r, col)
-    c = ws.cell(row=r, column=total_col,
-                value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+    c = ws.cell(
+        row=r,
+        column=total_col,
+        value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+    )
     c.font = FORMULA_FONT
     c.number_format = USD_M_FORMAT
     c.border = THIN_BORDER
@@ -993,8 +1116,11 @@ def build_cost_sheet(wb, config, tracker):
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
         tracker.set(f"cost.cogs.y{y}", SN, r, col)
-    c = ws.cell(row=r, column=total_col,
-                value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+    c = ws.cell(
+        row=r,
+        column=total_col,
+        value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+    )
     c.font = FORMULA_FONT
     c.number_format = USD_M_FORMAT
     c.border = THIN_BORDER
@@ -1035,8 +1161,11 @@ def build_cost_sheet(wb, config, tracker):
             c.font = FORMULA_FONT
             c.number_format = USD_M_FORMAT
             c.border = THIN_BORDER
-        c = ws.cell(row=r, column=total_col,
-                    value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+        c = ws.cell(
+            row=r,
+            column=total_col,
+            value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+        )
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
@@ -1062,8 +1191,11 @@ def build_cost_sheet(wb, config, tracker):
             c.font = FORMULA_FONT
             c.number_format = USD_M_FORMAT
             c.border = THIN_BORDER
-        c = ws.cell(row=r, column=total_col,
-                    value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+        c = ws.cell(
+            row=r,
+            column=total_col,
+            value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+        )
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
@@ -1091,8 +1223,11 @@ def build_cost_sheet(wb, config, tracker):
             c.font = FORMULA_FONT
             c.number_format = USD_M_FORMAT
             c.border = THIN_BORDER
-        c = ws.cell(row=r, column=total_col,
-                    value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+        c = ws.cell(
+            row=r,
+            column=total_col,
+            value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+        )
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
@@ -1117,8 +1252,11 @@ def build_cost_sheet(wb, config, tracker):
             c.font = FORMULA_FONT
             c.number_format = USD_M_FORMAT
             c.border = THIN_BORDER
-        c = ws.cell(row=r, column=total_col,
-                    value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+        c = ws.cell(
+            row=r,
+            column=total_col,
+            value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+        )
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
@@ -1138,8 +1276,11 @@ def build_cost_sheet(wb, config, tracker):
         c.border = THIN_BORDER
         c.fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
         tracker.set(f"cost.sga.y{y}", SN, r, col)
-    c = ws.cell(row=r, column=total_col,
-                value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+    c = ws.cell(
+        row=r,
+        column=total_col,
+        value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+    )
     c.font = FORMULA_FONT
     c.number_format = USD_M_FORMAT
     c.border = THIN_BORDER
@@ -1161,8 +1302,11 @@ def build_cost_sheet(wb, config, tracker):
         c.border = THIN_BORDER
         c.fill = PatternFill(start_color=LIGHT_RED, end_color=LIGHT_RED, fill_type="solid")
         tracker.set(f"cost.total.y{y}", SN, r, col)
-    c = ws.cell(row=r, column=total_col,
-                value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+    c = ws.cell(
+        row=r,
+        column=total_col,
+        value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+    )
     c.font = FORMULA_FONT
     c.number_format = USD_M_FORMAT
     c.border = THIN_BORDER
@@ -1172,6 +1316,7 @@ def build_cost_sheet(wb, config, tracker):
 
 
 # ── Sheet 5: P&L & Cash Flow (Formulas -> Revenue + Cost) ──
+
 
 def build_pl_sheet(wb, config, tracker):
     ws = wb.create_sheet("P&L & Cash Flow")
@@ -1198,7 +1343,7 @@ def build_pl_sheet(wb, config, tracker):
     r += 1
 
     def make_sum_total(row):
-        return f"=SUM({get_column_letter(2)}{row}:{get_column_letter(proj_years+1)}{row})"
+        return f"=SUM({get_column_letter(2)}{row}:{get_column_letter(proj_years + 1)}{row})"
 
     # Revenue
     ws.cell(row=r, column=1, value="Revenue").font = BOLD_FONT
@@ -1251,10 +1396,16 @@ def build_pl_sheet(wb, config, tracker):
     r += 1
 
     # GP Margin %
-    ws.cell(row=r, column=1, value="  GP Margin %").font = Font(name="Calibri", size=9, italic=True, color="808080")
+    ws.cell(row=r, column=1, value="  GP Margin %").font = Font(
+        name="Calibri", size=9, italic=True, color="808080"
+    )
     for y in range(proj_years):
         col = 2 + y
-        c = ws.cell(row=r, column=col, value=f"=IFERROR({get_column_letter(col)}{gp_row}/{get_column_letter(col)}{rev_row},0)")
+        c = ws.cell(
+            row=r,
+            column=col,
+            value=f"=IFERROR({get_column_letter(col)}{gp_row}/{get_column_letter(col)}{rev_row},0)",
+        )
         c.font = Font(name="Calibri", size=9, italic=True, color="808080")
         c.number_format = PCT_FORMAT
         c.border = THIN_BORDER
@@ -1312,10 +1463,16 @@ def build_pl_sheet(wb, config, tracker):
     r += 1
 
     # EBIT Margin
-    ws.cell(row=r, column=1, value="  EBIT Margin %").font = Font(name="Calibri", size=9, italic=True, color="808080")
+    ws.cell(row=r, column=1, value="  EBIT Margin %").font = Font(
+        name="Calibri", size=9, italic=True, color="808080"
+    )
     for y in range(proj_years):
         col = 2 + y
-        c = ws.cell(row=r, column=col, value=f"=IFERROR({get_column_letter(col)}{ebit_row}/{get_column_letter(col)}{rev_row},0)")
+        c = ws.cell(
+            row=r,
+            column=col,
+            value=f"=IFERROR({get_column_letter(col)}{ebit_row}/{get_column_letter(col)}{rev_row},0)",
+        )
         c.font = Font(name="Calibri", size=9, italic=True, color="808080")
         c.number_format = PCT_FORMAT
         c.border = THIN_BORDER
@@ -1366,7 +1523,7 @@ def build_pl_sheet(wb, config, tracker):
         if y == 0:
             formula = f"={get_column_letter(col)}{fcf_row}"
         else:
-            formula = f"={get_column_letter(col-1)}{r}+{get_column_letter(col)}{fcf_row}"
+            formula = f"={get_column_letter(col - 1)}{r}+{get_column_letter(col)}{fcf_row}"
         c = ws.cell(row=r, column=col, value=formula)
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
@@ -1378,6 +1535,7 @@ def build_pl_sheet(wb, config, tracker):
 
 
 # ── Sheet 6: rNPV Model (Formulas -> P&L + Assumptions) ──
+
 
 def build_rnpv_sheet(wb, config, tracker):
     ws = wb.create_sheet("rNPV Model")
@@ -1490,8 +1648,11 @@ def build_rnpv_sheet(wb, config, tracker):
         c.border = THIN_BORDER
         c.fill = PatternFill(start_color=YELLOW, end_color=YELLOW, fill_type="solid")
     # NPV = SUM
-    c = ws.cell(row=r, column=npv_col,
-                value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+    c = ws.cell(
+        row=r,
+        column=npv_col,
+        value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+    )
     c.font = Font(name="Calibri", size=14, bold=True, color=RED)
     c.number_format = USD_M_FORMAT
     c.border = THIN_BORDER
@@ -1510,8 +1671,11 @@ def build_rnpv_sheet(wb, config, tracker):
         c.font = FORMULA_FONT
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
-    c = ws.cell(row=r, column=npv_col,
-                value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years+1)}{r})")
+    c = ws.cell(
+        row=r,
+        column=npv_col,
+        value=f"=SUM({get_column_letter(2)}{r}:{get_column_letter(proj_years + 1)}{r})",
+    )
     c.font = Font(name="Calibri", size=12, bold=True, color=DARK_BLUE)
     c.number_format = USD_M_FORMAT
     c.border = THIN_BORDER
@@ -1559,7 +1723,9 @@ def build_rnpv_sheet(wb, config, tracker):
     tax_rate = config["discount"].get("tax_rate", 0.20)
     config["_npv_formula_ref"] = tracker.get("rnpv.npv")
     config["_unrisked_formula_ref"] = tracker.get("rnpv.unrisked_npv")
-    config["_pos_timeline"] = [total_cum_pos if y < first_launch else 1.0 for y in range(proj_years)]
+    config["_pos_timeline"] = [
+        total_cum_pos if y < first_launch else 1.0 for y in range(proj_years)
+    ]
 
     # Python-side computation for QC/Summary (mirrors formulas)
     all_treated = {}
@@ -1572,7 +1738,14 @@ def build_rnpv_sheet(wb, config, tracker):
         launch_offset = ind.get("years_to_launch", 5)
         for geo, gd in ind["geography_data"].items():
             prev = gd.get("prevalence", 0)
-            addr = prev * gd.get("diagnosed_rate", 1) * gd.get("eligible_rate", 1) * gd.get("line_share", 1) * gd.get("drug_treatable_rate", 1) * gd.get("addressable_rate", 1)
+            addr = (
+                prev
+                * gd.get("diagnosed_rate", 1)
+                * gd.get("eligible_rate", 1)
+                * gd.get("line_share", 1)
+                * gd.get("drug_treatable_rate", 1)
+                * gd.get("addressable_rate", 1)
+            )
             for y in range(proj_years):
                 ysl = y - launch_offset
                 if ysl < 0:
@@ -1583,14 +1756,18 @@ def build_rnpv_sheet(wb, config, tracker):
                     base_p = s_curve(loe_year, peak_pen, ramp_yrs)
                     pv = base_p * ((1 - post_loe) ** (ysl - loe_year + 1))
                 treated = int(addr * pv)
-                net_price = ind.get("pricing", {}).get(geo, 0) * ind.get("gross_to_net", {}).get(geo, 0.7)
+                net_price = ind.get("pricing", {}).get(geo, 0) * ind.get("gross_to_net", {}).get(
+                    geo, 0.7
+                )
                 rev = treated * net_price / 1e6
                 all_treated.setdefault(y, 0)
                 all_treated[y] = all_treated.get(y, 0) + rev
 
     # Compute FCF for each year
     rd_phases = config["costs"].get("rd_by_phase", [])
-    cmc_total = sum(v for v in config["costs"].get("cmc", {}).values() if isinstance(v, (int, float)))
+    cmc_total = sum(
+        v for v in config["costs"].get("cmc", {}).values() if isinstance(v, (int, float))
+    )
     cogs_margin = config["costs"].get("cogs_margin", 0.20)
     sga_cfg = config["costs"].get("sga", {})
     first_launch_val = min(ind.get("years_to_launch", 5) for ind in indications)
@@ -1600,8 +1777,13 @@ def build_rnpv_sheet(wb, config, tracker):
     for y in range(proj_years):
         rev = all_treated.get(y, 0)
         rev_vals.append(rev)
-        rd = sum(p.get("cost_mm", 0) / max(p.get("duration_years", 1), 0.5) for p in rd_phases
-                 if p.get("start_year", 0) <= y < p.get("start_year", 0) + math.ceil(max(p.get("duration_years", 1), 0.5)))
+        rd = sum(
+            p.get("cost_mm", 0) / max(p.get("duration_years", 1), 0.5)
+            for p in rd_phases
+            if p.get("start_year", 0)
+            <= y
+            < p.get("start_year", 0) + math.ceil(max(p.get("duration_years", 1), 0.5))
+        )
         if y < 5:
             rd += cmc_total / 5
         cogs = rev * cogs_margin
@@ -1620,14 +1802,20 @@ def build_rnpv_sheet(wb, config, tracker):
         else:
             sales = 0
         msls_cfg = sga_cfg.get("msls", {})
-        msl = msls_cfg.get("count", 0) * msls_cfg.get("cost_per_msl_k", 0) / 1000 if yfl >= -2 else 0
+        msl = (
+            msls_cfg.get("count", 0) * msls_cfg.get("cost_per_msl_k", 0) / 1000 if yfl >= -2 else 0
+        )
         if yfl < 0 and msl > 0:
             msl *= 0.5
         mktg_cfg = sga_cfg.get("marketing", {})
         if yfl in (-2, -1):
             mktg = mktg_cfg.get("prelaunch_total_mm", 0) / 2
         elif yfl >= 0:
-            mktg = mktg_cfg.get("congress_annual_mm", 0) + mktg_cfg.get("publications_mm", 0) + mktg_cfg.get("digital_marketing_mm", 0)
+            mktg = (
+                mktg_cfg.get("congress_annual_mm", 0)
+                + mktg_cfg.get("publications_mm", 0)
+                + mktg_cfg.get("digital_marketing_mm", 0)
+            )
         else:
             mktg = 0
         ga_pct = sga_cfg.get("ga_pct_of_revenue", 0.05)
@@ -1660,6 +1848,7 @@ def build_rnpv_sheet(wb, config, tracker):
 
 
 # ── Sheet 7: Sensitivity ──
+
 
 def build_sensitivity_sheet(wb, config, tracker):
     ws = wb.create_sheet("Sensitivity")
@@ -1715,9 +1904,29 @@ def build_sensitivity_sheet(wb, config, tracker):
             npv_low, npv_high = npv_high, npv_low
         swing = abs(npv_high - npv_low)
         if "WACC" in label:
-            tornado_data.append((label, f"{low_in:.1%}", f"{base_in:.1%}", f"{high_in:.1%}", npv_low, npv_high, swing))
+            tornado_data.append(
+                (
+                    label,
+                    f"{low_in:.1%}",
+                    f"{base_in:.1%}",
+                    f"{high_in:.1%}",
+                    npv_low,
+                    npv_high,
+                    swing,
+                )
+            )
         else:
-            tornado_data.append((label, f"{low_in:.0%}", f"{base_in:.0%}", f"{high_in:.0%}", npv_low, npv_high, swing))
+            tornado_data.append(
+                (
+                    label,
+                    f"{low_in:.0%}",
+                    f"{base_in:.0%}",
+                    f"{high_in:.0%}",
+                    npv_low,
+                    npv_high,
+                    swing,
+                )
+            )
 
     tornado_data.sort(key=lambda x: x[6], reverse=True)
 
@@ -1771,7 +1980,11 @@ def build_sensitivity_sheet(wb, config, tracker):
     apply_header_row(ws, r, len(sc_headers))
     r += 1
 
-    for label, rm, pm in [("Bear", bear_rev, bear_pos), ("Base", 1.0, 1.0), ("Bull", bull_rev, bull_pos)]:
+    for label, rm, pm in [
+        ("Bear", bear_rev, bear_pos),
+        ("Base", 1.0, 1.0),
+        ("Bull", bull_rev, bull_pos),
+    ]:
         val = quick_rnpv(rev_mult=rm, pos_mult=pm)
         ws.cell(row=r, column=1, value=label).font = BOLD_FONT
         ws.cell(row=r, column=2, value=rm).number_format = PCT_FORMAT
@@ -1788,6 +2001,7 @@ def build_sensitivity_sheet(wb, config, tracker):
 
 # ── Sheet 8: QC Report ──
 
+
 def build_qc_sheet(wb, config, tracker):
     ws = wb.create_sheet("QC Report")
     ws.sheet_properties.tabColor = "7030A0"
@@ -1798,7 +2012,11 @@ def build_qc_sheet(wb, config, tracker):
     ws.cell(row=r, column=1, value="MODEL QUALITY CONTROL REPORT")
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=14, bold=True, color=DARK_BLUE)
     r += 1
-    ws.cell(row=r, column=1, value=f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')} | v3 Formula-Based")
+    ws.cell(
+        row=r,
+        column=1,
+        value=f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')} | v3 Formula-Based",
+    )
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=10, color="808080")
     r += 2
 
@@ -1820,77 +2038,148 @@ def build_qc_sheet(wb, config, tracker):
     # Patient funnel rates
     for ind in indications:
         for geo, gd in ind["geography_data"].items():
-            rates = [gd.get(k, 1) for k in ["diagnosed_rate", "eligible_rate", "line_share", "drug_treatable_rate", "addressable_rate"]]
+            rates = [
+                gd.get(k, 1)
+                for k in [
+                    "diagnosed_rate",
+                    "eligible_rate",
+                    "line_share",
+                    "drug_treatable_rate",
+                    "addressable_rate",
+                ]
+            ]
             ok = all(0 < r_ <= 1.0 for r_ in rates)
-            checks.append((f"Funnel rates ({ind['name']}/{geo})", "PASS" if ok else "FAIL",
-                           f"Rates: {', '.join(f'{r_:.0%}' for r_ in rates)}", "All 0-100%"))
+            checks.append(
+                (
+                    f"Funnel rates ({ind['name']}/{geo})",
+                    "PASS" if ok else "FAIL",
+                    f"Rates: {', '.join(f'{r_:.0%}' for r_ in rates)}",
+                    "All 0-100%",
+                )
+            )
 
     # Peak revenue
-    checks.append(("Peak revenue range", "PASS" if 50 < peak_rev < 50000 else "WARN",
-                    f"${peak_rev:,.0f}M", "$50M-$50B"))
+    checks.append(
+        (
+            "Peak revenue range",
+            "PASS" if 50 < peak_rev < 50000 else "WARN",
+            f"${peak_rev:,.0f}M",
+            "$50M-$50B",
+        )
+    )
 
     # PoS vs phase
     for ind in indications:
         pos = ind.get("pos", {})
         phase = pos.get("current_phase", "")
         cum = pos.get("cumulative", 0)
-        ranges = {"Preclinical": (0.01, 0.15), "Phase 1": (0.05, 0.25), "Phase 2": (0.10, 0.40),
-                  "Phase 3": (0.30, 0.70), "NDA": (0.70, 0.95)}
+        ranges = {
+            "Preclinical": (0.01, 0.15),
+            "Phase 1": (0.05, 0.25),
+            "Phase 2": (0.10, 0.40),
+            "Phase 3": (0.30, 0.70),
+            "NDA": (0.70, 0.95),
+        }
         exp = ranges.get(phase, (0.01, 1.0))
         ok = exp[0] <= cum <= exp[1]
-        checks.append((f"PoS vs phase ({ind['name']})", "PASS" if ok else "WARN",
-                        f"{cum:.1%}", f"{exp[0]:.0%}-{exp[1]:.0%} for {phase}"))
+        checks.append(
+            (
+                f"PoS vs phase ({ind['name']})",
+                "PASS" if ok else "WARN",
+                f"{cum:.1%}",
+                f"{exp[0]:.0%}-{exp[1]:.0%} for {phase}",
+            )
+        )
 
     # WACC
     wacc = config["discount"]["wacc"]
-    checks.append(("WACC range", "PASS" if 0.08 <= wacc <= 0.20 else "WARN", f"{wacc:.1%}", "8%-20%"))
+    checks.append(
+        ("WACC range", "PASS" if 0.08 <= wacc <= 0.20 else "WARN", f"{wacc:.1%}", "8%-20%")
+    )
 
     # Revenue before launch
     first_launch = min(ind.get("years_to_launch", 5) for ind in indications)
     pre_rev = sum(revenues.get(y, 0) for y in range(first_launch))
-    checks.append(("No pre-launch revenue", "PASS" if pre_rev == 0 else "FAIL",
-                    f"${pre_rev:,.0f}M", "$0"))
+    checks.append(
+        ("No pre-launch revenue", "PASS" if pre_rev == 0 else "FAIL", f"${pre_rev:,.0f}M", "$0")
+    )
 
     # NPV non-zero
-    checks.append(("NPV non-zero", "PASS" if abs(npv) > 0.1 else "FAIL", f"${npv:,.1f}M", "Non-zero"))
+    checks.append(
+        ("NPV non-zero", "PASS" if abs(npv) > 0.1 else "FAIL", f"${npv:,.1f}M", "Non-zero")
+    )
 
     # rNPV/uNPV ratio
     if unrisked_npv != 0:
         ratio = npv / unrisked_npv
-        checks.append(("rNPV/uNPV ratio", "PASS" if 0.01 < ratio < 0.80 else "WARN",
-                        f"{ratio:.0%}", "1%-80%"))
+        checks.append(
+            ("rNPV/uNPV ratio", "PASS" if 0.01 < ratio < 0.80 else "WARN", f"{ratio:.0%}", "1%-80%")
+        )
 
     # LOE erosion
     if rev_vals and len(rev_vals) > 5:
         last5 = rev_vals[-5:]
         declines = any(last5[i] < last5[i - 1] for i in range(1, len(last5)))
-        checks.append(("LOE erosion visible", "PASS" if declines else "WARN",
-                        "Revenue declines" if declines else "Still growing", "Post-LOE decline"))
+        checks.append(
+            (
+                "LOE erosion visible",
+                "PASS" if declines else "WARN",
+                "Revenue declines" if declines else "Still growing",
+                "Post-LOE decline",
+            )
+        )
 
     # Pricing complete
     for ind in indications:
         pricing = ind.get("pricing", {})
         geos = list(ind["geography_data"].keys())
         ok = all(pricing.get(g, 0) > 0 for g in geos)
-        checks.append((f"Pricing complete ({ind['name']})", "PASS" if ok else "FAIL",
-                        f"{sum(1 for g in geos if pricing.get(g,0)>0)}/{len(geos)}", "All geos priced"))
+        checks.append(
+            (
+                f"Pricing complete ({ind['name']})",
+                "PASS" if ok else "FAIL",
+                f"{sum(1 for g in geos if pricing.get(g, 0) > 0)}/{len(geos)}",
+                "All geos priced",
+            )
+        )
 
     # References
     ref_total = 0
     ref_sourced = 0
     for ind in indications:
         ds = ind.get("data_sources", {})
-        for p in ["prevalence", "diagnosed_rate", "eligible_rate", "line_share", "drug_treatable_rate", "addressable_rate", "pricing"]:
+        for p in [
+            "prevalence",
+            "diagnosed_rate",
+            "eligible_rate",
+            "line_share",
+            "drug_treatable_rate",
+            "addressable_rate",
+            "pricing",
+        ]:
             ref_total += 1
             src = ds.get(p, "")
             if src and not any(kw in src.lower() for kw in ["estimate", "assumption", "default"]):
                 ref_sourced += 1
     ref_pct = ref_sourced / ref_total if ref_total > 0 else 0
-    checks.append(("Reference coverage", "PASS" if ref_pct >= 0.7 else "WARN" if ref_pct >= 0.4 else "FAIL",
-                    f"{ref_sourced}/{ref_total} ({ref_pct:.0%})", ">=70%"))
+    checks.append(
+        (
+            "Reference coverage",
+            "PASS" if ref_pct >= 0.7 else "WARN" if ref_pct >= 0.4 else "FAIL",
+            f"{ref_sourced}/{ref_total} ({ref_pct:.0%})",
+            ">=70%",
+        )
+    )
 
     # Formula-based model check
-    checks.append(("Model type: Formula-based", "PASS", "v3 — all calculations use Excel formulas", "Dynamic model"))
+    checks.append(
+        (
+            "Model type: Formula-based",
+            "PASS",
+            "v3 — all calculations use Excel formulas",
+            "Dynamic model",
+        )
+    )
 
     # Write
     pass_n = warn_n = fail_n = 0
@@ -1918,13 +2207,34 @@ def build_qc_sheet(wb, config, tracker):
     r += 2
     section_title(ws, r, 1, "QC SUMMARY")
     r += 1
-    write_label_value(ws, r, 1, "Passed", pass_n, val_font=Font(name="Calibri", size=12, bold=True, color="006100"))
+    write_label_value(
+        ws,
+        r,
+        1,
+        "Passed",
+        pass_n,
+        val_font=Font(name="Calibri", size=12, bold=True, color="006100"),
+    )
     ws.cell(row=r, column=2).fill = PASS_FILL
     r += 1
-    write_label_value(ws, r, 1, "Warnings", warn_n, val_font=Font(name="Calibri", size=12, bold=True, color="9C6500"))
+    write_label_value(
+        ws,
+        r,
+        1,
+        "Warnings",
+        warn_n,
+        val_font=Font(name="Calibri", size=12, bold=True, color="9C6500"),
+    )
     ws.cell(row=r, column=2).fill = WARN_FILL
     r += 1
-    write_label_value(ws, r, 1, "Failed", fail_n, val_font=Font(name="Calibri", size=12, bold=True, color="9C0006"))
+    write_label_value(
+        ws,
+        r,
+        1,
+        "Failed",
+        fail_n,
+        val_font=Font(name="Calibri", size=12, bold=True, color="9C0006"),
+    )
     ws.cell(row=r, column=2).fill = FAIL_FILL
 
     config["_qc_pass"] = pass_n
@@ -1934,6 +2244,7 @@ def build_qc_sheet(wb, config, tracker):
 
 
 # ── Sheet 9: References ──
+
 
 def build_references_sheet(wb, config, tracker):
     ws = wb.create_sheet("References")
@@ -1962,14 +2273,23 @@ def build_references_sheet(wb, config, tracker):
                 if src and src not in seen:
                     seen.add(src)
                     ref_n += 1
-                    references.append({"id": f"R{ref_n}", "category": "Input", "description": src,
-                                       "type": "Various", "date": "", "url": ""})
+                    references.append(
+                        {
+                            "id": f"R{ref_n}",
+                            "category": "Input",
+                            "description": src,
+                            "type": "Various",
+                            "date": "",
+                            "url": "",
+                        }
+                    )
 
     ref_count = 0
     for ref in references:
         ref_count += 1
         ws.cell(row=r, column=1, value=f"[{ref.get('id', f'R{ref_count}')}]").font = Font(
-            name="Calibri", size=10, bold=True, color=MED_BLUE)
+            name="Calibri", size=10, bold=True, color=MED_BLUE
+        )
         ws.cell(row=r, column=2, value=ref.get("category", "")).font = NORMAL_FONT
         ws.cell(row=r, column=3, value=ref.get("description", "")).font = NORMAL_FONT
         ws.cell(row=r, column=4, value=ref.get("type", "")).font = NORMAL_FONT
@@ -2008,6 +2328,7 @@ def build_references_sheet(wb, config, tracker):
 
 # ── Sheet 0: Summary Dashboard ──
 
+
 def build_summary_sheet(wb, config, tracker):
     ws = wb.create_sheet("Summary")
     ws.sheet_properties.tabColor = "FFC000"
@@ -2026,7 +2347,11 @@ def build_summary_sheet(wb, config, tracker):
     ws.cell(row=r, column=1, value=f"{meta['company']} -- {meta['asset']}")
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=12, color=MED_BLUE)
     r += 1
-    ws.cell(row=r, column=1, value=f"Date: {meta.get('date', datetime.now().strftime('%Y-%m-%d'))} | v3 Formula-Based")
+    ws.cell(
+        row=r,
+        column=1,
+        value=f"Date: {meta.get('date', datetime.now().strftime('%Y-%m-%d'))} | v3 Formula-Based",
+    )
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=10, color="808080")
     r += 2
 
@@ -2100,6 +2425,7 @@ def build_summary_sheet(wb, config, tracker):
 
 # ── Main ──
 
+
 def generate(config, output_path):
     wb = Workbook()
     tracker = CellTracker()
@@ -2122,24 +2448,32 @@ def generate(config, output_path):
     peak_yr = config.get("_peak_rev_year", "N/A")
 
     print(f"✓ rNPV model saved to: {output_path}")
-    print(f"  Sheets: Summary | Assumptions | Patient Funnel | Revenue Build | Cost Structure | P&L & Cash Flow | rNPV Model | Sensitivity | QC Report | References")
+    print(
+        "  Sheets: Summary | Assumptions | Patient Funnel | Revenue Build | Cost Structure | P&L & Cash Flow | rNPV Model | Sensitivity | QC Report | References"
+    )
     print(f"  rNPV: ${npv:,.1f}M")
     print(f"  Unrisked NPV: ${config.get('_unrisked_npv', 0):,.1f}M")
     print(f"  Peak Revenue: ${peak_rev:,.1f}M in {peak_yr}")
     qc_fail = config.get("_qc_fail", 0)
-    print(f"  QC: {config.get('_qc_pass', 0)} pass, {config.get('_qc_warn', 0)} warn, {qc_fail} fail {'⚠' if qc_fail > 0 else '✓'}")
-    print(f"  References: {config.get('_ref_count', 0)} sources, {config.get('_ref_sourced', 0)}/{config.get('_ref_total_params', 0)} params sourced ({config.get('_ref_coverage_pct', 0):.0%} coverage)")
-    print(f"  Model: v3 Formula-Based (change Assumptions -> all sheets update)")
+    print(
+        f"  QC: {config.get('_qc_pass', 0)} pass, {config.get('_qc_warn', 0)} warn, {qc_fail} fail {'⚠' if qc_fail > 0 else '✓'}"
+    )
+    print(
+        f"  References: {config.get('_ref_count', 0)} sources, {config.get('_ref_sourced', 0)}/{config.get('_ref_total_params', 0)} params sourced ({config.get('_ref_coverage_pct', 0):.0%} coverage)"
+    )
+    print("  Model: v3 Formula-Based (change Assumptions -> all sheets update)")
     return output_path
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate rNPV Valuation Excel Model v3 (Formula-Based)")
+    parser = argparse.ArgumentParser(
+        description="Generate rNPV Valuation Excel Model v3 (Formula-Based)"
+    )
     parser.add_argument("--config", required=True, help="Path to JSON config file")
     parser.add_argument("--output", help="Output .xlsx path")
     args = parser.parse_args()
 
-    with open(args.config, "r") as f:
+    with open(args.config) as f:
         config = json.load(f)
 
     if not args.output:

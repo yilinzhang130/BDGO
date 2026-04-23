@@ -7,13 +7,11 @@ from __future__ import annotations
 import logging
 import re
 
-import httpx
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-
 import auth as auth_mod
 import config
 from database import transaction
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 _logger = logging.getLogger(__name__)
 
@@ -22,6 +20,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Request / response models
 # ---------------------------------------------------------------------------
+
 
 class RegisterRequest(BaseModel):
     email: str
@@ -78,12 +77,13 @@ class UserResponse(BaseModel):
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-from auth import serialize_user_row as _user_dict, _USER_COLUMNS
-
+from auth import _USER_COLUMNS
+from auth import serialize_user_row as _user_dict
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/register", response_model=AuthResponse)
 def register(body: RegisterRequest):
@@ -113,7 +113,8 @@ def register(body: RegisterRequest):
             raise HTTPException(status_code=400, detail="邀请码已被使用")
         if inv["expires_at"]:
             import datetime
-            if inv["expires_at"] < datetime.datetime.now(datetime.timezone.utc):
+
+            if inv["expires_at"] < datetime.datetime.now(datetime.UTC):
                 raise HTTPException(status_code=400, detail="邀请码已过期")
 
         # Check email uniqueness
@@ -146,8 +147,7 @@ def login(body: LoginRequest):
     """Authenticate with email + password."""
     with transaction() as cur:
         cur.execute(
-            f"SELECT hashed_password, {_USER_COLUMNS} "
-            "FROM users WHERE email = %s",
+            f"SELECT hashed_password, {_USER_COLUMNS} FROM users WHERE email = %s",
             (body.email.lower(),),
         )
         row = cur.fetchone()
@@ -197,8 +197,7 @@ def update_profile(body: ProfileUpdateRequest, user: dict = Depends(auth_mod.get
 
     with transaction() as cur:
         cur.execute(
-            f"UPDATE users SET {', '.join(updates)} WHERE id = %s "
-            f"RETURNING {_USER_COLUMNS}",
+            f"UPDATE users SET {', '.join(updates)} WHERE id = %s RETURNING {_USER_COLUMNS}",
             tuple(values),
         )
         updated = _user_dict(cur.fetchone())
@@ -257,7 +256,7 @@ def google_login(body: GoogleLoginRequest):
         payload_b64 = parts[1] + "=" * (4 - len(parts[1]) % 4)
         token_info = _json.loads(base64.urlsafe_b64decode(payload_b64))
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid Google ID token format")
+        raise HTTPException(status_code=401, detail="Invalid Google ID token format") from None
 
     # Structural checks (claim values, not cryptographic)
     if token_info.get("aud") != config.GOOGLE_CLIENT_ID:
@@ -297,7 +296,9 @@ def google_login(body: GoogleLoginRequest):
             if existing_sub and existing_sub != google_sub:
                 _logger.warning(
                     "Google sub mismatch for email %s: stored=%s incoming=%s — rejected",
-                    email, existing_sub, google_sub,
+                    email,
+                    existing_sub,
+                    google_sub,
                 )
                 raise HTTPException(
                     status_code=401,

@@ -10,37 +10,33 @@
 """
 
 import json
-import pytest
-from unittest.mock import MagicMock
-
 
 # ════════════════════════════════════════════════════════════════
 # 工具注册完整性检查
 # ════════════════════════════════════════════════════════════════
 
-class TestToolRegistration:
 
+class TestToolRegistration:
     def test_all_schemas_have_impl(self):
         """每个 SCHEMA 都有对应的 IMPL 函数"""
-        from routers.chat.tools import TOOLS, TOOL_IMPL
+        from routers.chat.tools import TOOL_IMPL, TOOLS
+
         for schema in TOOLS:
             name = schema["name"]
-            assert name in TOOL_IMPL, (
-                f"工具 '{name}' 在 SCHEMAS 里有定义，但在 IMPLS 里找不到实现"
-            )
+            assert name in TOOL_IMPL, f"工具 '{name}' 在 SCHEMAS 里有定义，但在 IMPLS 里找不到实现"
 
     def test_all_impls_have_schema(self):
         """每个 IMPL 函数都有对应的 SCHEMA 描述"""
-        from routers.chat.tools import TOOLS, TOOL_IMPL
+        from routers.chat.tools import TOOL_IMPL, TOOLS
+
         schema_names = {s["name"] for s in TOOLS}
         for name in TOOL_IMPL:
-            assert name in schema_names, (
-                f"工具 '{name}' 有实现函数，但没有 SCHEMA（LLM 看不到它）"
-            )
+            assert name in schema_names, f"工具 '{name}' 有实现函数，但没有 SCHEMA（LLM 看不到它）"
 
     def test_all_schemas_have_required_fields(self):
         """每个 SCHEMA 都有 name, description, input_schema"""
         from routers.chat.tools import TOOLS
+
         for schema in TOOLS:
             assert "name" in schema, f"schema 缺少 'name': {schema}"
             assert "description" in schema, f"工具 '{schema.get('name')}' 缺少 description"
@@ -49,11 +45,16 @@ class TestToolRegistration:
     def test_crm_tools_are_registered(self):
         """核心 CRM 工具都存在"""
         from routers.chat.tools import TOOL_IMPL
+
         required_tools = [
-            "search_companies", "get_company",
-            "search_assets", "get_asset",
-            "search_deals", "search_clinical",
-            "buyer_match", "search_global",
+            "search_companies",
+            "get_company",
+            "search_assets",
+            "get_asset",
+            "search_deals",
+            "search_clinical",
+            "buyer_match",
+            "search_global",
         ]
         for tool in required_tools:
             assert tool in TOOL_IMPL, f"核心工具 '{tool}' 未注册"
@@ -61,14 +62,22 @@ class TestToolRegistration:
     def test_tool_table_covers_crm_tools(self):
         """TOOL_TABLE 覆盖了需要字段过滤的 CRM 工具"""
         from routers.chat.tools.registry import TOOL_TABLE
-        expected = ["search_companies", "get_company", "search_assets",
-                    "get_asset", "search_clinical", "search_deals"]
+
+        expected = [
+            "search_companies",
+            "get_company",
+            "search_assets",
+            "get_asset",
+            "search_clinical",
+            "search_deals",
+        ]
         for tool in expected:
             assert tool in TOOL_TABLE, f"工具 '{tool}' 未在 TOOL_TABLE 中声明字段映射"
 
     def test_needs_user_id_declared(self):
         """关键工具声明了需要 user_id"""
         from routers.chat.tools.registry import NEEDS_USER_ID
+
         assert "add_to_watchlist" in NEEDS_USER_ID
 
 
@@ -76,17 +85,18 @@ class TestToolRegistration:
 # execute_tool 分发逻辑
 # ════════════════════════════════════════════════════════════════
 
-class TestExecuteTool:
 
+class TestExecuteTool:
     def test_unknown_tool_returns_error(self):
         """未知工具名返回 error JSON"""
         from routers.chat.tools.registry import execute_tool
+
         result = json.loads(execute_tool({}, "nonexistent_tool", {}))
         assert "error" in result
 
     def test_tool_exception_returns_error_with_sentinel(self):
         """工具抛异常时返回带 _tool_failed 标志的 JSON"""
-        from routers.chat.tools.registry import execute_tool, TOOL_FAILED_KEY
+        from routers.chat.tools.registry import TOOL_FAILED_KEY, execute_tool
 
         def boom(**kwargs):
             raise ValueError("模拟工具崩溃")
@@ -110,7 +120,7 @@ class TestExecuteTool:
 
     def test_user_id_injected_for_declared_tool(self):
         """NEEDS_USER_ID 里的工具收到 _user_id 参数"""
-        from routers.chat.tools.registry import execute_tool, NEEDS_USER_ID
+        from routers.chat.tools.registry import NEEDS_USER_ID, execute_tool
 
         received = {}
 
@@ -151,11 +161,14 @@ class TestExecuteTool:
 
         impls = {"count_by": fake_count_by}
 
-        result = json.loads(execute_tool(
-            impls, "count_by",
-            {"table": "公司", "group_by": "BD跟进优先级"},
-            can_see_internal=False,  # 外部用户
-        ))
+        result = json.loads(
+            execute_tool(
+                impls,
+                "count_by",
+                {"table": "公司", "group_by": "BD跟进优先级"},
+                can_see_internal=False,  # 外部用户
+            )
+        )
         assert "error" in result
         assert "不对外部用户开放" in result["error"]
 
@@ -167,11 +180,14 @@ class TestExecuteTool:
             return [{"value": "高", "count": 5}]
 
         impls = {"count_by": fake_count_by}
-        result = json.loads(execute_tool(
-            impls, "count_by",
-            {"table": "公司", "group_by": "BD跟进优先级"},
-            can_see_internal=True,  # 内部用户
-        ))
+        result = json.loads(
+            execute_tool(
+                impls,
+                "count_by",
+                {"table": "公司", "group_by": "BD跟进优先级"},
+                can_see_internal=True,  # 内部用户
+            )
+        )
         # 不应该有 error，应该有正常结果
         assert "error" not in result or result.get("error") is None
 
@@ -180,23 +196,19 @@ class TestExecuteTool:
 # 字段过滤在 execute_tool 中端到端生效
 # ════════════════════════════════════════════════════════════════
 
-class TestFieldFilteringEndToEnd:
 
+class TestFieldFilteringEndToEnd:
     def test_search_companies_strips_internal_fields_for_external(self):
         """search_companies 的结果对外部用户自动剥离内部字段"""
-        from routers.chat.tools.registry import execute_tool, TOOL_TABLE
+        from routers.chat.tools.registry import TOOL_TABLE, execute_tool
 
         def fake_search(**kwargs):
-            return [
-                {"客户名称": "测试公司", "BD跟进优先级": "高", "内部备注": "机密"}
-            ]
+            return [{"客户名称": "测试公司", "BD跟进优先级": "高", "内部备注": "机密"}]
 
         TOOL_TABLE["search_companies"] = "公司"
         impls = {"search_companies": fake_search}
 
-        result = json.loads(execute_tool(
-            impls, "search_companies", {}, can_see_internal=False
-        ))
+        result = json.loads(execute_tool(impls, "search_companies", {}, can_see_internal=False))
         assert isinstance(result, list)
         assert "BD跟进优先级" not in result[0]
         assert "内部备注" not in result[0]
@@ -204,18 +216,14 @@ class TestFieldFilteringEndToEnd:
 
     def test_search_companies_keeps_all_fields_for_internal(self):
         """search_companies 对内部用户不剥离任何字段"""
-        from routers.chat.tools.registry import execute_tool, TOOL_TABLE
+        from routers.chat.tools.registry import TOOL_TABLE, execute_tool
 
         def fake_search(**kwargs):
-            return [
-                {"客户名称": "测试公司", "BD跟进优先级": "高", "内部备注": "机密"}
-            ]
+            return [{"客户名称": "测试公司", "BD跟进优先级": "高", "内部备注": "机密"}]
 
         TOOL_TABLE["search_companies"] = "公司"
         impls = {"search_companies": fake_search}
 
-        result = json.loads(execute_tool(
-            impls, "search_companies", {}, can_see_internal=True
-        ))
+        result = json.loads(execute_tool(impls, "search_companies", {}, can_see_internal=True))
         assert result[0]["BD跟进优先级"] == "高"
         assert result[0]["内部备注"] == "机密"

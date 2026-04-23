@@ -66,7 +66,10 @@ export default function WatchlistPage() {
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => { setDebouncedQ(q); setPage(1); }, 300);
+    const t = setTimeout(() => {
+      setDebouncedQ(q);
+      setPage(1);
+    }, 300);
     return () => clearTimeout(t);
   }, [q]);
 
@@ -108,7 +111,11 @@ export default function WatchlistPage() {
     if (!addKey.trim() || adding) return;
     setAdding(true);
     try {
-      await addToWatchlist({ entity_type: addType, entity_key: addKey.trim(), notes: addNotes.trim() || undefined });
+      await addToWatchlist({
+        entity_type: addType,
+        entity_key: addKey.trim(),
+        notes: addNotes.trim() || undefined,
+      });
       setAddKey("");
       setAddNotes("");
       load();
@@ -132,20 +139,55 @@ export default function WatchlistPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
+        <select
+          value={type}
+          onChange={(e) => {
+            setType(e.target.value);
+            setPage(1);
+          }}
+        >
           {TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </select>
       </div>
 
       {/* Quick-add form */}
-      <form onSubmit={handleAdd} className="card" style={{ marginTop: "1rem", padding: "0.85rem 1rem", display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)", fontWeight: 500, whiteSpace: "nowrap" }}>+ 添加关注</span>
+      <form
+        onSubmit={handleAdd}
+        className="card"
+        style={{
+          marginTop: "1rem",
+          padding: "0.85rem 1rem",
+          display: "flex",
+          gap: "0.6rem",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "0.82rem",
+            color: "var(--text-secondary)",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+          }}
+        >
+          + 添加关注
+        </span>
         <select
           value={addType}
           onChange={(e) => setAddType(e.target.value)}
-          style={{ fontSize: "0.82rem", padding: "0.3rem 0.5rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg)", color: "var(--text)" }}
+          style={{
+            fontSize: "0.82rem",
+            padding: "0.3rem 0.5rem",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            background: "var(--bg)",
+            color: "var(--text)",
+          }}
         >
           <option value="company">公司</option>
           <option value="asset">资产</option>
@@ -159,19 +201,48 @@ export default function WatchlistPage() {
           value={addKey}
           onChange={(e) => setAddKey(e.target.value)}
           required
-          style={{ flex: "1 1 160px", fontSize: "0.82rem", padding: "0.3rem 0.6rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg)", color: "var(--text)", minWidth: 120 }}
+          style={{
+            flex: "1 1 160px",
+            fontSize: "0.82rem",
+            padding: "0.3rem 0.6rem",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            background: "var(--bg)",
+            color: "var(--text)",
+            minWidth: 120,
+          }}
         />
         <input
           type="text"
           placeholder="备注（可选）"
           value={addNotes}
           onChange={(e) => setAddNotes(e.target.value)}
-          style={{ flex: "2 1 200px", fontSize: "0.82rem", padding: "0.3rem 0.6rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg)", color: "var(--text)", minWidth: 120 }}
+          style={{
+            flex: "2 1 200px",
+            fontSize: "0.82rem",
+            padding: "0.3rem 0.6rem",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            background: "var(--bg)",
+            color: "var(--text)",
+            minWidth: 120,
+          }}
         />
         <button
           type="submit"
           disabled={adding || !addKey.trim()}
-          style={{ padding: "0.35rem 0.9rem", background: "var(--accent)", color: "white", border: "none", borderRadius: 6, cursor: adding ? "wait" : "pointer", fontSize: "0.82rem", fontWeight: 600, opacity: adding || !addKey.trim() ? 0.6 : 1, whiteSpace: "nowrap" }}
+          style={{
+            padding: "0.35rem 0.9rem",
+            background: "var(--accent)",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            cursor: adding ? "wait" : "pointer",
+            fontSize: "0.82rem",
+            fontWeight: 600,
+            opacity: adding || !addKey.trim() ? 0.6 : 1,
+            whiteSpace: "nowrap",
+          }}
         >
           {adding ? "添加中…" : "添加"}
         </button>
@@ -179,19 +250,40 @@ export default function WatchlistPage() {
 
       <div className="card" style={{ marginTop: "1rem" }}>
         {loading ? (
-          <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}>加载中…</div>
+          <div
+            style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}
+          >
+            加载中…
+          </div>
         ) : error ? (
-          <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}>
+          <div
+            style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}
+          >
             <div style={{ fontSize: 13, marginBottom: 8 }}>加载失败</div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>{error}</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
+              {error}
+            </div>
           </div>
         ) : data && data.data.length === 0 ? (
-          <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}>
+          <div
+            style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-secondary)" }}
+          >
             <div style={{ fontSize: 36, marginBottom: 12 }}>☆</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>关注列表为空</div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 320, margin: "0 auto" }}>
-              进入<strong style={{ color: "var(--accent)" }}>公司</strong>或<strong style={{ color: "var(--accent)" }}>资产</strong>详情页，
-              点击标题旁的 ☆ <strong>关注</strong> 按钮，即可将其加入关注列表。
+            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
+              关注列表为空
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--text-secondary)",
+                lineHeight: 1.7,
+                maxWidth: 320,
+                margin: "0 auto",
+              }}
+            >
+              进入<strong style={{ color: "var(--accent)" }}>公司</strong>或
+              <strong style={{ color: "var(--accent)" }}>资产</strong>详情页， 点击标题旁的 ☆{" "}
+              <strong>关注</strong> 按钮，即可将其加入关注列表。
             </div>
           </div>
         ) : (
@@ -211,7 +303,9 @@ export default function WatchlistPage() {
                   <tr
                     key={item.id}
                     onClick={() => handleRowClick(item)}
-                    style={{ cursor: entityHref(item.entity_type, item.entity_key) ? "pointer" : "default" }}
+                    style={{
+                      cursor: entityHref(item.entity_type, item.entity_key) ? "pointer" : "default",
+                    }}
                   >
                     <td style={{ fontWeight: 500 }}>{item.entity_key}</td>
                     <td>
@@ -219,7 +313,9 @@ export default function WatchlistPage() {
                         {item.entity_type}
                       </span>
                     </td>
-                    <td style={{ color: "var(--text-secondary)", maxWidth: 300 }}>{item.notes || "—"}</td>
+                    <td style={{ color: "var(--text-secondary)", maxWidth: 300 }}>
+                      {item.notes || "—"}
+                    </td>
                     <td style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                       {item.added_at ? new Date(item.added_at).toLocaleDateString() : "—"}
                     </td>
@@ -242,9 +338,15 @@ export default function WatchlistPage() {
 
         {data && data.total_pages > 1 && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-            <span>Page {page} of {data.total_pages}</span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>Next</button>
+            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Prev
+            </button>
+            <span>
+              Page {page} of {data.total_pages}
+            </span>
+            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
+              Next
+            </button>
           </div>
         )}
       </div>

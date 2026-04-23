@@ -38,20 +38,11 @@ export function CreditBadge({ compact = false }: Props) {
     >
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.4" />
-        <text
-          x="8"
-          y="11.5"
-          textAnchor="middle"
-          fontSize="9"
-          fontWeight="bold"
-          fill="currentColor"
-        >
+        <text x="8" y="11.5" textAnchor="middle" fontSize="9" fontWeight="bold" fill="currentColor">
           C
         </text>
       </svg>
-      {compact
-        ? `${balance.balance.toFixed(0)}`
-        : `${balance.balance.toFixed(0)} credits`}
+      {compact ? `${balance.balance.toFixed(0)}` : `${balance.balance.toFixed(0)} credits`}
     </div>
   );
 }

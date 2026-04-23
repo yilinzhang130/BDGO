@@ -1,10 +1,10 @@
 """Write endpoints for edit/delete operations — admin users only."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from crm_store import update_row, delete_row, distinct_values, rename_company, ALLOWED_TABLES
 from auth import get_current_user
+from crm_store import ALLOWED_TABLES, delete_row, distinct_values, rename_company, update_row
+from fastapi import APIRouter, Depends, HTTPException
 from field_policy import is_admin_user
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -39,7 +39,9 @@ class DeleteBody(BaseModel):
 
 
 @router.delete("/{table}/{pk_value}")
-def delete(table: str, pk_value: str, body: DeleteBody | None = None, _: dict = Depends(_require_admin)):
+def delete(
+    table: str, pk_value: str, body: DeleteBody | None = None, _: dict = Depends(_require_admin)
+):
     if table not in ALLOWED_TABLES:
         raise HTTPException(400, f"Invalid table: {table}")
 
@@ -64,15 +66,14 @@ def rename(old_name: str, body: RenameBody, _: dict = Depends(_require_admin)):
     try:
         ok = rename_company(old_name, new_name)
     except ValueError as e:
-        raise HTTPException(409, str(e))
+        raise HTTPException(409, str(e)) from e
     if not ok:
         raise HTTPException(404, "Company not found")
     return {"renamed": True, "old_name": old_name, "new_name": new_name}
 
 
 @router.get("/distinct/{table}/{column}")
-def get_distinct(table: str, column: str, limit: int = 500,
-                 _: dict = Depends(_require_admin)):
+def get_distinct(table: str, column: str, limit: int = 500, _: dict = Depends(_require_admin)):
     """Return distinct column values + counts for filter UIs.
 
     Admin-only: the column name is caller-supplied and could expose hidden

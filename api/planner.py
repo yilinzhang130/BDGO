@@ -18,7 +18,6 @@ import json
 import logging
 import re
 import uuid
-from typing import Any
 
 from llm_pool import acquire_for, get_client
 from models import ModelSpec
@@ -108,7 +107,10 @@ async def generate_plan(
             if model.anthropic_version:
                 headers["anthropic-version"] = model.anthropic_version
             resp = await client.post(
-                model.api_url, json=body, headers=headers, timeout=60,
+                model.api_url,
+                json=body,
+                headers=headers,
+                timeout=60,
             )
             if resp.status_code != 200:
                 logger.warning("Planner LLM returned %d: %s", resp.status_code, resp.text[:300])
@@ -179,15 +181,17 @@ def _parse_plan_json(text: str) -> dict | None:
         if not isinstance(step, dict):
             continue
         sid = str(step.get("id") or f"s{idx + 1}")
-        normalized_steps.append({
-            "id": sid,
-            "title": str(step.get("title") or f"步骤 {idx + 1}"),
-            "description": str(step.get("description") or ""),
-            "tools_expected": [str(t) for t in (step.get("tools_expected") or []) if t],
-            "required": bool(step.get("required", False)),
-            "default_selected": bool(step.get("default_selected", True)),
-            "estimated_seconds": int(step.get("estimated_seconds") or 30),
-        })
+        normalized_steps.append(
+            {
+                "id": sid,
+                "title": str(step.get("title") or f"步骤 {idx + 1}"),
+                "description": str(step.get("description") or ""),
+                "tools_expected": [str(t) for t in (step.get("tools_expected") or []) if t],
+                "required": bool(step.get("required", False)),
+                "default_selected": bool(step.get("default_selected", True)),
+                "estimated_seconds": int(step.get("estimated_seconds") or 30),
+            }
+        )
 
     if not normalized_steps:
         return None
@@ -226,7 +230,7 @@ def _recent_text_only(history: list[dict], turns: int = 2) -> list[dict]:
         simplified.append({"role": role, "content": text})
 
     # Keep only last `turns` user+assistant pairs = `turns*2` messages
-    return simplified[-(turns * 2):]
+    return simplified[-(turns * 2) :]
 
 
 def build_plan_constraint(plan_title: str, selected_steps: list[dict]) -> str:
@@ -312,7 +316,10 @@ async def summarize_history(
             if model.anthropic_version:
                 headers["anthropic-version"] = model.anthropic_version
             resp = await client.post(
-                model.api_url, json=body, headers=headers, timeout=60,
+                model.api_url,
+                json=body,
+                headers=headers,
+                timeout=60,
             )
             if resp.status_code != 200:
                 logger.warning("Summarizer LLM returned %d: %s", resp.status_code, resp.text[:200])

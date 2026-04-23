@@ -117,26 +117,58 @@ export default function TermsPage() {
 
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "56px 32px 80px" }}>
         <div style={{ marginBottom: 40 }}>
-          <h1 style={{ fontSize: 36, fontWeight: 800, color: "#0F172A", margin: "0 0 12px" }}>服务条款</h1>
+          <h1 style={{ fontSize: 36, fontWeight: 800, color: "#0F172A", margin: "0 0 12px" }}>
+            服务条款
+          </h1>
           <p style={{ fontSize: 14, color: "#94A3B8", margin: 0 }}>最后更新：2026 年 4 月 1 日</p>
         </div>
 
-        <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.8, marginBottom: 32, padding: "16px 20px", background: "#EEF2FF", borderRadius: 10, borderLeft: "3px solid #2563EB" }}>
-          本条款是您（以下简称「您」）与 BD Go 运营方（以下简称「我们」）之间具有法律约束力的协议。请您在使用 BD Go 前仔细阅读，特别关注关于免责、责任限制、数据使用与争议解决的条款。如您不同意本条款，请停止使用本平台。
+        <div
+          style={{
+            fontSize: 14,
+            color: "#475569",
+            lineHeight: 1.8,
+            marginBottom: 32,
+            padding: "16px 20px",
+            background: "#EEF2FF",
+            borderRadius: 10,
+            borderLeft: "3px solid #2563EB",
+          }}
+        >
+          本条款是您（以下简称「您」）与 BD Go
+          运营方（以下简称「我们」）之间具有法律约束力的协议。请您在使用 BD Go
+          前仔细阅读，特别关注关于免责、责任限制、数据使用与争议解决的条款。如您不同意本条款，请停止使用本平台。
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
           {sections.map((s) => (
             <div key={s.title}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0F172A", marginBottom: 12 }}>{s.title}</h2>
-              <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.8, whiteSpace: "pre-line" }}>{s.content}</div>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0F172A", marginBottom: 12 }}>
+                {s.title}
+              </h2>
+              <div
+                style={{ fontSize: 14, color: "#475569", lineHeight: 1.8, whiteSpace: "pre-line" }}
+              >
+                {s.content}
+              </div>
             </div>
           ))}
         </div>
 
-        <div style={{ marginTop: 48, padding: "20px", background: "#F8FAFF", border: "1px solid #E8EFFE", borderRadius: 12 }}>
+        <div
+          style={{
+            marginTop: 48,
+            padding: "20px",
+            background: "#F8FAFF",
+            border: "1px solid #E8EFFE",
+            borderRadius: 12,
+          }}
+        >
           <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>
-            如有任何关于服务条款的疑问，请联系 <a href="mailto:legal@bdgo.ai" style={{ color: "#2563EB", textDecoration: "none" }}>legal@bdgo.ai</a>
+            如有任何关于服务条款的疑问，请联系{" "}
+            <a href="mailto:legal@bdgo.ai" style={{ color: "#2563EB", textDecoration: "none" }}>
+              legal@bdgo.ai
+            </a>
           </p>
         </div>
       </div>

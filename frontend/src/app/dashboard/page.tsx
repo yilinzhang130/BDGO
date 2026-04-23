@@ -13,9 +13,20 @@ import {
 } from "@/lib/api";
 import { formatNumber, COLORS } from "@/lib/utils";
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  AreaChart, Area, Treemap,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  AreaChart,
+  Area,
+  Treemap,
 } from "recharts";
 
 export default function DashboardPage() {
@@ -57,7 +68,16 @@ export default function DashboardPage() {
     { label: "Tracked Companies", value: overview.tracked_companies },
   ];
 
-  const phaseOrder = ["Pre-clinical", "Phase 1", "Phase 1/2", "Phase 2", "Phase 2/3", "Phase 3", "Phase 4", "Approved"];
+  const phaseOrder = [
+    "Pre-clinical",
+    "Phase 1",
+    "Phase 1/2",
+    "Phase 2",
+    "Phase 2/3",
+    "Phase 3",
+    "Phase 4",
+    "Approved",
+  ];
   const sortedPhases = byPhase
     .filter((p) => phaseOrder.includes(p.phase))
     .toSorted((a, b) => phaseOrder.indexOf(a.phase) - phaseOrder.indexOf(b.phase));
@@ -90,9 +110,10 @@ export default function DashboardPage() {
                 cx="50%"
                 cy="50%"
                 outerRadius={110}
-                label={((props: any) =>
-                  `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`
-                ) as any}
+                label={
+                  ((props: any) =>
+                    `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`) as any
+                }
                 labelLine={false}
               >
                 {byCountry.slice(0, 10).map((_, i) => (
@@ -131,20 +152,42 @@ export default function DashboardPage() {
               dataKey="size"
               nameKey="name"
               stroke="#fff"
-              content={(({ x, y, width, height, name, size }: any) => {
-                if (width < 50 || height < 30) return <g />;
-                return (
-                  <g>
-                    <rect x={x} y={y} width={width} height={height} fill={indicationColorMap[name] || "#64748b"} stroke="#fff" />
-                    <text x={x + width / 2} y={y + height / 2 - 6} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={600}>
-                      {String(name).length > 12 ? String(name).slice(0, 12) + ".." : name}
-                    </text>
-                    <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" fill="#ffffffcc" fontSize={10}>
-                      {size}
-                    </text>
-                  </g>
-                );
-              }) as any}
+              content={
+                (({ x, y, width, height, name, size }: any) => {
+                  if (width < 50 || height < 30) return <g />;
+                  return (
+                    <g>
+                      <rect
+                        x={x}
+                        y={y}
+                        width={width}
+                        height={height}
+                        fill={indicationColorMap[name] || "#64748b"}
+                        stroke="#fff"
+                      />
+                      <text
+                        x={x + width / 2}
+                        y={y + height / 2 - 6}
+                        textAnchor="middle"
+                        fill="#fff"
+                        fontSize={11}
+                        fontWeight={600}
+                      >
+                        {String(name).length > 12 ? String(name).slice(0, 12) + ".." : name}
+                      </text>
+                      <text
+                        x={x + width / 2}
+                        y={y + height / 2 + 10}
+                        textAnchor="middle"
+                        fill="#ffffffcc"
+                        fontSize={10}
+                      >
+                        {size}
+                      </text>
+                    </g>
+                  );
+                }) as any
+              }
             />
           </ResponsiveContainer>
         </div>
@@ -159,8 +202,24 @@ export default function DashboardPage() {
               <YAxis yAxisId="count" orientation="left" />
               <YAxis yAxisId="value" orientation="right" />
               <Tooltip />
-              <Area yAxisId="count" type="monotone" dataKey="count" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} name="# Deals" />
-              <Area yAxisId="value" type="monotone" dataKey="total_value" stroke="#10b981" fill="#10b981" fillOpacity={0.1} name="Total Value ($M)" />
+              <Area
+                yAxisId="count"
+                type="monotone"
+                dataKey="count"
+                stroke="#3b82f6"
+                fill="#3b82f6"
+                fillOpacity={0.15}
+                name="# Deals"
+              />
+              <Area
+                yAxisId="value"
+                type="monotone"
+                dataKey="total_value"
+                stroke="#10b981"
+                fill="#10b981"
+                fillOpacity={0.1}
+                name="Total Value ($M)"
+              />
               <Legend />
             </AreaChart>
           </ResponsiveContainer>
@@ -178,9 +237,12 @@ export default function DashboardPage() {
                 cx="50%"
                 cy="50%"
                 outerRadius={110}
-                label={((props: any) =>
-                  (props.percent ?? 0) > 0.03 ? `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%` : ""
-                ) as any}
+                label={
+                  ((props: any) =>
+                    (props.percent ?? 0) > 0.03
+                      ? `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`
+                      : "") as any
+                }
                 labelLine={false}
               >
                 {byType.map((_, i) => (

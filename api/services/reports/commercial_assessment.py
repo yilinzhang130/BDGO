@@ -20,11 +20,10 @@ from __future__ import annotations
 
 import datetime
 import logging
-from typing import Any
-
-from pydantic import BaseModel
 
 from crm_store import LIKE_ESCAPE, like_contains
+from pydantic import BaseModel
+
 from services.helpers import docx_builder
 from services.helpers.text import format_web_results, safe_slug, search_and_deduplicate
 from services.report_builder import (
@@ -40,11 +39,12 @@ logger = logging.getLogger(__name__)
 # Input model
 # ─────────────────────────────────────────────────────────────
 
+
 class CommercialAssessmentInput(BaseModel):
-    asset_name: str                    # Drug / asset name or target keyword
-    company: str | None = None         # Developer company name (optional)
-    indication: str | None = None      # Specific indication (optional)
-    target: str | None = None          # Target / MOA keyword (optional)
+    asset_name: str  # Drug / asset name or target keyword
+    company: str | None = None  # Developer company name (optional)
+    indication: str | None = None  # Specific indication (optional)
+    target: str | None = None  # Target / MOA keyword (optional)
     include_web_search: bool = True
 
 
@@ -292,6 +292,7 @@ RoW:    US+EU的15-20%
 # Phase ranking helper
 # ─────────────────────────────────────────────────────────────
 
+
 def _phase_rank(phase: str | None) -> int:
     if not phase:
         return 0
@@ -316,6 +317,7 @@ def _phase_rank(phase: str | None) -> int:
 # ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
+
 
 class CommercialAssessmentService(ReportService):
     slug = "commercial-assessment"
@@ -492,8 +494,7 @@ class CommercialAssessmentService(ReportService):
                 or (target_kw and target_kw in tgt and indication_kw and indication_kw in ind)
             )
             is_competitor = not is_target and (
-                (target_kw and target_kw in tgt)
-                or (indication_kw and indication_kw in ind)
+                (target_kw and target_kw in tgt) or (indication_kw and indication_kw in ind)
             )
 
             if is_target:
@@ -505,9 +506,7 @@ class CommercialAssessmentService(ReportService):
         competitors.sort(key=lambda r: _phase_rank(r.get("临床阶段")), reverse=True)
         return target_assets[:10], competitors[:20]
 
-    def _query_deals(
-        self, ctx: ReportContext, inp: CommercialAssessmentInput
-    ) -> list[dict]:
+    def _query_deals(self, ctx: ReportContext, inp: CommercialAssessmentInput) -> list[dict]:
         kws = [w for w in [inp.asset_name, inp.target, inp.indication] if w]
         if not kws:
             return []
@@ -516,7 +515,9 @@ class CommercialAssessmentService(ReportService):
         conds = []
         params = []
         for kw in kws:
-            conds.append(f'("靶点" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE})')
+            conds.append(
+                f'("靶点" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE})'
+            )
             params.extend([like_contains(kw)] * 3)
 
         where = " OR ".join(conds)
@@ -529,9 +530,7 @@ class CommercialAssessmentService(ReportService):
         return ctx.crm_query(sql, tuple(params))
 
     # ── web search ──────────────────────────────────────────
-    def _run_web_searches(
-        self, inp: CommercialAssessmentInput, display: str
-    ) -> list[dict]:
+    def _run_web_searches(self, inp: CommercialAssessmentInput, display: str) -> list[dict]:
         indication = inp.indication or inp.asset_name
         queries = [
             f"{indication} epidemiology prevalence incidence worldwide 2024 2025",

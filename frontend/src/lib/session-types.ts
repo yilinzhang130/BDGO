@@ -50,20 +50,14 @@ export interface ChatMessage {
   plan?: PlanProposal;
   planStatus?: PlanStatus;
   planSelectedIds?: string[]; // remembers which steps were ticked on confirm
-  originalMessage?: string;   // original user prompt when plan was generated
+  originalMessage?: string; // original user prompt when plan was generated
   quickSources?: QuickSearchSource[]; // quick-search citations
-  error?: string;               // user-facing error; presence enables retry UI
+  error?: string; // user-facing error; presence enables retry UI
   streaming?: boolean;
   createdAt: number;
 }
 
-export type EntityType =
-  | "company"
-  | "asset"
-  | "clinical"
-  | "deal"
-  | "patent"
-  | "buyer";
+export type EntityType = "company" | "asset" | "clinical" | "deal" | "patent" | "buyer";
 
 export interface ContextEntity {
   id: string; // dedupe key: `${entity_type}:${slug}`

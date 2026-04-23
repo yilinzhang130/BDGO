@@ -90,26 +90,59 @@ export default function PrivacyPage() {
 
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "56px 32px 80px" }}>
         <div style={{ marginBottom: 40 }}>
-          <h1 style={{ fontSize: 36, fontWeight: 800, color: "#0F172A", margin: "0 0 12px" }}>隐私政策</h1>
+          <h1 style={{ fontSize: 36, fontWeight: 800, color: "#0F172A", margin: "0 0 12px" }}>
+            隐私政策
+          </h1>
           <p style={{ fontSize: 14, color: "#94A3B8", margin: 0 }}>最后更新：2026 年 4 月 1 日</p>
         </div>
 
-        <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.8, marginBottom: 32, padding: "16px 20px", background: "#EEF2FF", borderRadius: 10, borderLeft: "3px solid #2563EB" }}>
-          BD Go（以下简称「本平台」或「我们」）重视您的个人信息与业务数据的安全。本政策说明我们在您使用 BD Go 过程中收集哪些信息、如何使用和共享、以及您依法享有的权利。我们承诺以审慎、透明的方式处理您的信息，并不会要求您超越服务目的提供个人数据。
+        <div
+          style={{
+            fontSize: 14,
+            color: "#475569",
+            lineHeight: 1.8,
+            marginBottom: 32,
+            padding: "16px 20px",
+            background: "#EEF2FF",
+            borderRadius: 10,
+            borderLeft: "3px solid #2563EB",
+          }}
+        >
+          BD
+          Go（以下简称「本平台」或「我们」）重视您的个人信息与业务数据的安全。本政策说明我们在您使用
+          BD Go
+          过程中收集哪些信息、如何使用和共享、以及您依法享有的权利。我们承诺以审慎、透明的方式处理您的信息，并不会要求您超越服务目的提供个人数据。
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
           {sections.map((s) => (
             <div key={s.title}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0F172A", marginBottom: 12 }}>{s.title}</h2>
-              <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.8, whiteSpace: "pre-line" }}>{s.content}</div>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0F172A", marginBottom: 12 }}>
+                {s.title}
+              </h2>
+              <div
+                style={{ fontSize: 14, color: "#475569", lineHeight: 1.8, whiteSpace: "pre-line" }}
+              >
+                {s.content}
+              </div>
             </div>
           ))}
         </div>
 
-        <div style={{ marginTop: 48, padding: "20px", background: "#F8FAFF", border: "1px solid #E8EFFE", borderRadius: 12 }}>
+        <div
+          style={{
+            marginTop: 48,
+            padding: "20px",
+            background: "#F8FAFF",
+            border: "1px solid #E8EFFE",
+            borderRadius: 12,
+          }}
+        >
           <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>
-            如有任何关于隐私的疑问，请联系 <a href="mailto:privacy@bdgo.ai" style={{ color: "#2563EB", textDecoration: "none" }}>privacy@bdgo.ai</a>
+            如有任何关于隐私的疑问，请联系{" "}
+            <a href="mailto:privacy@bdgo.ai" style={{ color: "#2563EB", textDecoration: "none" }}>
+              privacy@bdgo.ai
+            </a>
           </p>
         </div>
       </div>
