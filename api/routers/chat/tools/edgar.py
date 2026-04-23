@@ -15,17 +15,16 @@ analysis the user can upload the PDF via the existing attachments flow."""
 from __future__ import annotations
 
 import logging
-import os
 import re
 import threading
 from typing import Any
 
 import httpx
+from config import SEC_USER_AGENT as _USER_AGENT
 
 logger = logging.getLogger(__name__)
 
 
-_USER_AGENT = os.environ.get("SEC_USER_AGENT") or "BD Go Research (bdgo@example.com)"
 _HEADERS = {"User-Agent": _USER_AGENT, "Accept": "application/json"}
 _TIMEOUT = 20.0
 

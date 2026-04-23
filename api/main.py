@@ -9,10 +9,10 @@ managed by ``auth_db.py``.
 
 import json
 import logging
-import os
 import traceback
 from contextlib import asynccontextmanager
 
+import config
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -39,8 +39,7 @@ class _JSONFormatter(logging.Formatter):
 
 
 _use_json_logs = (
-    os.environ.get("LOG_FORMAT", "").lower() == "json"
-    or bool(os.environ.get("DATABASE_URL"))  # production heuristic
+    config.LOG_FORMAT == "json" or bool(config.DATABASE_URL)  # production heuristic
 )
 
 _handler = logging.StreamHandler()
@@ -125,7 +124,7 @@ app = FastAPI(
 )
 
 _default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
-_cors_env = os.environ.get("CORS_ORIGINS", "")
+_cors_env = ",".join(config.CORS_ORIGINS)
 _allowed_origins = (
     [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else _default_origins
 )
