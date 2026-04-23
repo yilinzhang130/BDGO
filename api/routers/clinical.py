@@ -1,9 +1,10 @@
 """Clinical trial endpoints."""
 
 from auth import get_current_user, public_api
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, query_one
 from fastapi import APIRouter, Depends, HTTPException, Query
 from field_policy import strip_hidden
+from services.crm.list_view import list_table_view
 
 router = APIRouter()
 
@@ -48,31 +49,29 @@ def list_clinical(
         params.append(result)
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {
-        "试验ID",
-        "资产名称",
-        "公司名称",
-        "临床期次",
-        "数据状态",
-        "结果判定",
-        "适应症",
-        "主要终点名称",
-        "主要终点结果值",
-        "安全性标志",
-    }
-    sort_col = sort if sort in allowed_sorts else "试验ID"
-    order_dir = "DESC" if order.lower() == "desc" else "ASC"
-
-    result_page = paginate(
+    return list_table_view(
         "临床",
         where=where,
         params=tuple(params),
-        order_by=f'"{sort_col}" {order_dir}',
+        sort=sort,
+        order=order,
+        sort_allowlist={
+            "试验ID",
+            "资产名称",
+            "公司名称",
+            "临床期次",
+            "数据状态",
+            "结果判定",
+            "适应症",
+            "主要终点名称",
+            "主要终点结果值",
+            "安全性标志",
+        },
+        default_sort="试验ID",
         page=page,
         page_size=page_size,
+        user=user,
     )
-    result_page["data"] = strip_hidden(result_page["data"], "临床", user)
-    return result_page
 
 
 @router.get("/{record_id}")

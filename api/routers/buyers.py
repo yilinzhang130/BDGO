@@ -3,8 +3,9 @@
 from urllib.parse import unquote
 
 from auth import public_api
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains, query_one
 from fastapi import APIRouter, HTTPException, Query
+from services.crm.list_view import list_table_view
 
 router = APIRouter()
 
@@ -28,22 +29,21 @@ def list_buyers(
         params.extend([like_contains(q)] * 3)
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {
-        "company_name",
-        "heritage_ta",
-        "annual_revenue",
-        "last_updated",
-        "risk_appetite",
-        "deal_size_preference",
-    }
-    sort_col = sort if sort in allowed_sorts else "company_name"
-    order_dir = "DESC" if order.lower() == "desc" else "ASC"
-
-    return paginate(
+    return list_table_view(
         "MNC画像",
         where=where,
         params=tuple(params),
-        order_by=f'"{sort_col}" {order_dir}',
+        sort=sort,
+        order=order,
+        sort_allowlist={
+            "company_name",
+            "heritage_ta",
+            "annual_revenue",
+            "last_updated",
+            "risk_appetite",
+            "deal_size_preference",
+        },
+        default_sort="company_name",
         page=page,
         page_size=page_size,
     )
