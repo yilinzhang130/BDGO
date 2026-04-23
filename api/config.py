@@ -182,6 +182,27 @@ SEC_USER_AGENT = os.environ.get("SEC_USER_AGENT") or "BD Go Research (bdgo@examp
 AIDD_SSO_SECRET = os.environ.get("AIDD_SSO_SECRET", "")
 AIDD_BASE_URL = os.environ.get("AIDD_BASE_URL", "https://aidd-two.vercel.app")
 
+# ─────────────────────────────────────────────────────────────
+# Credits (business thresholds — pricing experiments need env override,
+# not a redeploy)
+# ─────────────────────────────────────────────────────────────
+
+DEFAULT_GRANT_CREDITS = int(os.environ.get("DEFAULT_GRANT_CREDITS", "10000"))
+MIN_CREDITS_PER_REQUEST = int(os.environ.get("MIN_CREDITS_PER_REQUEST", "10"))
+
+# ─────────────────────────────────────────────────────────────
+# LLM / DB pool sizing (infra knobs)
+# ─────────────────────────────────────────────────────────────
+
+# Per-call timeout for the planner's LLM (plan generation + summarisation).
+PLANNER_LLM_TIMEOUT_SECONDS = int(os.environ.get("PLANNER_LLM_TIMEOUT_SECONDS", "60"))
+
+# Auth DB ThreadedConnectionPool sizing. Max is sized above default
+# because chat endpoints offload DB calls to asyncio.to_thread workers
+# (multiple concurrent threads per request).
+AUTH_DB_POOL_MIN = int(os.environ.get("AUTH_DB_POOL_MIN", "2"))
+AUTH_DB_POOL_MAX = int(os.environ.get("AUTH_DB_POOL_MAX", "20"))
+
 
 # ─────────────────────────────────────────────────────────────
 # Shared helpers

@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 
 import auth_db
+from config import DEFAULT_GRANT_CREDITS, MIN_CREDITS_PER_REQUEST
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
@@ -36,10 +37,18 @@ logger = logging.getLogger(__name__)
 # Config
 # ─────────────────────────────────────────────────────────────
 
-# Welcome grant for new users, in whole credits
-DEFAULT_GRANT_CREDITS = 10_000
-# Require at least this many credits before starting a chat request
-MIN_CREDITS_PER_REQUEST = 10
+# Re-exported for callers that imported these names from credits.
+# Source of truth lives in config.py (env-overridable).
+__all__ = [
+    "DEFAULT_GRANT_CREDITS",
+    "MIN_CREDITS_PER_REQUEST",
+    "calc_credits",
+    "ensure_balance",
+    "get_balance",
+    "grant_credits",
+    "list_usage",
+    "record_usage",
+]
 
 
 # ─────────────────────────────────────────────────────────────
