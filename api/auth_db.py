@@ -299,8 +299,8 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
             raise RuntimeError("DATABASE_URL is not set — cannot connect to auth database")
 
         _pool = psycopg2.pool.ThreadedConnectionPool(
-            minconn=2,
-            maxconn=20,  # bumped from 10; chat offloads DB calls to threads
+            minconn=config.AUTH_DB_POOL_MIN,
+            maxconn=config.AUTH_DB_POOL_MAX,
             dsn=config.DATABASE_URL,
             cursor_factory=psycopg2.extras.RealDictCursor,
         )

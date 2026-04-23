@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 
 import auth_db
+from config import DEFAULT_GRANT_CREDITS, MIN_CREDITS_PER_REQUEST
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
@@ -36,10 +37,18 @@ logger = logging.getLogger(__name__)
 # Config
 # ─────────────────────────────────────────────────────────────
 
-# Welcome grant for new users, in whole credits
-DEFAULT_GRANT_CREDITS = 10_000
-# Require at least this many credits before starting a chat request
-MIN_CREDITS_PER_REQUEST = 10
+# Re-exported for callers that imported these names from credits.
+# Source of truth lives in config.py (env-overridable).
+__all__ = [
+    "DEFAULT_GRANT_CREDITS",
+    "MIN_CREDITS_PER_REQUEST",
+    "calc_credits",
+    "ensure_balance",
+    "get_balance",
+    "grant_credits",
+    "list_usage",
+    "record_usage",
+]
 
 
 # ─────────────────────────────────────────────────────────────
@@ -151,13 +160,21 @@ def record_usage(
                 (credits_charged, credits_charged, user_id),
             )
     except Exception:
+        # Swallow-and-continue: don't surface billing errors to the user
+        # mid-chat. But ops needs a grep-able signal + the unbilled
+        # amount so usage can be reconciled manually. The
+        # ``BILLING_LEAK`` prefix is the alert hook — wire monitoring
+        # to trigger on this marker.
         logger.exception(
-            "Failed to record usage for user=%s session=%s model=%s",
+            "BILLING_LEAK record_usage failed user=%s session=%s model=%s "
+            "credits_unbilled=%.2f input_tokens=%d output_tokens=%d",
             user_id,
             session_id,
             model_id,
+            credits_charged,
+            input_tokens,
+            output_tokens,
         )
-        # Don't surface billing errors to the user mid-chat
         return 0.0
 
     return credits_charged

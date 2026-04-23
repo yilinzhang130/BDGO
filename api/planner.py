@@ -19,6 +19,7 @@ import logging
 import re
 import uuid
 
+import config
 from llm_pool import acquire_for, get_client
 from models import ModelSpec
 
@@ -110,7 +111,7 @@ async def generate_plan(
                 model.api_url,
                 json=body,
                 headers=headers,
-                timeout=60,
+                timeout=config.PLANNER_LLM_TIMEOUT_SECONDS,
             )
             if resp.status_code != 200:
                 logger.warning("Planner LLM returned %d: %s", resp.status_code, resp.text[:300])
@@ -319,7 +320,7 @@ async def summarize_history(
                 model.api_url,
                 json=body,
                 headers=headers,
-                timeout=60,
+                timeout=config.PLANNER_LLM_TIMEOUT_SECONDS,
             )
             if resp.status_code != 200:
                 logger.warning("Summarizer LLM returned %d: %s", resp.status_code, resp.text[:200])
