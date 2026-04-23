@@ -62,7 +62,6 @@
 | S-009 | 2026-04-24 | structure | D2 | medium | open | S | n/a | api/conferences/ | Directory named like a subpackage but contains only `AACR-2026/report_data.json` — no Python code | Either rename to `api/data/conferences/` to reflect its role as a data store, or move JSON into `workspace/` per the output-path convention. Conference logic actually lives in `routers/conference.py` |
 | S-010 | 2026-04-24 | structure | C4 | medium | open | S | n/a | frontend/src/lib/utils.ts | `utils.ts` mixes 5 unrelated responsibilities: SSR guard, fire-and-forget promise helper, number formatting, 4 badge-class helpers, safe JSON parse, chart color palette | Split into `browser.ts` (isBrowser, bg), `format.ts` (formatNumber, parseNum, safeJsonParse), `badges.ts` (4 badge helpers), `chart-colors.ts` (COLORS). Currently imported by auth/reports/sessions |
 | S-011 | 2026-04-24 | structure | F1/F2 | medium | open | L | n/a | api/tests/ | Test tree does not mirror source. Only 4 unit tests (auth_helpers, credits, field_policy, tool_registry) + 1 security test. Zero tests for `services/` (11 report services), `routers/` (24 routers), or `crm_store.py`. `tests/integration/` empty | Mirror source layout: `tests/unit/services/reports/test_<each>.py`, `tests/unit/routers/test_<each>.py`, `tests/integration/test_crud_flow.py` |
-| S-012 | 2026-04-24 | structure | A1 | low | open | S | n/a | api/db.py | Deprecation shim with zero callers (no file imports `from db import` or `import db`) | Delete the file; the shim has served its purpose |
 | S-013 | 2026-04-24 | structure | C4 | low | open | S | n/a | frontend/src/components/charts/ | Empty directory | Delete it, or add a README noting it's reserved |
 
 ---
@@ -72,6 +71,7 @@
 | ID | Date | Scope | Rubric | Severity | Status | Effort | BreaksClient | File:Line | Summary | Notes |
 |----|------|-------|--------|----------|--------|--------|--------------|-----------|---------|-------|
 | S-001 | 2026-04-24 | structure | A3/E2 | high | in-progress | M | n/a | api/crm_db.py vs workspace/scripts/crm_db.py | `crm_db.py` exists in two places as a near-duplicate (34963 vs 32411 bytes, diverged CHANGELOGs); api version is loaded when sys.path hits api first | PR #17: deleted `api/crm_db.py`; both importers (`crm_store.py`, `services/reports/buyer_profile.py`) already prepend `scripts_dir` to sys.path |
+| S-012 | 2026-04-24 | structure | A1 | low | in-progress | S | n/a | api/db.py | Deprecation shim with zero callers (no file imports `from db import` or `import db`) | PR #17: deleted — grep confirmed zero static or dynamic importers |
 
 ---
 
