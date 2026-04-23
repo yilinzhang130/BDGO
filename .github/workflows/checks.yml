@@ -71,6 +71,11 @@ jobs:
       - name: Prettier check
         run: npm run format:check
 
+      - name: Next.js build
+        # 抓 "lint 绿但 build 挂" 的盲区(比如漏 commit 被 import 的模块)。
+        # Vercel 部署依赖 build 过 —— 让 CI 提早拦下。
+        run: npm run build
+
   # ──────────────────────────────────────────────────────────
   # Semgrep: 语义级静态分析,使用 --config=auto 自动选规则集
   # ──────────────────────────────────────────────────────────
