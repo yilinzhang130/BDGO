@@ -23,7 +23,9 @@ data/
 # IDE
 .vscode/
 .idea/
-.claude/settings.local.json
+
+# Claude Code 本地状态(skills、worktrees、session 数据等) — 不入 repo
+.claude/
 
 # Build
 dist/
