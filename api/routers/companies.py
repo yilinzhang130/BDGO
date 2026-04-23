@@ -1,10 +1,11 @@
 """Company endpoints — field visibility enforced by field_policy."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
 from urllib.parse import unquote
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query, query_one
+
 from auth import get_current_user
-from field_policy import strip_hidden, is_admin_user
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query, query_one
+from fastapi import APIRouter, Depends, HTTPException, Query
+from field_policy import strip_hidden
 
 router = APIRouter()
 
@@ -26,7 +27,9 @@ def list_companies(
     params: list = []
 
     if q:
-        conditions.append(f'("客户名称" LIKE ? {LIKE_ESCAPE} OR "英文名" LIKE ? {LIKE_ESCAPE} OR "中文名" LIKE ? {LIKE_ESCAPE})')
+        conditions.append(
+            f'("客户名称" LIKE ? {LIKE_ESCAPE} OR "英文名" LIKE ? {LIKE_ESCAPE} OR "中文名" LIKE ? {LIKE_ESCAPE})'
+        )
         params.extend([like_contains(q)] * 3)
     if country:
         conditions.append('"所处国家" = ?')
@@ -42,7 +45,16 @@ def list_companies(
         params.append(tracked)
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {"客户名称", "所处国家", "客户类型", "公司质量评分", "BD跟进优先级", "核心产品的阶段", "市值/估值", "追踪状态"}
+    allowed_sorts = {
+        "客户名称",
+        "所处国家",
+        "客户类型",
+        "公司质量评分",
+        "BD跟进优先级",
+        "核心产品的阶段",
+        "市值/估值",
+        "追踪状态",
+    }
     sort_col = sort if sort in allowed_sorts else "客户名称"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 

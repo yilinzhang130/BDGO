@@ -11,11 +11,10 @@ import logging
 import threading
 from contextlib import contextmanager
 
+import config
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
-
-import config
 
 _logger = logging.getLogger(__name__)
 
@@ -259,13 +258,11 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
             return _pool
 
         if not config.DATABASE_URL:
-            raise RuntimeError(
-                "DATABASE_URL is not set — cannot connect to auth database"
-            )
+            raise RuntimeError("DATABASE_URL is not set — cannot connect to auth database")
 
         _pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=2,
-            maxconn=20,   # bumped from 10; chat offloads DB calls to threads
+            maxconn=20,  # bumped from 10; chat offloads DB calls to threads
             dsn=config.DATABASE_URL,
             cursor_factory=psycopg2.extras.RealDictCursor,
         )

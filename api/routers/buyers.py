@@ -1,8 +1,9 @@
 """MNC Buyer Profile endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
 from urllib.parse import unquote
+
 from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter()
 
@@ -19,11 +20,20 @@ def list_buyers(
     params: list = []
 
     if q:
-        conditions.append(f'("company_name" LIKE ? {LIKE_ESCAPE} OR "company_cn" LIKE ? {LIKE_ESCAPE} OR "heritage_ta" LIKE ? {LIKE_ESCAPE})')
+        conditions.append(
+            f'("company_name" LIKE ? {LIKE_ESCAPE} OR "company_cn" LIKE ? {LIKE_ESCAPE} OR "heritage_ta" LIKE ? {LIKE_ESCAPE})'
+        )
         params.extend([like_contains(q)] * 3)
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {"company_name", "heritage_ta", "annual_revenue", "last_updated", "risk_appetite", "deal_size_preference"}
+    allowed_sorts = {
+        "company_name",
+        "heritage_ta",
+        "annual_revenue",
+        "last_updated",
+        "risk_appetite",
+        "deal_size_preference",
+    }
     sort_col = sort if sort in allowed_sorts else "company_name"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 

@@ -1,8 +1,8 @@
 """Clinical trial endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
 from auth import get_current_user
+from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from fastapi import APIRouter, Depends, HTTPException, Query
 from field_policy import strip_hidden
 
 router = APIRouter()
@@ -26,7 +26,9 @@ def list_clinical(
     params: list = []
 
     if q:
-        conditions.append(f'("试验ID" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE} OR "公司名称" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE})')
+        conditions.append(
+            f'("试验ID" LIKE ? {LIKE_ESCAPE} OR "资产名称" LIKE ? {LIKE_ESCAPE} OR "公司名称" LIKE ? {LIKE_ESCAPE} OR "适应症" LIKE ? {LIKE_ESCAPE})'
+        )
         params.extend([like_contains(q)] * 4)
     if company:
         conditions.append('"公司名称" = ?')
@@ -45,7 +47,18 @@ def list_clinical(
         params.append(result)
 
     where = " AND ".join(conditions) if conditions else ""
-    allowed_sorts = {"试验ID", "资产名称", "公司名称", "临床期次", "数据状态", "结果判定", "适应症", "主要终点名称", "主要终点结果值", "安全性标志"}
+    allowed_sorts = {
+        "试验ID",
+        "资产名称",
+        "公司名称",
+        "临床期次",
+        "数据状态",
+        "结果判定",
+        "适应症",
+        "主要终点名称",
+        "主要终点结果值",
+        "安全性标志",
+    }
     sort_col = sort if sort in allowed_sorts else "试验ID"
     order_dir = "DESC" if order.lower() == "desc" else "ASC"
 
