@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { runTask, fetchTaskStatus } from "@/lib/api";
 
 interface Props {
@@ -24,21 +24,23 @@ export function AgentButton({
 
   const pollStatus = useCallback(
     async (id: string) => {
-      try {
-        const result = await fetchTaskStatus(id);
-        setStatus(result.status);
-        if (result.status === "completed") {
-          if (onComplete) onComplete();
+      while (true) {
+        try {
+          const result = await fetchTaskStatus(id);
+          setStatus(result.status);
+          if (result.status === "completed") {
+            if (onComplete) onComplete();
+            return;
+          }
+          if (result.status === "failed" || result.status === "timeout") {
+            setError(result.error || "Task failed");
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 3000));
+        } catch {
+          setError("Failed to check status");
           return;
         }
-        if (result.status === "failed" || result.status === "timeout") {
-          setError(result.error || "Task failed");
-          return;
-        }
-        // Still running — poll again
-        setTimeout(() => pollStatus(id), 3000);
-      } catch {
-        setError("Failed to check status");
       }
     },
     [onComplete],

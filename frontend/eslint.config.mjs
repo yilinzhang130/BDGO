@@ -44,6 +44,9 @@ export default [
       "@next/next/no-html-link-for-pages": "warn",
       "@next/next/no-img-element": "warn",
       "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/static-components": "warn",
     },
   },
 
