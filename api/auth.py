@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import logging
+import os
 
 import bcrypt
 import config
@@ -140,3 +141,26 @@ def require_admin(user: dict = Depends(get_current_user)) -> dict:
     if not user or not user.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin only")
     return user
+
+
+# ---------------------------------------------------------------------------
+# Header-key auth (for curl / scripts that can't carry a JWT)
+# ---------------------------------------------------------------------------
+
+_ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "")
+
+
+def require_admin_header(x_admin_key: str) -> None:
+    """Validate an ``X-Admin-Key`` header value against ``ADMIN_SECRET``.
+
+    Called directly from endpoints that accept the header (not a
+    ``Depends`` dependency — endpoints declare their own Header(...)
+    param and pass the value in).
+    """
+    if not _ADMIN_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin not configured (ADMIN_SECRET not set)",
+        )
+    if x_admin_key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid admin key")
