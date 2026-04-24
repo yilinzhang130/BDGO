@@ -33,26 +33,33 @@ CREATE TABLE IF NOT EXISTS users (
     hashed_password TEXT,
     provider VARCHAR(50) NOT NULL DEFAULT 'email',
     created_at TIMESTAMP DEFAULT NOW(),
-    last_login TIMESTAMP DEFAULT NOW()
+    last_login TIMESTAMP DEFAULT NOW(),
+    company VARCHAR(255),
+    title VARCHAR(255),
+    phone VARCHAR(50),
+    bio TEXT,
+    preferences_json TEXT,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_internal BOOLEAN NOT NULL DEFAULT FALSE,
+    google_sub VARCHAR(50)
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users (google_sub)
+    WHERE google_sub IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sessions (
     id VARCHAR(12) PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL DEFAULT 'New Chat',
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW(),
+    -- Context compaction cache: brief summary of messages with created_at <= brief_ts
+    brief TEXT,
+    brief_ts TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
--- Context compaction cache: brief summary of messages with created_at <= brief_ts
-DO $$ BEGIN
-    ALTER TABLE sessions ADD COLUMN brief TEXT;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE sessions ADD COLUMN brief_ts TIMESTAMP;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS messages (
     id VARCHAR(12) PRIMARY KEY,
@@ -86,67 +93,19 @@ CREATE TABLE IF NOT EXISTS report_history (
     markdown_preview TEXT,
     files_json TEXT,
     meta_json TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    -- State machine + retry support. Without these, in-flight tasks are
+    -- invisible to any worker other than the one that spawned them.
+    params_json TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'completed',
+    error TEXT,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    CONSTRAINT uq_report_history_task_id UNIQUE (task_id)
 );
 CREATE INDEX IF NOT EXISTS idx_report_history_user ON report_history(user_id);
--- Allow ON CONFLICT (task_id) in INSERT statements
-DO $$ BEGIN
-    ALTER TABLE report_history ADD CONSTRAINT uq_report_history_task_id UNIQUE (task_id);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
--- Store original params so retry works after a process restart
-DO $$ BEGIN
-    ALTER TABLE report_history ADD COLUMN params_json TEXT;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
--- Queue/execution state. Without these, in-flight tasks are invisible to
--- any worker other than the one that spawned them — a polling client hitting
--- a different worker sees "not found" and the UI spins forever.
-DO $$ BEGIN
-    ALTER TABLE report_history ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'completed';
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE report_history ADD COLUMN error TEXT;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE report_history ADD COLUMN started_at TIMESTAMP;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE report_history ADD COLUMN finished_at TIMESTAMP;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 CREATE INDEX IF NOT EXISTS idx_report_history_status_created
     ON report_history(status, created_at DESC);
-
--- Profile fields (added via ALTER TABLE for compatibility with existing DBs)
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN company VARCHAR(255);
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN title VARCHAR(255);
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN phone VARCHAR(50);
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN bio TEXT;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN preferences_json TEXT;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN is_internal BOOLEAN NOT NULL DEFAULT FALSE;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
--- Stable Google user identifier (sub claim). Stored so we can detect if a
--- Google account's email address changes and prevent email-swap hijacking.
-DO $$ BEGIN
-    ALTER TABLE users ADD COLUMN google_sub VARCHAR(50);
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users (google_sub)
-    WHERE google_sub IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS report_shares (
     id SERIAL PRIMARY KEY,
@@ -182,9 +141,6 @@ CREATE TABLE IF NOT EXISTS invite_codes (
     expires_at TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_invite_codes_code ON invite_codes(code);
-DO $$ BEGIN
-    ALTER TABLE invite_codes ADD COLUMN note VARCHAR(255);
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 -- Credits + usage logging (see credits.py)
 CREATE TABLE IF NOT EXISTS credits (
@@ -266,14 +222,16 @@ CREATE INDEX IF NOT EXISTS idx_inbox_messages_created
 # ---------------------------------------------------------------------------
 # NOTE on schema management
 # ---------------------------------------------------------------------------
-# The DDL above is the legacy bootstrap — every statement is idempotent
-# so existing deploys still get auto-initialised on startup. Going
-# forward, schema changes should be added as Alembic revisions under
-# ``migrations/versions/`` instead of as new ``DO $$ ALTER $$`` blocks
-# here. The Dockerfile runs ``alembic upgrade head`` before uvicorn.
+# The DDL above is the bootstrap for fresh databases — every statement is
+# idempotent (``CREATE TABLE IF NOT EXISTS`` / ``CREATE INDEX IF NOT
+# EXISTS``). Incremental schema changes live in Alembic revisions under
+# ``migrations/versions/``; the Dockerfile runs ``alembic upgrade head``
+# before uvicorn so existing DBs catch up on every deploy.
 #
-# Retiring these auto-init blocks isn't urgent — they stay as a safety
-# net while we build out Alembic coverage. See migrations/README.md.
+# When adding a column to an existing table, also inline it into the
+# ``CREATE TABLE`` above so fresh databases get it on first boot —
+# otherwise the bootstrap + migrations would diverge for new deploys.
+# See migrations/README.md.
 
 # ---------------------------------------------------------------------------
 # Connection pool (lazy-initialised, thread-safe)
