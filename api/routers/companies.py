@@ -1,11 +1,11 @@
-"""Company endpoints — field visibility enforced by field_policy."""
+"""Company endpoints — HTTP contract only; SQL + visibility in services/crm/companies."""
 
 from urllib.parse import unquote
 
 from auth import get_current_user, public_api
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query, query_one
+from crm_store import LIKE_ESCAPE, like_contains
 from fastapi import APIRouter, Depends, HTTPException, Query
-from field_policy import strip_hidden
+from services.crm import companies as companies_service
 from services.crm.list_view import PaginatedResponse, list_table_view
 
 router = APIRouter()
@@ -73,11 +73,10 @@ def list_companies(
 @router.get("/{name}")
 @public_api
 def get_company(name: str, user: dict = Depends(get_current_user)):
-    name = unquote(name)
-    row = query_one('SELECT * FROM "公司" WHERE "客户名称" = ?', (name,))
-    if not row:
+    row = companies_service.fetch_company(unquote(name), user)
+    if row is None:
         raise HTTPException(status_code=404, detail="Company not found")
-    return strip_hidden(row, "公司", user)
+    return row
 
 
 @router.get("/{name}/assets")
@@ -88,17 +87,7 @@ def get_company_assets(
     page_size: int = Query(50, ge=1, le=200),
     user: dict = Depends(get_current_user),
 ):
-    name = unquote(name)
-    result = paginate(
-        "资产",
-        where='"所属客户" = ?',
-        params=(name,),
-        order_by='"临床阶段" ASC',
-        page=page,
-        page_size=page_size,
-    )
-    result["data"] = strip_hidden(result["data"], "资产", user)
-    return result
+    return companies_service.fetch_company_assets(unquote(name), page, page_size, user)
 
 
 @router.get("/{name}/trials")
@@ -109,25 +98,10 @@ def get_company_trials(
     page_size: int = Query(100, ge=1, le=500),
     user: dict = Depends(get_current_user),
 ):
-    name = unquote(name)
-    result = paginate(
-        "临床",
-        where='"公司名称" = ?',
-        params=(name,),
-        order_by='"数据状态" ASC',
-        page=page,
-        page_size=page_size,
-    )
-    result["data"] = strip_hidden(result["data"], "临床", user)
-    return result
+    return companies_service.fetch_company_trials(unquote(name), page, page_size, user)
 
 
 @router.get("/{name}/deals")
 @public_api
 def get_company_deals(name: str, user: dict = Depends(get_current_user)):
-    name = unquote(name)
-    rows = query(
-        'SELECT * FROM "交易" WHERE "买方公司" = ? OR "卖方/合作方" = ? ORDER BY "宣布日期" DESC',
-        (name, name),
-    )
-    return strip_hidden(rows, "交易", user)
+    return companies_service.fetch_company_deals(unquote(name), user)
