@@ -10,9 +10,12 @@ Usage:
 
 import argparse
 import json
+import logging
 import math
 import sys
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 try:
     from openpyxl import Workbook
@@ -21,7 +24,7 @@ try:
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 except ImportError:
-    print("ERROR: openpyxl is required. Install with: pip install openpyxl")
+    sys.stderr.write("ERROR: openpyxl is required. Install with: pip install openpyxl\n")
     sys.exit(1)
 
 # ── Color Palette ──
@@ -2449,25 +2452,29 @@ def generate(config, output_path):
     peak_rev = config.get("_peak_rev", 0)
     peak_yr = config.get("_peak_rev_year", "N/A")
 
-    print(f"✓ rNPV model saved to: {output_path}")
-    print(
-        "  Sheets: Summary | Assumptions | Patient Funnel | Revenue Build | Cost Structure | P&L & Cash Flow | rNPV Model | Sensitivity | QC Report | References"
-    )
-    print(f"  rNPV: ${npv:,.1f}M")
-    print(f"  Unrisked NPV: ${config.get('_unrisked_npv', 0):,.1f}M")
-    print(f"  Peak Revenue: ${peak_rev:,.1f}M in {peak_yr}")
     qc_fail = config.get("_qc_fail", 0)
-    print(
-        f"  QC: {config.get('_qc_pass', 0)} pass, {config.get('_qc_warn', 0)} warn, {qc_fail} fail {'⚠' if qc_fail > 0 else '✓'}"
+    logger.info(
+        "rNPV model saved",
+        extra={
+            "output_path": str(output_path),
+            "rnpv_m": round(npv, 1),
+            "unrisked_npv_m": round(config.get("_unrisked_npv", 0), 1),
+            "peak_revenue_m": round(peak_rev, 1),
+            "peak_revenue_year": peak_yr,
+            "qc_pass": config.get("_qc_pass", 0),
+            "qc_warn": config.get("_qc_warn", 0),
+            "qc_fail": qc_fail,
+            "ref_count": config.get("_ref_count", 0),
+            "ref_sourced": config.get("_ref_sourced", 0),
+            "ref_total_params": config.get("_ref_total_params", 0),
+            "ref_coverage_pct": config.get("_ref_coverage_pct", 0),
+        },
     )
-    print(
-        f"  References: {config.get('_ref_count', 0)} sources, {config.get('_ref_sourced', 0)}/{config.get('_ref_total_params', 0)} params sourced ({config.get('_ref_coverage_pct', 0):.0%} coverage)"
-    )
-    print("  Model: v3 Formula-Based (change Assumptions -> all sheets update)")
     return output_path
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(
         description="Generate rNPV Valuation Excel Model v3 (Formula-Based)"
     )
