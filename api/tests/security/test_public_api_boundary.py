@@ -68,7 +68,7 @@ def mock_crm_queries(monkeypatch):
     这样 @public_api 端点不会因为 CRM SQLite 缺失而 500。
     """
     import crm_store
-    import routers.buyers as buyers_router
+    import services.crm.buyers as buyers_service
     import services.crm.list_view as list_view_mod
 
     fake_paginate = MagicMock(
@@ -80,9 +80,9 @@ def mock_crm_queries(monkeypatch):
     monkeypatch.setattr(crm_store, "query_one", fake_query_one)
     # Python import 的是符号绑定，需要在实际调用方的模块本地替换：
     #   - buyers.list_buyers 通过 list_table_view → services.crm.list_view.paginate
-    #   - buyers.get_buyer 直接 import crm_store.query_one
+    #   - buyers.get_buyer → services.crm.buyers.fetch_buyer → query_one
     monkeypatch.setattr(list_view_mod, "paginate", fake_paginate)
-    monkeypatch.setattr(buyers_router, "query_one", fake_query_one)
+    monkeypatch.setattr(buyers_service, "query_one", fake_query_one)
 
 
 # ════════════════════════════════════════════════════════════════

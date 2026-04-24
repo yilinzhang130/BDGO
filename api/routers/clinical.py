@@ -1,9 +1,9 @@
-"""Clinical trial endpoints."""
+"""Clinical trial endpoints — HTTP contract only; SQL + visibility in services/crm/clinical."""
 
 from auth import get_current_user, public_api
-from crm_store import LIKE_ESCAPE, like_contains, query_one
+from crm_store import LIKE_ESCAPE, like_contains
 from fastapi import APIRouter, Depends, HTTPException, Query
-from field_policy import strip_hidden
+from services.crm import clinical as clinical_service
 from services.crm.list_view import PaginatedResponse, list_table_view
 
 router = APIRouter()
@@ -77,7 +77,7 @@ def list_clinical(
 @router.get("/{record_id}")
 @public_api
 def get_clinical_record(record_id: str, user: dict = Depends(get_current_user)):
-    row = query_one('SELECT * FROM "临床" WHERE "记录ID" = ?', (record_id,))
-    if not row:
+    row = clinical_service.fetch_clinical_record(record_id, user)
+    if row is None:
         raise HTTPException(status_code=404, detail="Clinical record not found")
-    return strip_hidden(row, "临床", user)
+    return row

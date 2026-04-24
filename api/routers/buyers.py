@@ -1,10 +1,11 @@
-"""MNC Buyer Profile endpoints."""
+"""MNC Buyer Profile endpoints — HTTP contract only; SQL in services/crm/buyers."""
 
 from urllib.parse import unquote
 
 from auth import public_api
-from crm_store import LIKE_ESCAPE, like_contains, query_one
+from crm_store import LIKE_ESCAPE, like_contains
 from fastapi import APIRouter, HTTPException, Query
+from services.crm import buyers as buyers_service
 from services.crm.list_view import PaginatedResponse, list_table_view
 
 router = APIRouter()
@@ -52,8 +53,7 @@ def list_buyers(
 @router.get("/{name}")
 @public_api
 def get_buyer(name: str):
-    name = unquote(name)
-    row = query_one('SELECT * FROM "MNC画像" WHERE "company_name" = ?', (name,))
-    if not row:
+    row = buyers_service.fetch_buyer(unquote(name))
+    if row is None:
         raise HTTPException(status_code=404, detail="Buyer profile not found")
     return row
