@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { fetchReportsHistory, deleteReportHistory } from "./api";
+import { fetchReportsHistory, deleteReportHistory, type ServerReportHistoryItem } from "./api";
 
 // ═══════════════════════════════════════════
 // Types
@@ -21,7 +21,7 @@ export interface CompletedReport {
   title: string; // derived from meta or params
   markdownPreview: string;
   files: ReportFile[];
-  meta: Record<string, any>;
+  meta: Record<string, unknown>;
   createdAt: number;
 }
 
@@ -48,19 +48,19 @@ function setLocalState(next: CompletedReport[]) {
 // Server hydration
 // ═══════════════════════════════════════════
 
-function mapServerReport(raw: any): CompletedReport {
+function mapServerReport(raw: ServerReportHistoryItem): CompletedReport {
   const files: ReportFile[] = raw.files_json
     ? typeof raw.files_json === "string"
       ? JSON.parse(raw.files_json)
       : raw.files_json
     : [];
-  const meta: Record<string, any> = raw.meta_json
+  const meta: Record<string, unknown> = raw.meta_json
     ? typeof raw.meta_json === "string"
       ? JSON.parse(raw.meta_json)
       : raw.meta_json
     : {};
   return {
-    taskId: raw.task_id || raw.id,
+    taskId: raw.task_id || String(raw.id),
     slug: raw.slug || "",
     displayName: raw.title || raw.slug || "",
     title: raw.title || "",

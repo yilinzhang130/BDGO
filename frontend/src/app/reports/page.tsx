@@ -72,13 +72,19 @@ export default function ReportsPage() {
           .join(",");
         if (nextIds !== lastActiveIdsRef.current) {
           lastActiveIdsRef.current = nextIds;
-          setRunningTasks(active);
+          // status was filtered above to the RunningTask-compatible subset.
+          setRunningTasks(active as RunningTask[]);
         }
         const newlyCompleted = tasks.filter(
           (t) => t.status === "completed" && !seenCompletedRef.current.has(t.task_id),
         );
         newlyCompleted.forEach((t) => seenCompletedRef.current.add(t.task_id));
-        if (newlyCompleted.length > 0) addCompletedReport(newlyCompleted[0]);
+        // addCompletedReport ignores its argument and re-fetches from the
+        // server — the cast papers over a stale signature until that
+        // helper is cleaned up (see lib/reports.ts).
+        if (newlyCompleted.length > 0) {
+          addCompletedReport(newlyCompleted[0] as unknown as CompletedReport);
+        }
       } catch {
         // ignore poll errors
       }
@@ -437,8 +443,8 @@ function HistoryRow({ report }: { report: CompletedReport }) {
           </div>
           <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.15rem" }}>
             {report.displayName} · {age}
-            {report.meta?.mode && ` · ${report.meta.mode}`}
-            {report.meta?.paper_count && ` · ${report.meta.paper_count} papers`}
+            {report.meta?.mode ? ` · ${String(report.meta.mode)}` : ""}
+            {report.meta?.paper_count ? ` · ${String(report.meta.paper_count)} papers` : ""}
           </div>
         </div>
         <div

@@ -18,6 +18,11 @@ function handle401(res: Response): void {
   }
 }
 
+// Low-level fetch helpers. Default generic is ``any`` so legacy call
+// sites that don't pass a type param don't regress; new code should
+// supply the expected response type explicitly (or use one of the
+// typed exports below).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function get<T = any>(path: string, params?: Record<string, string | number>): Promise<T> {
   const url = new URL(path, window.location.origin);
   if (params) {
@@ -31,6 +36,7 @@ async function get<T = any>(path: string, params?: Record<string, string | numbe
   return res.json();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function post<T = any>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "POST",
@@ -42,6 +48,7 @@ async function post<T = any>(path: string, body?: unknown): Promise<T> {
   return res.json();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function put<T = any>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "PUT",
@@ -52,14 +59,17 @@ async function put<T = any>(path: string, body?: unknown): Promise<T> {
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const j = await res.json();
+      const j = (await res.json()) as { detail?: string; message?: string };
       detail = j.detail ?? j.message ?? detail;
-    } catch {}
+    } catch {
+      // Non-JSON body — fall back to status code
+    }
     throw new Error(detail);
   }
   return res.json();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function patch<T = any>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "PATCH",
@@ -81,8 +91,15 @@ async function del(path: string): Promise<void> {
 export const updateProfile = (fields: Record<string, string>) =>
   put(`${BASE}/auth/profile`, fields);
 
-// Global Search
-export const globalSearch = (q: string, limit = 5) => get(`${BASE}/search/global`, { q, limit });
+// Global Search — each category key maps to a list of matching rows.
+// Row shape is per-category (company vs asset vs clinical etc.), so
+// callers must narrow themselves. Kept loose to avoid coupling every
+// caller to every row schema.
+export interface GlobalSearchResponse {
+  results: Record<string, Array<Record<string, unknown>>>;
+}
+export const globalSearch = (q: string, limit = 5) =>
+  get<GlobalSearchResponse>(`${BASE}/search/global`, { q, limit });
 
 // Session search
 export const searchSessions = (q: string, limit = 6) =>
@@ -131,9 +148,11 @@ export async function chatStream(
     // Surface 402 credit-exhausted errors with their backend message
     let detail = `Chat failed: ${res.status}`;
     try {
-      const body = await res.clone().json();
+      const body = (await res.clone().json()) as { detail?: string };
       if (body?.detail) detail = body.detail;
-    } catch {}
+    } catch {
+      // Non-JSON error body — stick with the status-code message
+    }
     throw new Error(detail);
   }
   return res;
@@ -147,8 +166,18 @@ export interface CreditBalance {
   updated_at: string | null;
 }
 export const fetchCreditBalance = () => get<CreditBalance>(`${BASE}/credits/balance`);
+
+export interface CreditUsageItem {
+  id: string | number;
+  session_id: string | null;
+  model_id: string;
+  input_tokens: number;
+  output_tokens: number;
+  credits_charged: number;
+  created_at: string;
+}
 export const fetchCreditUsage = (limit = 50) =>
-  get<{ items: any[] }>(`${BASE}/credits/usage`, { limit });
+  get<{ items: CreditUsageItem[] }>(`${BASE}/credits/usage`, { limit });
 
 export interface ModelInfo {
   id: string;
@@ -239,14 +268,36 @@ export async function deleteRecord(table: string, pk: string, pk2?: string) {
 export const runTask = (agent: string, message: string) =>
   post<{ task_id: string; status: string }>(`${BASE}/tasks/run`, { agent, message });
 
-export const fetchTaskStatus = (taskId: string) => get(`${BASE}/tasks/status/${taskId}`);
+// Polling shape for both agent-task and report-task status endpoints.
+// Shared because the backend returns the same schema for both flows.
+export interface TaskStatusResponse {
+  task_id: string;
+  status: string;
+  progress_log?: string[];
+  error?: string | null;
+  result?: {
+    markdown?: string;
+    files?: { filename: string; format: string; size: number; download_url: string }[];
+    meta?: Record<string, unknown>;
+  };
+}
+
+export const fetchTaskStatus = (taskId: string) =>
+  get<TaskStatusResponse>(`${BASE}/tasks/status/${taskId}`);
 
 // Upload with XHR so callers can receive progress events (Fetch has no upload progress)
+export interface UploadBPResponse {
+  file_id: string;
+  filename: string;
+  size: number;
+  text_preview?: string;
+}
+
 export function uploadBP(
   file: File,
   company?: string,
   onProgress?: (pct: number) => void,
-): Promise<any> {
+): Promise<UploadBPResponse> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append("file", file);
@@ -291,8 +342,13 @@ export function uploadBP(
 // Reports (skill services)
 export const fetchReportServices = () => get(`${BASE}/reports/list`);
 
-export const generateReport = (slug: string, params: Record<string, any>) =>
-  post(`${BASE}/reports/generate`, { slug, params });
+export interface GenerateReportResponse {
+  task_id: string;
+  status: string;
+  result?: TaskStatusResponse["result"];
+}
+export const generateReport = (slug: string, params: Record<string, unknown>) =>
+  post<GenerateReportResponse>(`${BASE}/reports/generate`, { slug, params });
 
 export const retryReport = (taskId: string) =>
   post<{ task_id: string; status: string; slug: string; estimated_seconds?: number }>(
@@ -300,14 +356,24 @@ export const retryReport = (taskId: string) =>
   );
 
 export const parseReportArgs = (slug: string, text: string) =>
-  post<{ params: Record<string, any>; missing: string[]; complete: boolean }>(
+  post<{ params: Record<string, unknown>; missing: string[]; complete: boolean }>(
     `${BASE}/reports/parse-args`,
     { slug, text },
   );
 
-export const fetchReportStatus = (taskId: string) => get(`${BASE}/reports/status/${taskId}`);
+export const fetchReportStatus = (taskId: string) =>
+  get<TaskStatusResponse>(`${BASE}/reports/status/${taskId}`);
 
-export const fetchReportTasks = () => get<{ tasks: any[] }>(`${BASE}/reports/tasks`);
+export interface ReportTaskSummary {
+  task_id: string;
+  slug: string;
+  title: string | null;
+  status: string;
+  created_at: string;
+  finished_at: string | null;
+  error: string | null;
+}
+export const fetchReportTasks = () => get<{ tasks: ReportTaskSummary[] }>(`${BASE}/reports/tasks`);
 
 export function reportDownloadUrl(taskId: string, format: string): string {
   return `${BASE}/reports/download/${taskId}/${format}`;
@@ -323,11 +389,45 @@ export const fetchDistinct = (table: string, column: string) =>
 // Sessions
 // ═══════════════════════════════════════════
 
-export const fetchSessions = () => get<any[]>(`${BASE}/sessions`);
+// Server-side session shapes. The frontend store translates these into
+// the richer ChatSession type via mapServerSession (see sessions.ts).
+export interface ServerSessionSummary {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
-export const fetchSession = (id: string) => get<any>(`${BASE}/sessions/${id}`);
+export interface ServerSessionMessage {
+  id: string;
+  role: string;
+  content: string;
+  tools_json?: string;
+  attachments_json?: string;
+  created_at?: string;
+}
 
-export const createSessionAPI = (title?: string) => post(`${BASE}/sessions`, { title });
+export interface ServerSessionEntity {
+  id: string;
+  entity_type: string;
+  title: string;
+  subtitle?: string;
+  fields_json?: string;
+  href?: string;
+  created_at?: string;
+}
+
+export interface ServerSessionDetail extends ServerSessionSummary {
+  messages?: ServerSessionMessage[];
+  context_entities?: ServerSessionEntity[];
+}
+
+export const fetchSessions = () => get<ServerSessionSummary[]>(`${BASE}/sessions`);
+
+export const fetchSession = (id: string) => get<ServerSessionDetail>(`${BASE}/sessions/${id}`);
+
+export const createSessionAPI = (title?: string) =>
+  post<ServerSessionSummary>(`${BASE}/sessions`, { title });
 
 export const renameSessionAPI = (id: string, title: string) =>
   put(`${BASE}/sessions/${id}`, { title });
@@ -364,8 +464,21 @@ export const deleteEntity = (sessionId: string, entityId: string) =>
 // Reports History
 // ═══════════════════════════════════════════
 
-export async function fetchReportsHistory(): Promise<any[]> {
-  const resp = await get<{ history: any[] }>(`${BASE}/reports/history`);
+// Server-side report shape. Translated by mapServerReport into
+// CompletedReport in lib/reports.ts.
+export interface ServerReportHistoryItem {
+  id: string | number;
+  task_id: string;
+  slug: string;
+  title: string | null;
+  markdown_preview: string | null;
+  files_json: string | null;
+  meta_json: string | null;
+  created_at: string;
+}
+
+export async function fetchReportsHistory(): Promise<ServerReportHistoryItem[]> {
+  const resp = await get<{ history: ServerReportHistoryItem[] }>(`${BASE}/reports/history`);
   return resp.history || [];
 }
 
@@ -379,8 +492,15 @@ export const deleteReportHistory = (id: string) =>
 export const fetchWatchlist = (params: Record<string, string | number>) =>
   get(`${BASE}/watchlist`, params);
 
+export interface WatchlistEntry {
+  id: number;
+  entity_type: string;
+  entity_key: string;
+  notes: string | null;
+  added_at: string;
+}
 export const addToWatchlist = (body: { entity_type: string; entity_key: string; notes?: string }) =>
-  post(`${BASE}/watchlist`, body);
+  post<WatchlistEntry>(`${BASE}/watchlist`, body);
 
 export const removeFromWatchlist = (id: number) => del(`${BASE}/watchlist/${id}`);
 
