@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchPatent, updateRecord, deleteRecord } from "@/lib/api";
+import { fetchPatent, updateRecord, deleteRecord, type CRMRow } from "@/lib/api";
 import { statusBadgeClass } from "@/lib/badges";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -32,7 +32,7 @@ export default function PatentDetailPage() {
   const router = useRouter();
   const id = decodeURIComponent(params.id as string);
 
-  const [patent, setPatent] = useState<any>(null);
+  const [patent, setPatent] = useState<CRMRow | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
 
@@ -66,14 +66,14 @@ export default function PatentDetailPage() {
                 <span
                   style={{ cursor: "pointer", textDecoration: "underline" }}
                   onClick={() =>
-                    router.push(`/companies/${encodeURIComponent(patent["关联公司"])}`)
+                    router.push(`/companies/${encodeURIComponent(String(patent["关联公司"]))}`)
                   }
                 >
                   {patent["关联公司"]}
                 </span>
               )}
               {patent["状态"] && (
-                <span className={`badge ${statusBadgeClass(patent["状态"])}`}>
+                <span className={`badge ${statusBadgeClass(String(patent["状态"]))}`}>
                   {patent["状态"]}
                 </span>
               )}

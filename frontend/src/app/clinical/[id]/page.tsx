@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchClinicalRecord, updateRecord, deleteRecord } from "@/lib/api";
+import { fetchClinicalRecord, updateRecord, deleteRecord, type CRMRow } from "@/lib/api";
 import { phaseBadgeClass, resultBadgeClass } from "@/lib/badges";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -124,7 +124,7 @@ export default function ClinicalDetailPage() {
   const id = decodeURIComponent(params.id as string);
   const isAdmin = user?.is_admin === true;
 
-  const [record, setRecord] = useState<any>(null);
+  const [record, setRecord] = useState<CRMRow | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
@@ -165,14 +165,14 @@ export default function ClinicalDetailPage() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <h1 style={{ margin: 0 }}>{record["试验ID"] || id}</h1>
-              <ReportButton entityType="临床" entityKey={record["试验ID"] || id} />
+              <ReportButton entityType="临床" entityKey={String(record["试验ID"] || id)} />
             </div>
             <div className="meta">
               {record["公司名称"] && (
                 <span
                   style={{ cursor: "pointer", textDecoration: "underline" }}
                   onClick={() =>
-                    router.push(`/companies/${encodeURIComponent(record["公司名称"])}`)
+                    router.push(`/companies/${encodeURIComponent(String(record["公司名称"]))}`)
                   }
                 >
                   {record["公司名称"]}
@@ -180,12 +180,12 @@ export default function ClinicalDetailPage() {
               )}
               {record["资产名称"] && <span>{record["资产名称"]}</span>}
               {record["临床期次"] && (
-                <span className={`badge ${phaseBadgeClass(record["临床期次"])}`}>
+                <span className={`badge ${phaseBadgeClass(String(record["临床期次"]))}`}>
                   {record["临床期次"]}
                 </span>
               )}
               {record["结果判定"] && (
-                <span className={`badge ${resultBadgeClass(record["结果判定"])}`}>
+                <span className={`badge ${resultBadgeClass(String(record["结果判定"]))}`}>
                   {record["结果判定"]}
                 </span>
               )}

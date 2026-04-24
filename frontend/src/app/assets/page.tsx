@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { fetchAssets } from "@/lib/api";
+import { fetchAssets, type PaginatedCRM } from "@/lib/api";
 import { phaseBadgeClass } from "@/lib/badges";
 
 const COLUMNS = [
@@ -18,7 +18,7 @@ const COLUMNS = [
 
 export default function AssetsPage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PaginatedCRM | null>(null);
   const [q, setQ] = useState("");
   const [phase, setPhase] = useState("");
   const [disease, setDisease] = useState("");
@@ -150,12 +150,12 @@ export default function AssetsPage() {
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((a: any, i: number) => (
+              {data?.data?.map((a, i) => (
                 <tr
                   key={`${a["资产名称"]}-${a["所属客户"]}-${i}`}
                   onClick={() =>
                     router.push(
-                      `/assets/${encodeURIComponent(a["所属客户"])}/${encodeURIComponent(a["资产名称"])}`,
+                      `/assets/${encodeURIComponent(String(a["所属客户"] ?? ""))}/${encodeURIComponent(String(a["资产名称"] ?? ""))}`,
                     )
                   }
                 >
@@ -164,12 +164,12 @@ export default function AssetsPage() {
                   <td>{a["技术平台类别"] || "-"}</td>
                   <td>{a["疾病领域"] || "-"}</td>
                   <td>
-                    <span className={`badge ${phaseBadgeClass(a["临床阶段"])}`}>
+                    <span className={`badge ${phaseBadgeClass(String(a["临床阶段"] ?? ""))}`}>
                       {a["临床阶段"] || "-"}
                     </span>
                   </td>
                   <td>{a["靶点"] || "-"}</td>
-                  <td>{a["作用机制(MOA)"]?.slice(0, 30) || "-"}</td>
+                  <td>{String(a["作用机制(MOA)"] ?? "").slice(0, 30) || "-"}</td>
                   <td>{a["质量评分"] || "-"}</td>
                 </tr>
               ))}

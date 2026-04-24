@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { fetchBuyers } from "@/lib/api";
+import { fetchBuyers, type PaginatedCRM } from "@/lib/api";
 
 const COLUMNS = [
   { key: "company_name", label: "Company" },
@@ -17,7 +17,7 @@ const COLUMNS = [
 
 export default function BuyersPage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PaginatedCRM | null>(null);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("company_name");
   const [order, setOrder] = useState("asc");
@@ -73,10 +73,12 @@ export default function BuyersPage() {
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((b: any) => (
+              {data?.data?.map((b) => (
                 <tr
-                  key={b.company_name}
-                  onClick={() => router.push(`/buyers/${encodeURIComponent(b.company_name)}`)}
+                  key={String(b.company_name ?? "")}
+                  onClick={() =>
+                    router.push(`/buyers/${encodeURIComponent(String(b.company_name ?? ""))}`)
+                  }
                 >
                   <td style={{ fontWeight: 600 }}>{b.company_name}</td>
                   <td>{b.heritage_ta || "-"}</td>
