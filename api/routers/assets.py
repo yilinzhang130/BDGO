@@ -1,11 +1,11 @@
-"""Asset endpoints — field visibility enforced by field_policy."""
+"""Asset endpoints — HTTP contract only; SQL + visibility in services/crm/assets."""
 
 from urllib.parse import unquote
 
 from auth import get_current_user, public_api
-from crm_store import LIKE_ESCAPE, like_contains, paginate, query_one
+from crm_store import LIKE_ESCAPE, like_contains
 from fastapi import APIRouter, Depends, HTTPException, Query
-from field_policy import strip_hidden
+from services.crm import assets as assets_service
 from services.crm.list_view import PaginatedResponse, list_table_view
 
 router = APIRouter()
@@ -85,15 +85,10 @@ def list_assets(
 @router.get("/{company}/{name}")
 @public_api
 def get_asset(company: str, name: str, user: dict = Depends(get_current_user)):
-    company = unquote(company)
-    name = unquote(name)
-    row = query_one(
-        'SELECT * FROM "资产" WHERE "资产名称" = ? AND "所属客户" = ?',
-        (name, company),
-    )
-    if not row:
+    row = assets_service.fetch_asset(unquote(company), unquote(name), user)
+    if row is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    return strip_hidden(row, "资产", user)
+    return row
 
 
 @router.get("/{company}/{name}/trials")
@@ -105,15 +100,4 @@ def get_asset_trials(
     page_size: int = Query(100, ge=1, le=500),
     user: dict = Depends(get_current_user),
 ):
-    company = unquote(company)
-    name = unquote(name)
-    result = paginate(
-        "临床",
-        where='"资产名称" = ? AND "公司名称" = ?',
-        params=(name, company),
-        order_by='"临床期次" ASC',
-        page=page,
-        page_size=page_size,
-    )
-    result["data"] = strip_hidden(result["data"], "临床", user)
-    return result
+    return assets_service.fetch_asset_trials(unquote(company), unquote(name), page, page_size, user)
