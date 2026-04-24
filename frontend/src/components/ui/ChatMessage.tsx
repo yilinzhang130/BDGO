@@ -161,12 +161,21 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
   const [retrying, setRetrying] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const doneRef = useRef(false);
+  const failuresRef = useRef(0);
   const label = REPORT_LABELS[slug] || slug.replace(/_/g, " ");
 
   useEffect(() => {
     doneRef.current = false;
+    failuresRef.current = 0;
     setStatus("polling");
     setErrorDetail("");
+
+    const finishFailed = (detail: string) => {
+      doneRef.current = true;
+      setErrorDetail(detail);
+      setStatus("failed");
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
 
     const poll = async () => {
       if (doneRef.current) return;
@@ -174,7 +183,22 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
         const res = await fetch(`/api/reports/status/${currentTaskId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          // 401/403 is terminal — the poll will never succeed without a
+          // fresh login. Surface it immediately instead of spinning.
+          if (res.status === 401 || res.status === 403) {
+            finishFailed("登录已失效，请刷新页面后重试。");
+            return;
+          }
+          failuresRef.current += 1;
+          if (failuresRef.current >= 5) {
+            finishFailed(
+              `网络异常，已连续 ${failuresRef.current} 次无法获取报告状态（HTTP ${res.status}）。请稍后重试。`,
+            );
+          }
+          return;
+        }
+        failuresRef.current = 0;
         const data = await res.json();
         if (data.status === "completed") {
           doneRef.current = true;
@@ -183,12 +207,14 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
           setStatus("completed");
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (data.status === "failed") {
-          doneRef.current = true;
-          setErrorDetail(data.error || "");
-          setStatus("failed");
-          if (pollRef.current) clearInterval(pollRef.current);
+          finishFailed(data.error || "");
         }
-      } catch {}
+      } catch {
+        failuresRef.current += 1;
+        if (failuresRef.current >= 5) {
+          finishFailed("网络异常，无法连接服务器获取报告状态。请稍后重试。");
+        }
+      }
     };
 
     poll();
