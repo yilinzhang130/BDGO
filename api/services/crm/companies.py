@@ -55,8 +55,7 @@ def fetch_company_deals(name: str, user: dict) -> list[dict]:
     newest announcement first. Unpaginated because deal counts per
     company are low single digits in practice."""
     rows = query(
-        'SELECT * FROM "交易" WHERE "买方公司" = ? OR "卖方/合作方" = ? '
-        'ORDER BY "宣布日期" DESC',
+        'SELECT * FROM "交易" WHERE "买方公司" = ? OR "卖方/合作方" = ? ORDER BY "宣布日期" DESC',
         (name, name),
     )
     return strip_hidden(rows, "交易", user)

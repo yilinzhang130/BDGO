@@ -182,9 +182,7 @@ def _run_openclaw_agent(agent: str, message: str, task_id: str, timeout: int) ->
         return None
 
     if result.returncode != 0 or "error" in (result.stderr or "").lower()[:200]:
-        logger.warning(
-            "openclaw failed (code=%d), falling back to LLM", result.returncode
-        )
+        logger.warning("openclaw failed (code=%d), falling back to LLM", result.returncode)
         return None
     return (result.stdout or "")[:5000]
 
@@ -253,9 +251,7 @@ def start_task(agent: str, message: str, timeout: int) -> str:
         "status": "queued",
         "created_at": time.time(),
     }
-    threading.Thread(
-        target=_run_task, args=(task_id, agent, message, timeout), daemon=True
-    ).start()
+    threading.Thread(target=_run_task, args=(task_id, agent, message, timeout), daemon=True).start()
     return task_id
 
 
