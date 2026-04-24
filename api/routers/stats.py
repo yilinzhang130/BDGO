@@ -2,11 +2,63 @@
 
 from crm_store import parse_numeric, query, query_one
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 router = APIRouter()
 
 
-@router.get("/overview")
+# ── Response models ─────────────────────────────────────────────
+# Mirror the frontend types in frontend/src/lib/api.ts. Keep them
+# narrow (only the fields the dashboard reads); new fields added to
+# the SQL SELECT should land in the response model deliberately.
+
+
+class OverviewStats(BaseModel):
+    companies: int
+    assets: int
+    clinical_records: int
+    active_trials: int
+    deals: int
+    tracked_companies: int
+
+
+class CountryCount(BaseModel):
+    country: str
+    count: int
+
+
+class CompanyTypeCount(BaseModel):
+    type: str
+    count: int
+
+
+class PhaseCount(BaseModel):
+    phase: str
+    count: int
+
+
+class IndicationCount(BaseModel):
+    indication: str
+    count: int
+
+
+class DealTypeCount(BaseModel):
+    type: str
+    count: int
+
+
+class DealTimelinePoint(BaseModel):
+    month: str
+    count: int
+    total_value: float
+
+
+class TargetCount(BaseModel):
+    target: str
+    count: int
+
+
+@router.get("/overview", response_model=OverviewStats)
 def overview():
     row = query_one("""
         SELECT
@@ -20,7 +72,7 @@ def overview():
     return row
 
 
-@router.get("/companies-by-country")
+@router.get("/companies-by-country", response_model=list[CountryCount])
 def companies_by_country():
     rows = query("""
         SELECT COALESCE(NULLIF("所处国家", ''), 'Unknown') AS country,
@@ -33,7 +85,7 @@ def companies_by_country():
     return rows
 
 
-@router.get("/companies-by-type")
+@router.get("/companies-by-type", response_model=list[CompanyTypeCount])
 def companies_by_type():
     rows = query("""
         SELECT COALESCE(NULLIF("客户类型", ''), 'Unknown') AS type,
@@ -45,7 +97,7 @@ def companies_by_type():
     return rows
 
 
-@router.get("/pipeline-by-phase")
+@router.get("/pipeline-by-phase", response_model=list[PhaseCount])
 def pipeline_by_phase():
     rows = query("""
         SELECT COALESCE(NULLIF("临床阶段", ''), 'Unknown') AS phase,
@@ -57,7 +109,7 @@ def pipeline_by_phase():
     return rows
 
 
-@router.get("/indications-top")
+@router.get("/indications-top", response_model=list[IndicationCount])
 def indications_top():
     rows = query("""
         SELECT COALESCE(NULLIF("疾病领域", ''), 'Unknown') AS indication,
@@ -71,7 +123,7 @@ def indications_top():
     return rows
 
 
-@router.get("/deals-by-type")
+@router.get("/deals-by-type", response_model=list[DealTypeCount])
 def deals_by_type():
     rows = query("""
         SELECT COALESCE(NULLIF("交易类型", ''), 'Unknown') AS type,
@@ -83,7 +135,7 @@ def deals_by_type():
     return rows
 
 
-@router.get("/deals-timeline")
+@router.get("/deals-timeline", response_model=list[DealTimelinePoint])
 def deals_timeline():
     """Deals grouped by year-month."""
     rows = query("""
@@ -110,7 +162,7 @@ def deals_timeline():
     return sorted(timeline.values(), key=lambda x: x["month"])
 
 
-@router.get("/targets-top")
+@router.get("/targets-top", response_model=list[TargetCount])
 def targets_top():
     rows = query("""
         SELECT COALESCE(NULLIF("靶点", ''), 'Unknown') AS target,

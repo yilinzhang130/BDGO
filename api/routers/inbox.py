@@ -24,6 +24,28 @@ class FeedbackRequest(BaseModel):
     message: str
 
 
+class InboxMessage(BaseModel):
+    id: int
+    type: str
+    user_email: str | None = None
+    user_name: str | None = None
+    entity_type: str | None = None
+    entity_key: str | None = None
+    entity_url: str | None = None
+    message: str
+    read_at: str | None = None
+    created_at: str | None = None
+
+
+class InboxMessagesResponse(BaseModel):
+    total: int
+    items: list[InboxMessage]
+
+
+class UnreadCountResponse(BaseModel):
+    count: int
+
+
 # ── User-facing endpoints ─────────────────────────────────────────────────────
 
 
@@ -69,7 +91,7 @@ def submit_feedback(body: FeedbackRequest, user: dict = Depends(get_current_user
 # ── Admin-only endpoints ──────────────────────────────────────────────────────
 
 
-@router.get("/admin/messages")
+@router.get("/admin/messages", response_model=InboxMessagesResponse)
 def list_messages(
     unread_only: bool = False,
     limit: int = 50,
@@ -95,7 +117,7 @@ def list_messages(
     return {"total": total, "items": [dict(r) for r in rows]}
 
 
-@router.get("/admin/unread-count")
+@router.get("/admin/unread-count", response_model=UnreadCountResponse)
 def unread_count(_admin: dict = Depends(require_admin)):
     with transaction() as cur:
         cur.execute("SELECT COUNT(*) AS n FROM inbox_messages WHERE read_at IS NULL")

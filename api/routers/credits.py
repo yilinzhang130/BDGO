@@ -9,17 +9,52 @@ from pydantic import BaseModel
 router = APIRouter(prefix="/api", tags=["credits"])
 
 
-@router.get("/credits/balance")
+class CreditBalance(BaseModel):
+    balance: float
+    total_granted: float
+    total_spent: float
+    updated_at: str | None = None
+
+
+class CreditUsageItem(BaseModel):
+    id: int
+    session_id: str | None = None
+    model_id: str
+    input_tokens: int
+    output_tokens: int
+    credits_charged: float
+    created_at: str
+
+
+class CreditUsageResponse(BaseModel):
+    items: list[CreditUsageItem]
+
+
+class ModelInfo(BaseModel):
+    id: str
+    display_name: str
+    provider: str
+    input_weight: float
+    output_weight: float
+    context_note: str
+    available: bool
+
+
+class ModelListResponse(BaseModel):
+    models: list[ModelInfo]
+
+
+@router.get("/credits/balance", response_model=CreditBalance)
 def get_balance(user: dict = Depends(get_current_user)):
     return credits_mod.get_balance(user["id"])
 
 
-@router.get("/credits/usage")
+@router.get("/credits/usage", response_model=CreditUsageResponse)
 def get_usage(limit: int = 50, user: dict = Depends(get_current_user)):
     return {"items": credits_mod.list_usage(user["id"], limit=limit)}
 
 
-@router.get("/models")
+@router.get("/models", response_model=ModelListResponse)
 def list_models(user: dict = Depends(get_current_user)):
     """Available LLM models for the model picker."""
     return {"models": available_models()}

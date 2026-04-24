@@ -41,6 +41,40 @@ class CreateCodeRequest(BaseModel):
     code: str | None = None  # custom code; auto-generated if omitted
 
 
+class InviteCode(BaseModel):
+    id: str
+    code: str
+    note: str | None = None
+    max_uses: int
+    use_count: int
+    expires_at: str | None = None
+    created_at: str | None = None
+
+
+class InviteCodeListResponse(BaseModel):
+    codes: list[InviteCode]
+
+
+class AdminUser(BaseModel):
+    id: str
+    email: str
+    name: str
+    is_admin: bool
+    is_active: bool
+    is_internal: bool
+    company: str | None = None
+    title: str | None = None
+    created_at: str | None = None
+    last_login: str | None = None
+    credit_balance: float
+    total_granted: float
+    total_spent: float
+
+
+class AdminDashboardResponse(BaseModel):
+    users: list[AdminUser]
+
+
 def _fmt(row: dict) -> dict:
     return {
         "id": str(row["id"]),
@@ -165,7 +199,7 @@ def admin_llm_pool(_: dict = Depends(_require_admin)):
         raise HTTPException(status_code=500, detail=f"Pool snapshot failed: {e}") from e
 
 
-@router.get("/dashboard")
+@router.get("/dashboard", response_model=AdminDashboardResponse)
 def admin_dashboard(_: dict = Depends(_require_admin)):
     """Users + credit balances for admin UI."""
     with transaction() as cur:
@@ -256,7 +290,7 @@ def admin_grant_credits_ui(body: GrantCreditsUI, admin: dict = Depends(_require_
     return credits_mod.grant_credits(body.user_id, body.amount, f"granted by {admin['email']}")
 
 
-@router.get("/invite-codes-ui")
+@router.get("/invite-codes-ui", response_model=InviteCodeListResponse)
 def list_invite_codes_ui(_: dict = Depends(_require_admin)):
     """List invite codes (JWT auth for frontend)."""
     with transaction() as cur:
@@ -269,7 +303,7 @@ class CreateCodeUI(BaseModel):
     max_uses: int = 1
 
 
-@router.post("/invite-codes-ui")
+@router.post("/invite-codes-ui", response_model=InviteCode)
 def create_invite_code_ui(body: CreateCodeUI, _: dict = Depends(_require_admin)):
     """Create invite code (JWT auth for frontend)."""
     code = _random_code()

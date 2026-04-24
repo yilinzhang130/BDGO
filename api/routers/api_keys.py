@@ -61,12 +61,16 @@ class KeyRecord(BaseModel):
     is_active: bool
 
 
+class KeyListResponse(BaseModel):
+    items: list[KeyRecord]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
 
-@router.get("", response_model=dict)
+@router.get("", response_model=KeyListResponse)
 def list_my_keys(
     include_revoked: bool = False,
     user: dict = Depends(get_current_user),
