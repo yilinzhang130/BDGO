@@ -1,7 +1,18 @@
 "use client";
 
-export function ReportDoneStage({ result, onClose }: { result: any; onClose: () => void }) {
-  const files = result.files || [];
+import type { TaskStatusResponse } from "@/lib/api";
+
+type ReportResult = NonNullable<TaskStatusResponse["result"]>;
+type ReportFile = NonNullable<ReportResult["files"]>[number];
+
+export function ReportDoneStage({
+  result,
+  onClose,
+}: {
+  result: ReportResult;
+  onClose: () => void;
+}) {
+  const files: ReportFile[] = result.files || [];
   const markdownPreview = (result.markdown || "").slice(0, 400);
 
   return (
@@ -44,7 +55,7 @@ export function ReportDoneStage({ result, onClose }: { result: any; onClose: () 
           borderTop: "1px solid var(--border)",
         }}
       >
-        {files.map((f: any) => (
+        {files.map((f) => (
           <a
             key={f.filename}
             href={f.download_url}

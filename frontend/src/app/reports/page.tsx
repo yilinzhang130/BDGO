@@ -15,6 +15,7 @@ import {
   type CompletedReport,
 } from "@/lib/reports";
 import { ReportGenerateDialog } from "@/components/ui/ReportGenerateDialog";
+import type { FormSchema, FieldValue } from "@/components/ui/report/types";
 import { useAuth } from "@/components/AuthProvider";
 import { parsePreferences } from "@/lib/auth";
 import Markdown from "react-markdown";
@@ -29,7 +30,7 @@ interface ReportService {
   estimated_seconds: number;
   category: string;
   output_formats: string[];
-  input_schema: any;
+  input_schema: FormSchema;
 }
 
 interface RunningTask {
@@ -37,7 +38,7 @@ interface RunningTask {
   slug: string;
   status: "queued" | "running" | "completed" | "failed";
   created_at: string;
-  params?: Record<string, any>;
+  params?: Record<string, FieldValue>;
 }
 
 export default function ReportsPage() {
@@ -54,7 +55,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchReportServices()
-      .then((data: any) => {
+      .then((data: { services?: ReportService[] }) => {
         setServices(data.services || []);
         setLoading(false);
       })
