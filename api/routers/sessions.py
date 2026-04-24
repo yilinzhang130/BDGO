@@ -50,6 +50,41 @@ class UpsertEntityBody(BaseModel):
     href: str | None = None
 
 
+# Response models — frontend translates these via mapServerSession /
+# mapServerSessionSummary (see frontend/src/lib/sessions.ts).
+
+
+class SessionSummary(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
+class SessionMessage(BaseModel):
+    id: str
+    role: str
+    content: str
+    tools_json: str | None = None
+    attachments_json: str | None = None
+    created_at: str
+
+
+class SessionEntity(BaseModel):
+    id: str
+    entity_type: str
+    title: str
+    subtitle: str | None = None
+    fields_json: str | None = None
+    href: str | None = None
+    added_at: str
+
+
+class SessionDetail(SessionSummary):
+    messages: list[SessionMessage] = []
+    context_entities: list[SessionEntity] = []
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -88,7 +123,7 @@ def _serialize_row(row: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@router.get("")
+@router.get("", response_model=list[SessionSummary])
 def list_sessions(user: dict = Depends(get_current_user)):
     with transaction() as cur:
         cur.execute(
@@ -160,7 +195,7 @@ def create_session(body: CreateSessionBody, user: dict = Depends(get_current_use
 # ---------------------------------------------------------------------------
 
 
-@router.get("/{session_id}")
+@router.get("/{session_id}", response_model=SessionDetail)
 def get_session(session_id: str, user: dict = Depends(get_current_user)):
     with transaction() as cur:
         session = _verify_owner(cur, session_id, user["id"])

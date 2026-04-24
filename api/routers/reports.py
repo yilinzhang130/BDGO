@@ -58,6 +58,43 @@ class GenerateRequest(BaseModel):
     params: dict = {}
 
 
+class ReportFile(BaseModel):
+    filename: str
+    format: str
+    size: int
+    download_url: str
+
+
+class ReportResult(BaseModel):
+    markdown: str | None = None
+    files: list[ReportFile] = []
+    meta: dict = {}
+
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    slug: str | None = None
+    progress_log: list[str] = []
+    error: str | None = None
+    estimated_seconds: int | None = None
+    result: ReportResult | None = None
+
+
+class ReportTaskSummary(BaseModel):
+    task_id: str
+    slug: str
+    title: str | None = None
+    status: str
+    created_at: str
+    finished_at: str | None = None
+    error: str | None = None
+
+
+class ReportTaskListResponse(BaseModel):
+    tasks: list[ReportTaskSummary]
+
+
 def _dispatch_task(task_id: str, service, slug: str, params: dict, user_id: str) -> dict:
     """Run or queue a task; return the appropriate API response dict.
 
@@ -102,7 +139,7 @@ def generate_report(req: GenerateRequest, user: dict = Depends(get_current_user)
     return _dispatch_task(task_id, service, req.slug, req.params, user_id)
 
 
-@router.get("/status/{task_id}")
+@router.get("/status/{task_id}", response_model=TaskStatusResponse)
 def get_report_status(task_id: str, user: dict = Depends(get_current_user)):
     """Check task status. ``get_task`` reads from report_history so this
     works across workers and after restarts — no separate DB fallback needed.
@@ -188,7 +225,7 @@ def parse_report_args(req: ParseArgsRequest, user: dict = Depends(get_current_us
     return {"params": params, "missing": missing, "complete": complete}
 
 
-@router.get("/tasks")
+@router.get("/tasks", response_model=ReportTaskListResponse)
 def list_report_tasks(limit: int = 50, user: dict = Depends(get_current_user)):
     """List recent report tasks — admin sees all, others see only their own."""
     user_id = None if is_admin_user(user) else user["id"]

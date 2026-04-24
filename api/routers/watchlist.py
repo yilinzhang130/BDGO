@@ -22,6 +22,11 @@ class WatchlistAdd(BaseModel):
     notes: str | None = None
 
 
+class WatchlistCheckResponse(BaseModel):
+    watched: bool
+    id: int | None = None
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -128,7 +133,7 @@ def remove_from_watchlist(item_id: int, user: dict = Depends(get_current_user)):
     return {"deleted": True}
 
 
-@router.get("/check")
+@router.get("/check", response_model=WatchlistCheckResponse)
 def check_watchlist(
     entity_type: str = Query(...),
     entity_key: str = Query(...),

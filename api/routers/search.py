@@ -3,9 +3,24 @@
 from auth import public_api
 from crm_store import LIKE_ESCAPE, like_escape, query
 from fastapi import APIRouter, Query
+from pydantic import BaseModel
 from services.crm.resolve import fuzzy_company_names
 
 router = APIRouter()
+
+
+class SearchHit(BaseModel):
+    display: dict[str, str | int | float | None]
+    link: str
+    fuzzy: bool = False
+
+
+class GlobalSearchResponse(BaseModel):
+    query: str
+    # Category keys: companies / assets / clinical / deals / ip (+ an
+    # optional "companies_fuzzy" fallback when no exact matches found).
+    results: dict[str, list[SearchHit]]
+
 
 # Tuple layout per entry: category, physical_table, search_cols,
 # display_cols, pk_col, link_template.
@@ -78,7 +93,7 @@ def _build_patterns(q: str) -> list[str]:
     return patterns
 
 
-@router.get("/global")
+@router.get("/global", response_model=GlobalSearchResponse)
 @public_api
 def global_search(
     q: str = Query(..., min_length=1, description="Search query"),
