@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { errorMessage } from "@/lib/format";
 
 interface Props {
   label: string;
@@ -27,8 +28,8 @@ export function EditableField({ label, value, onSave }: Props) {
     try {
       await onSave(draft);
       setEditing(false);
-    } catch (err: any) {
-      alert(`保存失败: ${err?.message ?? "未知错误"}`);
+    } catch (err: unknown) {
+      alert(`保存失败: ${errorMessage(err, "未知错误")}`);
     } finally {
       setSaving(false);
     }

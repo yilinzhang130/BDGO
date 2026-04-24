@@ -6,10 +6,16 @@ export function formatNumber(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
-export function parseNum(val: any): number | null {
+export function parseNum(val: unknown): number | null {
   if (val == null || val === "") return null;
   const n = Number(val);
   return isNaN(n) ? null : n;
+}
+
+export function errorMessage(err: unknown, fallback = "Unknown error"): string {
+  if (err instanceof Error) return err.message || fallback;
+  if (typeof err === "string") return err || fallback;
+  return fallback;
 }
 
 export function safeJsonParse(val: any): any {

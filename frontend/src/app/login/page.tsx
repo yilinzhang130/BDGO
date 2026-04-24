@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { errorMessage } from "@/lib/format";
 
 type Tab = "login" | "register";
 
@@ -73,8 +74,8 @@ export default function LoginPage() {
       } else {
         await register(email, password, name.trim(), inviteCode.trim());
       }
-    } catch (err: any) {
-      setError(err.message || "操作失败，请稍后重试");
+    } catch (err: unknown) {
+      setError(errorMessage(err, "操作失败，请稍后重试"));
     } finally {
       setSubmitting(false);
     }

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
 import { type ReportTask, type PlanProposal, type PlanStatus } from "@/lib/sessions";
 import { downloadWithAuth } from "@/lib/download";
+import { errorMessage } from "@/lib/format";
 import { PlanCard } from "./PlanCard";
 
 interface ToolEvent {
@@ -210,8 +211,8 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
       if (res?.task_id) {
         setCurrentTaskId(res.task_id); // triggers the effect → starts new poll
       }
-    } catch (e: any) {
-      setErrorDetail((prev) => `${prev}\n重试失败：${e?.message || e}`);
+    } catch (e: unknown) {
+      setErrorDetail((prev) => `${prev}\n重试失败：${errorMessage(e, "重试失败")}`);
     } finally {
       setRetrying(false);
     }

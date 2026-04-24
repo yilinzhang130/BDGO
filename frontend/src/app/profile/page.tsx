@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { updateProfile } from "@/lib/api";
 import { parsePreferences, type UserPreferences } from "@/lib/auth";
+import { errorMessage } from "@/lib/format";
 
 // ---------------------------------------------------------------------------
 // Toast
@@ -254,8 +255,8 @@ export default function ProfilePage() {
       const updated = await updateProfile({ name, company, title, phone, bio });
       updateUser(updated);
       showToast("Profile updated", "success");
-    } catch (err: any) {
-      showToast(err.message || "Failed to update profile", "error");
+    } catch (err: unknown) {
+      showToast(errorMessage(err, "Failed to update profile"), "error");
     } finally {
       setSavingPersonal(false);
     }
@@ -274,8 +275,8 @@ export default function ProfilePage() {
       const updated = await updateProfile({ preferences_json: merged });
       updateUser(updated);
       showToast("AI preferences saved", "success");
-    } catch (err: any) {
-      showToast(err.message || "Failed to save preferences", "error");
+    } catch (err: unknown) {
+      showToast(errorMessage(err, "Failed to save preferences"), "error");
     } finally {
       setSavingPrefs(false);
     }
@@ -299,9 +300,9 @@ export default function ProfilePage() {
       const updated = await updateProfile({ preferences_json: merged });
       updateUser(updated);
       showToast(successMsg, "success");
-    } catch (err: any) {
+    } catch (err: unknown) {
       revert();
-      showToast(err.message || "Failed to save preference", "error");
+      showToast(errorMessage(err, "Failed to save preference"), "error");
     } finally {
       setSavingDisplay(false);
     }

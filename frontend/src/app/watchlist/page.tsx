@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWatchlist, removeFromWatchlist, addToWatchlist } from "@/lib/api";
+import { errorMessage } from "@/lib/format";
 
 const TYPE_OPTIONS = [
   { value: "", label: "All Types" },
@@ -79,8 +80,8 @@ export default function WatchlistPage() {
     try {
       const res = await fetchWatchlist({ q: debouncedQ, type, page, page_size: pageSize });
       setData(res);
-    } catch (e: any) {
-      setError(e?.message || "加载失败");
+    } catch (e: unknown) {
+      setError(errorMessage(e, "加载失败"));
       setData(null);
     } finally {
       setLoading(false);
