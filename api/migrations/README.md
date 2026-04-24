@@ -55,6 +55,24 @@ alembic downgrade <revision>   # to a specific point
 Always pair `upgrade()` with a working `downgrade()` — even "drop
 column" migrations, unless the data is truly irrecoverable.
 
+## Keeping the bootstrap in sync
+
+The `_SCHEMA_SQL` in `auth_db.py` is the bootstrap for fresh databases —
+it runs once on startup if `alembic_version` isn't populated yet. When
+you add a column via an Alembic migration, also inline that column into
+the matching `CREATE TABLE` in `_SCHEMA_SQL`. Otherwise:
+
+- Fresh deploy → bootstrap creates the table without the column →
+  migration runs next, idempotently adds it. Works, but the bootstrap
+  no longer tells you the current schema truthfully.
+- New contributor reads `_SCHEMA_SQL` and thinks the column doesn't
+  exist, because it isn't there.
+
+The `DO $$ ALTER TABLE … EXCEPTION WHEN duplicate_column $$` pattern
+that used to live in `_SCHEMA_SQL` was retired in M-011 — those
+columns are now either inlined into their `CREATE TABLE` above, or
+added by a numbered migration here (or both). Don't bring them back.
+
 ## Why no autogenerate?
 
 The app uses raw psycopg2 cursors, not SQLAlchemy ORM. Without a
