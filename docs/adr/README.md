@@ -43,3 +43,4 @@ Keep each ADR under ~100 lines. Link from findings.md / code comments when revis
 - [0002 — Two-Postgres split (auth DB vs CRM DB)](0002-two-database-split.md)
 - [0003 — Field visibility via internal/external user flag](0003-field-policy-internal-external.md)
 - [0004 — Report task state machine backed by report_history](0004-report-state-machine.md)
+- [0005 — Integration tests run against a real Postgres provided via env var](0005-integration-test-postgres.md)
