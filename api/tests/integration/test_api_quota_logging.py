@@ -68,7 +68,7 @@ def raw_client(app, external_user, monkeypatch):
 def mock_crm_queries(monkeypatch):
     """Mock CRM so /api/buyers doesn't blow up on missing SQLite."""
     import crm_store
-    import routers.buyers as buyers_router
+    import services.crm.buyers as buyers_service
     import services.crm.list_view as list_view_mod
 
     fake_paginate = MagicMock(
@@ -78,9 +78,9 @@ def mock_crm_queries(monkeypatch):
     monkeypatch.setattr(crm_store, "paginate", fake_paginate)
     monkeypatch.setattr(crm_store, "query_one", fake_query_one)
     # list_buyers now calls list_table_view → services.crm.list_view.paginate
-    # (buyers.py itself no longer imports paginate after S-004)
+    # get_buyer now calls services.crm.buyers.fetch_buyer → query_one (S-002)
     monkeypatch.setattr(list_view_mod, "paginate", fake_paginate)
-    monkeypatch.setattr(buyers_router, "query_one", fake_query_one)
+    monkeypatch.setattr(buyers_service, "query_one", fake_query_one)
 
 
 # ════════════════════════════════════════════════════════════════
