@@ -1,9 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchReportStatus, generateReport } from "@/lib/api";
+import { fetchReportStatus, generateReport, type TaskStatusResponse } from "@/lib/api";
 import { addCompletedReport } from "@/lib/reports";
 import type { ReportService, ReportStage, ReportStartInfo } from "@/components/ui/report/types";
+
+type ReportResult = TaskStatusResponse["result"];
+
+function errorMessage(e: unknown, fallback: string): string {
+  if (e instanceof Error) return e.message;
+  return fallback;
+}
 
 /**
  * Owns the report-generation lifecycle: form → running → done/error.
@@ -17,13 +24,13 @@ export function useReportPolling({
   onStarted,
 }: {
   service: ReportService;
-  params: Record<string, any>;
+  params: Record<string, unknown>;
   onStarted?: (info: ReportStartInfo) => void;
 }) {
   const [stage, setStage] = useState<ReportStage>("form");
   const [taskId, setTaskId] = useState<string | null>(null);
   const [progressLog, setProgressLog] = useState<string[]>([]);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ReportResult>(undefined);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,8 +71,8 @@ export function useReportPolling({
           return;
         }
         setTimeout(poll, 2000);
-      } catch (e: any) {
-        setErrorMsg(e.message || "Status check failed");
+      } catch (e) {
+        setErrorMsg(errorMessage(e, "Status check failed"));
         setStage("error");
       }
     };
@@ -103,8 +110,8 @@ export function useReportPolling({
       } else {
         setStage("running");
       }
-    } catch (e: any) {
-      setErrorMsg(e.message || "Failed to start");
+    } catch (e) {
+      setErrorMsg(errorMessage(e, "Failed to start"));
       setStage("error");
     }
   }, [service, params, onStarted]);
@@ -117,12 +124,16 @@ export function useReportPolling({
   return { stage, taskId, progressLog, result, errorMsg, submit, retry };
 }
 
-function deriveTitle(service: ReportService, params: any, meta: any): string {
-  if (meta.title) return meta.title;
-  if (meta.topic) return meta.topic;
-  if (params.topic) return params.topic;
-  if (params.pmid) return `PMID ${params.pmid}`;
-  if (params.doi) return params.doi;
-  if (params.filename) return params.filename;
+function deriveTitle(
+  service: ReportService,
+  params: Record<string, unknown>,
+  meta: Record<string, unknown>,
+): string {
+  if (typeof meta.title === "string" && meta.title) return meta.title;
+  if (typeof meta.topic === "string" && meta.topic) return meta.topic;
+  if (typeof params.topic === "string" && params.topic) return params.topic;
+  if (typeof params.pmid === "string" && params.pmid) return `PMID ${params.pmid}`;
+  if (typeof params.doi === "string" && params.doi) return params.doi;
+  if (typeof params.filename === "string" && params.filename) return params.filename;
   return service.display_name;
 }

@@ -10,6 +10,12 @@ import {
   fetchPipelineByPhase,
   fetchIndicationsTop,
   fetchDealsTimeline,
+  type OverviewStats,
+  type CountryCount,
+  type CompanyTypeCount,
+  type PhaseCount,
+  type IndicationCount,
+  type DealTimelinePoint,
 } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { COLORS } from "@/lib/chart-colors";
@@ -33,12 +39,12 @@ import {
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [overview, setOverview] = useState<any>(null);
-  const [byCountry, setByCountry] = useState<any[]>([]);
-  const [byType, setByType] = useState<any[]>([]);
-  const [byPhase, setByPhase] = useState<any[]>([]);
-  const [indications, setIndications] = useState<any[]>([]);
-  const [timeline, setTimeline] = useState<any[]>([]);
+  const [overview, setOverview] = useState<OverviewStats | null>(null);
+  const [byCountry, setByCountry] = useState<CountryCount[]>([]);
+  const [byType, setByType] = useState<CompanyTypeCount[]>([]);
+  const [byPhase, setByPhase] = useState<PhaseCount[]>([]);
+  const [indications, setIndications] = useState<IndicationCount[]>([]);
+  const [timeline, setTimeline] = useState<DealTimelinePoint[]>([]);
 
   useEffect(() => {
     if (user && !user.is_admin && !user.is_internal) {
@@ -112,8 +118,11 @@ export default function DashboardPage() {
                 cy="50%"
                 outerRadius={110}
                 label={
-                  ((props: any) =>
-                    `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`) as any
+                  // Recharts' label render-prop types are thin; PieLabelRenderProps
+                  // lives in recharts/types but isn't exported cleanly. Typing
+                  // the shape we actually use keeps this local and explicit.
+                  ((props: { name?: string; percent?: number }) =>
+                    `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`) as unknown as never
                 }
                 labelLine={false}
               >
@@ -154,7 +163,20 @@ export default function DashboardPage() {
               nameKey="name"
               stroke="#fff"
               content={
-                (({ x, y, width, height, name, size }: any) => {
+                ((props: {
+                  x?: number;
+                  y?: number;
+                  width?: number;
+                  height?: number;
+                  name?: string;
+                  size?: number;
+                }) => {
+                  const x = props.x ?? 0;
+                  const y = props.y ?? 0;
+                  const width = props.width ?? 0;
+                  const height = props.height ?? 0;
+                  const name = props.name ?? "";
+                  const size = props.size;
                   if (width < 50 || height < 30) return <g />;
                   return (
                     <g>
@@ -174,7 +196,7 @@ export default function DashboardPage() {
                         fontSize={11}
                         fontWeight={600}
                       >
-                        {String(name).length > 12 ? String(name).slice(0, 12) + ".." : name}
+                        {name.length > 12 ? name.slice(0, 12) + ".." : name}
                       </text>
                       <text
                         x={x + width / 2}
@@ -187,7 +209,7 @@ export default function DashboardPage() {
                       </text>
                     </g>
                   );
-                }) as any
+                }) as unknown as never
               }
             />
           </ResponsiveContainer>
@@ -239,10 +261,10 @@ export default function DashboardPage() {
                 cy="50%"
                 outerRadius={110}
                 label={
-                  ((props: any) =>
+                  ((props: { name?: string; percent?: number }) =>
                     (props.percent ?? 0) > 0.03
                       ? `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`
-                      : "") as any
+                      : "") as unknown as never
                 }
                 labelLine={false}
               >
