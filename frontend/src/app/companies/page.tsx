@@ -169,7 +169,9 @@ export default function CompaniesPage() {
                   <td>{row["客户类型"]}</td>
                   <td>{row["所处国家"]}</td>
                   <td>
-                    <span className={`badge ${phaseBadgeClass(String(row["核心产品的阶段"] ?? ""))}`}>
+                    <span
+                      className={`badge ${phaseBadgeClass(String(row["核心产品的阶段"] ?? ""))}`}
+                    >
                       {row["核心产品的阶段"] || "-"}
                     </span>
                   </td>
