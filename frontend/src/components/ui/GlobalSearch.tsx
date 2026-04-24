@@ -14,10 +14,16 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORY_ORDER = ["companies", "assets", "clinical", "deals", "ip"];
 
+interface SearchItem {
+  display: Record<string, unknown>;
+  link: string;
+}
+type CategorizedResults = Record<string, SearchItem[]>;
+
 export function GlobalSearch() {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<CategorizedResults | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -32,7 +38,7 @@ export function GlobalSearch() {
     setLoading(true);
     try {
       const data = await globalSearch(query);
-      setResults(data.results);
+      setResults(data.results as unknown as CategorizedResults);
       setOpen(true);
     } catch {
       setResults(null);
@@ -91,7 +97,7 @@ export function GlobalSearch() {
             return (
               <div key={cat}>
                 <div className="search-category">{CATEGORY_LABELS[cat]}</div>
-                {items.map((item: any, i: number) => {
+                {items.map((item, i) => {
                   const display = item.display;
                   const cols = Object.values(display).filter(Boolean);
                   return (

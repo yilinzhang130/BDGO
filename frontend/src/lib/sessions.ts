@@ -47,36 +47,43 @@ export type {
   QuickSearchSource,
 } from "./session-types";
 
-// Parse the tools_json column — it may hold either the legacy array of
-// ToolEvent objects or an object with {plan, tools, ...} when the message
-// is a plan proposal.
-function parseStoredTools(raw: string | null | undefined): {
-  tools?: any[];
-  plan?: any;
-  planStatus?: any;
+interface ParsedTools {
+  tools?: ToolEvent[];
+  plan?: PlanProposal;
+  planStatus?: PlanStatus;
   planSelectedIds?: string[];
   originalMessage?: string;
   quickSources?: QuickSearchSource[];
   reportTasks?: ReportTask[];
-} {
+}
+
+// Parse the tools_json column — it may hold either the legacy array of
+// ToolEvent objects or an object with {plan, tools, ...} when the message
+// is a plan proposal.
+function parseStoredTools(raw: string | null | undefined): ParsedTools {
   if (!raw) return {};
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return { tools: parsed };
-    }
-    if (parsed && typeof parsed === "object") {
-      return {
-        tools: parsed.tools,
-        plan: parsed.plan,
-        planStatus: parsed.planStatus || (parsed.plan ? "pending" : undefined),
-        planSelectedIds: parsed.planSelectedIds,
-        originalMessage: parsed.originalMessage || parsed.original_message,
-        quickSources: parsed.kind === "quick_search" ? parsed.sources : undefined,
-        reportTasks: parsed.reportTasks,
-      };
-    }
-  } catch {}
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (Array.isArray(parsed)) {
+    return { tools: parsed as ToolEvent[] };
+  }
+  if (parsed && typeof parsed === "object") {
+    const obj = parsed as Record<string, unknown>;
+    return {
+      tools: obj.tools as ToolEvent[] | undefined,
+      plan: obj.plan as PlanProposal | undefined,
+      planStatus: (obj.planStatus as PlanStatus | undefined) || (obj.plan ? "pending" : undefined),
+      planSelectedIds: obj.planSelectedIds as string[] | undefined,
+      originalMessage: (obj.originalMessage || obj.original_message) as string | undefined,
+      quickSources:
+        obj.kind === "quick_search" ? (obj.sources as QuickSearchSource[] | undefined) : undefined,
+      reportTasks: obj.reportTasks as ReportTask[] | undefined,
+    };
+  }
   return {};
 }
 
@@ -84,11 +91,11 @@ function parseStoredTools(raw: string | null | undefined): {
 function extractText(raw: string): string {
   if (!raw) return "";
   try {
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return parsed
-        .filter((b: any) => b.type === "text")
-        .map((b: any) => b.text || "")
+      return (parsed as { type?: string; text?: string }[])
+        .filter((b) => b.type === "text")
+        .map((b) => b.text || "")
         .join("");
     }
   } catch {}

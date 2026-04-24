@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { globalSearch, searchSessions } from "@/lib/api";
+import { globalSearch, searchSessions, type CRMRow } from "@/lib/api";
 
 interface SearchResult {
   type: "company" | "asset" | "deal" | "clinical" | "session";
@@ -11,7 +11,20 @@ interface SearchResult {
   href: string;
 }
 
-function groupResults(raw: any, sessions: any[]): SearchResult[] {
+interface GroupedRaw {
+  companies?: CRMRow[];
+  assets?: CRMRow[];
+  deals?: CRMRow[];
+}
+
+interface SessionHit {
+  id: string;
+  title: string;
+  updated_at: string;
+}
+
+function groupResults(raw: unknown, sessions: SessionHit[]): SearchResult[] {
+  const grouped = (raw ?? {}) as GroupedRaw;
   const results: SearchResult[] = [];
 
   // Sessions first
@@ -24,36 +37,36 @@ function groupResults(raw: any, sessions: any[]): SearchResult[] {
     });
   }
   // Companies
-  for (const c of (raw?.companies || []).slice(0, 3)) {
+  for (const c of (grouped.companies || []).slice(0, 3)) {
     const name = c["客户名称"];
     if (!name) continue;
     results.push({
       type: "company",
-      title: name,
-      subtitle: c["客户类型"] || c["所处国家"] || "公司",
-      href: `/companies/${encodeURIComponent(name)}`,
+      title: String(name),
+      subtitle: String(c["客户类型"] || c["所处国家"] || "公司"),
+      href: `/companies/${encodeURIComponent(String(name))}`,
     });
   }
   // Assets
-  for (const a of (raw?.assets || []).slice(0, 3)) {
+  for (const a of (grouped.assets || []).slice(0, 3)) {
     const name = a["资产名称"];
     if (!name) continue;
     results.push({
       type: "asset",
-      title: name,
+      title: String(name),
       subtitle: `${a["所属客户"] || ""} · ${a["临床阶段"] || ""}`.trim().replace(/^·\s*/, ""),
-      href: `/assets/${encodeURIComponent(a["所属客户"])}/${encodeURIComponent(name)}`,
+      href: `/assets/${encodeURIComponent(String(a["所属客户"] ?? ""))}/${encodeURIComponent(String(name))}`,
     });
   }
   // Deals
-  for (const d of (raw?.deals || []).slice(0, 2)) {
+  for (const d of (grouped.deals || []).slice(0, 2)) {
     const name = d["交易名称"];
     if (!name) continue;
     results.push({
       type: "deal",
-      title: name,
-      subtitle: d["交易类型"] || "交易",
-      href: `/deals?q=${encodeURIComponent(name)}`,
+      title: String(name),
+      subtitle: String(d["交易类型"] || "交易"),
+      href: `/deals?q=${encodeURIComponent(String(name))}`,
     });
   }
   return results;
