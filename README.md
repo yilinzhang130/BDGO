@@ -30,11 +30,17 @@ The API runs without `DATABASE_URL` (dev mode, random JWT on restart). Set it to
 ## Tests / lint
 
 ```bash
-# Backend
+# Backend — unit tests (fast, no DB required)
 cd api && pytest -q && ruff check .
+
+# Backend — integration tests (optional; requires a writable Postgres)
+TEST_DATABASE_URL=postgresql://user@localhost/bdgo_test pytest -q
+
 # Frontend
 cd frontend && npm run lint && npx tsc --noEmit
 ```
+
+Integration tests in `api/tests/integration/` silently skip when `TEST_DATABASE_URL` is unset. CI provisions a Postgres service container and sets it automatically — see [docs/adr/0005-integration-test-postgres.md](docs/adr/0005-integration-test-postgres.md).
 
 ## Env vars
 

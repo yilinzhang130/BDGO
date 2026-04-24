@@ -28,9 +28,11 @@ os.environ.setdefault("JWT_SECRET", "test-secret-32-chars-long-enough!")
 os.environ.setdefault("DATABASE_URL", "")  # 空 = 测试不连真实 DB
 
 # ── 注入外部依赖的 stub ──────────────────────────────────────────────
-# crm_match 是 ~/.openclaw/workspace 下的外部模块，本地不一定存在。
-# 在测试环境里注入一个最小 stub，让 services.crm.resolve 能 import。
-# 这是标准做法：测试不应该依赖外部文件系统上的东西。
+# crm_match 和 crm_db 都住在 ~/.openclaw/workspace/scripts/ —— 本地可能
+# 有、CI runner 上肯定没有。测试不应该依赖外部文件系统，所以注入最小
+# stub 模块让 api 代码能 import。
+# 真正查 CRM 数据的测试（若将来出现）应该 mock crm_store 层，不是
+# 依赖这个 stub 的行为。
 if "crm_match" not in sys.modules:
     _stub = types.ModuleType("crm_match")
 
@@ -45,6 +47,18 @@ if "crm_match" not in sys.modules:
     _stub.find_existing_company = _find_existing_company
     _stub.normalize_name = _normalize_name
     sys.modules["crm_match"] = _stub
+
+if "crm_db" not in sys.modules:
+    _stub = types.ModuleType("crm_db")
+
+    # crm_store.py reads ``crm_db._is_pg`` at import time (module-level
+    # constant). Everything else it uses (PG_DSN, _TABLE_ALIAS,
+    # _col_order_phys, backup, etc.) is inside functions — only tests
+    # that actually exercise CRM queries will need those stubbed.
+    _stub._is_pg = lambda: False
+    _stub.PG_DSN = ""
+    _stub._TABLE_ALIAS = {}
+    sys.modules["crm_db"] = _stub
 
 
 # ════════════════════���══════════════════════════════════════��════
