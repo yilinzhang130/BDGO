@@ -1,11 +1,11 @@
-"""Deal / transaction endpoints."""
+"""Deal / transaction endpoints — HTTP contract only; SQL + visibility in services/crm/deals."""
 
 from urllib.parse import unquote
 
 from auth import get_current_user, public_api
-from crm_store import LIKE_ESCAPE, like_contains, query_one
+from crm_store import LIKE_ESCAPE, like_contains
 from fastapi import APIRouter, Depends, HTTPException, Query
-from field_policy import strip_hidden
+from services.crm import deals as deals_service
 from services.crm.list_view import PaginatedResponse, list_table_view
 
 router = APIRouter()
@@ -72,8 +72,7 @@ def list_deals(
 @router.get("/{name}")
 @public_api
 def get_deal(name: str, user: dict = Depends(get_current_user)):
-    name = unquote(name)
-    row = query_one('SELECT * FROM "交易" WHERE "交易名称" = ?', (name,))
-    if not row:
+    row = deals_service.fetch_deal(unquote(name), user)
+    if row is None:
         raise HTTPException(status_code=404, detail="Deal not found")
-    return strip_hidden(row, "交易", user)
+    return row
