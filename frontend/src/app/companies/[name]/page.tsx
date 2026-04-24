@@ -10,6 +10,8 @@ import {
   fetchBuyer,
   updateRecord,
   deleteRecord,
+  type CRMRow,
+  type PaginatedCRM,
 } from "@/lib/api";
 import { phaseBadgeClass, priorityBadgeClass, resultBadgeClass } from "@/lib/badges";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
@@ -94,11 +96,11 @@ export default function CompanyDetailPage() {
   const { user } = useAuth();
   const name = decodeURIComponent(params.name as string);
 
-  const [company, setCompany] = useState<any>(null);
-  const [assets, setAssets] = useState<any>(null);
-  const [trials, setTrials] = useState<any>(null);
-  const [deals, setDeals] = useState<any[]>([]);
-  const [buyerProfile, setBuyerProfile] = useState<any>(null);
+  const [company, setCompany] = useState<CRMRow | null>(null);
+  const [assets, setAssets] = useState<PaginatedCRM | null>(null);
+  const [trials, setTrials] = useState<PaginatedCRM | null>(null);
+  const [deals, setDeals] = useState<CRMRow[]>([]);
+  const [buyerProfile, setBuyerProfile] = useState<CRMRow | null>(null);
   const [tab, setTab] = useState("assets");
   const [notFound, setNotFound] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -170,7 +172,7 @@ export default function CompanyDetailPage() {
               {company["所处国家"] && <span>{company["所处国家"]}</span>}
               {company["Ticker"] && <span>{company["Ticker"]}</span>}
               {company["BD跟进优先级"] && (
-                <span className={`badge ${priorityBadgeClass(company["BD跟进优先级"])}`}>
+                <span className={`badge ${priorityBadgeClass(String(company["BD跟进优先级"]))}`}>
                   Priority {company["BD跟进优先级"]}
                 </span>
               )}
@@ -208,7 +210,7 @@ export default function CompanyDetailPage() {
         >
           <span style={{ color: "var(--text-secondary)" }}>BP Attached:</span>
           <a
-            href={`/api/files/bp/${encodeURIComponent(company["BP来源"])}`}
+            href={`/api/files/bp/${encodeURIComponent(String(company["BP来源"] ?? ""))}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "underline" }}
@@ -331,12 +333,12 @@ export default function CompanyDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {assets?.data?.map((a: any) => (
+                {assets?.data?.map((a) => (
                   <tr
                     key={`${a["资产名称"]}-${a["所属客户"]}`}
                     onClick={() =>
                       router.push(
-                        `/assets/${encodeURIComponent(a["所属客户"])}/${encodeURIComponent(a["资产名称"])}`,
+                        `/assets/${encodeURIComponent(String(a["所属客户"] ?? ""))}/${encodeURIComponent(String(a["资产名称"] ?? ""))}`,
                       )
                     }
                   >
@@ -345,7 +347,7 @@ export default function CompanyDetailPage() {
                     <td>{a["疾病领域"] || "-"}</td>
                     <td>{a["适应症"] || "-"}</td>
                     <td>
-                      <span className={`badge ${phaseBadgeClass(a["临床阶段"])}`}>
+                      <span className={`badge ${phaseBadgeClass(String(a["临床阶段"] ?? ""))}`}>
                         {a["临床阶段"] || "-"}
                       </span>
                     </td>
@@ -375,19 +377,19 @@ export default function CompanyDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {trials?.data?.map((t: any) => (
-                  <tr key={t["记录ID"]}>
+                {trials?.data?.map((t) => (
+                  <tr key={String(t["记录ID"] ?? "")}>
                     <td>{t["试验ID"]}</td>
                     <td>{t["资产名称"]}</td>
-                    <td>{t["适应症"]?.slice(0, 40) || "-"}</td>
+                    <td>{String(t["适应症"] ?? "").slice(0, 40) || "-"}</td>
                     <td>
-                      <span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>
+                      <span className={`badge ${phaseBadgeClass(String(t["临床期次"] ?? ""))}`}>
                         {t["临床期次"] || "-"}
                       </span>
                     </td>
                     <td>{t["主要终点名称"] || "-"}</td>
                     <td>
-                      <span className={`badge ${resultBadgeClass(t["结果判定"])}`}>
+                      <span className={`badge ${resultBadgeClass(String(t["结果判定"] ?? ""))}`}>
                         {t["结果判定"] || "-"}
                       </span>
                     </td>
@@ -417,10 +419,12 @@ export default function CompanyDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {deals?.map((d: any) => (
+                {deals?.map((d) => (
                   <tr
-                    key={d["交易名称"]}
-                    onClick={() => router.push(`/deals?q=${encodeURIComponent(d["交易名称"])}`)}
+                    key={String(d["交易名称"] ?? "")}
+                    onClick={() =>
+                      router.push(`/deals?q=${encodeURIComponent(String(d["交易名称"] ?? ""))}`)
+                    }
                   >
                     <td style={{ fontWeight: 600 }}>{d["交易名称"]}</td>
                     <td>{d["交易类型"] || "-"}</td>
@@ -472,7 +476,7 @@ export default function CompanyDetailPage() {
               ["CEO", buyerProfile.ceo_name],
               ["Head of BD", buyerProfile.head_bd_name],
             ].map(([label, value]) => (
-              <div key={label}>
+              <div key={String(label ?? "")}>
                 <span style={{ color: "var(--text-secondary)" }}>{label}: </span>
                 <strong>{value || "-"}</strong>
               </div>

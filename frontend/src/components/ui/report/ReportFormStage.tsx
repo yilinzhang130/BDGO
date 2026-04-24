@@ -1,6 +1,6 @@
 "use client";
 
-import type { FieldRule } from "./types";
+import type { FieldRule, FieldSpec, FieldValue, FormSchema } from "./types";
 
 const INPUT_STYLE: React.CSSProperties = {
   padding: "0.5rem 0.7rem",
@@ -23,10 +23,10 @@ export function ReportFormStage({
   estimatedSeconds,
   errorMsg,
 }: {
-  schema: any;
+  schema: FormSchema;
   fieldRules: Record<string, FieldRule>;
-  params: Record<string, any>;
-  onChange: (p: Record<string, any>) => void;
+  params: Record<string, FieldValue>;
+  onChange: (p: Record<string, FieldValue>) => void;
   onSubmit: () => void;
   onCancel: () => void;
   estimatedSeconds: number;
@@ -59,7 +59,7 @@ export function ReportFormStage({
           paddingRight: "0.2rem",
         }}
       >
-        {Object.entries(properties).map(([name, spec]: [string, any]) => {
+        {Object.entries(properties).map(([name, spec]) => {
           if (!isFieldRelevant(name)) return null;
           return (
             <FieldInput
@@ -148,9 +148,9 @@ function FieldInput({
   required,
 }: {
   name: string;
-  spec: any;
-  value: any;
-  onChange: (v: any) => void;
+  spec: FieldSpec;
+  value: FieldValue | undefined;
+  onChange: (v: FieldValue) => void;
   required: boolean;
 }) {
   const label = name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, " ");
@@ -204,10 +204,15 @@ function FieldInput({
           {description}
         </div>
       )}
+      {/* Boolean was returned above, so here currentValue is string|number. */}
       {spec.enum ? (
-        <select value={currentValue} onChange={(e) => onChange(e.target.value)} style={INPUT_STYLE}>
+        <select
+          value={currentValue as string | number}
+          onChange={(e) => onChange(e.target.value)}
+          style={INPUT_STYLE}
+        >
           <option value="">-- select --</option>
-          {spec.enum.map((opt: string) => (
+          {spec.enum.map((opt) => (
             <option key={opt} value={opt}>
               {opt}
             </option>
@@ -216,14 +221,16 @@ function FieldInput({
       ) : spec.type === "integer" ? (
         <input
           type="number"
-          value={currentValue}
-          onChange={(e) => onChange(parseInt(e.target.value, 10) || spec.default || 0)}
+          value={currentValue as string | number}
+          onChange={(e) =>
+            onChange(parseInt(e.target.value, 10) || (spec.default as number | undefined) || 0)
+          }
           style={INPUT_STYLE}
         />
       ) : (
         <input
           type="text"
-          value={currentValue}
+          value={currentValue as string | number}
           onChange={(e) => onChange(e.target.value)}
           style={INPUT_STYLE}
         />

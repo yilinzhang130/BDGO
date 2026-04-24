@@ -4,6 +4,46 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchCatalysts } from "@/lib/api";
 
+/* ─── Catalyst domain shapes ─── */
+
+interface CatalystEvent {
+  id: string | number;
+  date: string;
+  raw_date?: string;
+  event?: string;
+  company: string;
+  asset?: string;
+  indication?: string;
+  phase?: string;
+  status: "overdue" | "imminent" | "upcoming" | "far";
+  // Detail-panel fields. All optional because the backend only
+  // populates them when the underlying CRM row has data.
+  type?: string;
+  certainty?: string;
+  data_status?: string;
+  result?: string;
+  trial_id?: string;
+  calendar_detail?: string;
+}
+
+interface CatalystStats {
+  total: number;
+  overdue: number;
+  imminent: number;
+  upcoming: number;
+  far: number;
+}
+
+interface CatalystsResponse {
+  data: CatalystEvent[];
+  stats: CatalystStats;
+  types: string[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
 /* ─── Status helpers ─── */
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
@@ -34,7 +74,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function PhaseBadge({ phase }: { phase: string }) {
+function PhaseBadge({ phase }: { phase?: string }) {
   if (!phase) return null;
   const colors: Record<string, string> = {
     "Phase 3": "#059669",
@@ -98,7 +138,7 @@ function StatCard({
 }
 
 /* ─── Event row ─── */
-function EventRow({ event, onClick }: { event: any; onClick: () => void }) {
+function EventRow({ event, onClick }: { event: CatalystEvent; onClick: () => void }) {
   return (
     <div
       onClick={onClick}
@@ -148,7 +188,7 @@ function EventRow({ event, onClick }: { event: any; onClick: () => void }) {
 }
 
 /* ─── Detail panel ─── */
-function DetailPanel({ event, onClose }: { event: any; onClose: () => void }) {
+function DetailPanel({ event, onClose }: { event: CatalystEvent; onClose: () => void }) {
   return (
     <div
       style={{
@@ -258,7 +298,15 @@ function Backdrop({ onClick }: { onClick: () => void }) {
 }
 
 /* ─── Calendar mini-heatmap ─── */
-function MonthGrid({ events, year, month }: { events: any[]; year: number; month: number }) {
+function MonthGrid({
+  events,
+  year,
+  month,
+}: {
+  events: CatalystEvent[];
+  year: number;
+  month: number;
+}) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -277,7 +325,7 @@ function MonthGrid({ events, year, month }: { events: any[]; year: number; month
     }
   }
 
-  const cells: JSX.Element[] = [];
+  const cells: React.ReactElement[] = [];
   for (let i = 0; i < firstDay; i++) cells.push(<div key={`b-${i}`} />);
   for (let d = 1; d <= daysInMonth; d++) {
     const info = dayMap[d];
@@ -342,7 +390,7 @@ function MonthGrid({ events, year, month }: { events: any[]; year: number; month
 /* ─── Main page ─── */
 export default function CatalystsPage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<CatalystsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -350,7 +398,7 @@ export default function CatalystsPage() {
   const [catalystType, setCatalystType] = useState("");
   const [year, setYear] = useState(new Date().getFullYear());
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<any>(null);
+  const [selected, setSelected] = useState<CatalystEvent | null>(null);
   const [view, setView] = useState<"list" | "calendar">("list");
 
   const load = useCallback(() => {
@@ -365,7 +413,10 @@ export default function CatalystsPage() {
       page_size: 200,
     })
       .then((d) => {
-        setData(d);
+        // /catalysts returns a richer shape than the shared PaginatedCRM
+        // (adds stats + types). api.ts keeps the shared signature; this
+        // page narrows at the call site.
+        setData(d as unknown as CatalystsResponse);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -604,7 +655,9 @@ export default function CatalystsPage() {
               No catalysts found
             </div>
           ) : (
-            events.map((e: any) => <EventRow key={e.id} event={e} onClick={() => setSelected(e)} />)
+            events.map((e: CatalystEvent) => (
+              <EventRow key={e.id} event={e} onClick={() => setSelected(e)} />
+            ))
           )}
           {/* Pagination */}
           {data && data.total > 200 && (
