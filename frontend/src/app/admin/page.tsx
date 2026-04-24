@@ -91,8 +91,8 @@ export default function AdminPage() {
       await reloadUsers();
       setGrantTarget(null);
       setGrantAmount("");
-    } catch (e: any) {
-      alert(`Failed: ${e.message}`);
+    } catch (e) {
+      alert(`Failed: ${errorMessage(e)}`);
     } finally {
       setGranting(false);
     }
@@ -104,8 +104,8 @@ export default function AdminPage() {
     try {
       await setUserActive(u.id, !u.is_active);
       await reloadUsers();
-    } catch (e: any) {
-      alert(`操作失败: ${e.message}`);
+    } catch (e) {
+      alert(`操作失败: ${errorMessage(e)}`);
     }
   };
 
@@ -115,8 +115,8 @@ export default function AdminPage() {
     try {
       await setUserAdmin(u.id, !u.is_admin);
       await reloadUsers();
-    } catch (e: any) {
-      alert(`操作失败: ${e.message}`);
+    } catch (e) {
+      alert(`操作失败: ${errorMessage(e)}`);
     }
   };
 
@@ -131,8 +131,8 @@ export default function AdminPage() {
     try {
       await setUserInternal(u.id, !u.is_internal);
       await reloadUsers();
-    } catch (e: any) {
-      alert(`操作失败: ${e.message}`);
+    } catch (e) {
+      alert(`操作失败: ${errorMessage(e)}`);
     }
   };
 
@@ -140,8 +140,8 @@ export default function AdminPage() {
     try {
       await createInviteCode(1);
       await reloadCodes();
-    } catch (e: any) {
-      alert(`Failed: ${e.message}`);
+    } catch (e) {
+      alert(`Failed: ${errorMessage(e)}`);
     }
   };
 
@@ -150,8 +150,8 @@ export default function AdminPage() {
     try {
       await deleteInviteCode(code);
       setCodes((prev) => prev.filter((c) => c.code !== code));
-    } catch (e: any) {
-      alert(`Failed: ${e.message}`);
+    } catch (e) {
+      alert(`Failed: ${errorMessage(e)}`);
     }
   };
 
@@ -687,6 +687,10 @@ export default function AdminPage() {
       )}
     </div>
   );
+}
+
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 function btnStyle(

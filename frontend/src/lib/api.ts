@@ -190,14 +190,57 @@ export interface ModelInfo {
 }
 export const fetchModels = () => get<{ models: ModelInfo[] }>(`${BASE}/models`);
 
-// Stats
-export const fetchOverview = () => get(`${BASE}/stats/overview`);
-export const fetchCompaniesByCountry = () => get(`${BASE}/stats/companies-by-country`);
-export const fetchCompaniesByType = () => get(`${BASE}/stats/companies-by-type`);
-export const fetchPipelineByPhase = () => get(`${BASE}/stats/pipeline-by-phase`);
-export const fetchIndicationsTop = () => get(`${BASE}/stats/indications-top`);
-export const fetchDealsByType = () => get(`${BASE}/stats/deals-by-type`);
-export const fetchDealsTimeline = () => get(`${BASE}/stats/deals-timeline`);
+// Stats — each endpoint returns a single row or a flat list of {label, count}
+// shaped records. Chart components consume these directly (via recharts).
+export interface OverviewStats {
+  companies: number;
+  assets: number;
+  clinical_records: number;
+  deals: number;
+  active_trials: number;
+  tracked_companies: number;
+}
+
+export interface CountryCount {
+  country: string;
+  count: number;
+}
+
+export interface CompanyTypeCount {
+  type: string;
+  count: number;
+}
+
+export interface PhaseCount {
+  phase: string;
+  count: number;
+}
+
+export interface IndicationCount {
+  indication: string;
+  count: number;
+}
+
+export interface DealTypeCount {
+  type: string;
+  count: number;
+}
+
+export interface DealTimelinePoint {
+  month: string;
+  count: number;
+  total_value: number;
+}
+
+export const fetchOverview = () => get<OverviewStats>(`${BASE}/stats/overview`);
+export const fetchCompaniesByCountry = () =>
+  get<CountryCount[]>(`${BASE}/stats/companies-by-country`);
+export const fetchCompaniesByType = () =>
+  get<CompanyTypeCount[]>(`${BASE}/stats/companies-by-type`);
+export const fetchPipelineByPhase = () => get<PhaseCount[]>(`${BASE}/stats/pipeline-by-phase`);
+export const fetchIndicationsTop = () => get<IndicationCount[]>(`${BASE}/stats/indications-top`);
+export const fetchDealsByType = () => get<DealTypeCount[]>(`${BASE}/stats/deals-by-type`);
+export const fetchDealsTimeline = () => get<DealTimelinePoint[]>(`${BASE}/stats/deals-timeline`);
 // Companies
 export const fetchCompanies = (params: Record<string, string | number>) =>
   get(`${BASE}/companies`, params);
