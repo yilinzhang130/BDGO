@@ -54,7 +54,7 @@ def _fmt(row: dict) -> dict:
 
 
 @router.post("/invite-codes")
-def create_invite_code(body: CreateCodeRequest, x_admin_key: str = Header(...)):
+def create_invite_code(body: CreateCodeRequest, x_admin_key: str | None = Header(None)):
     require_admin_header(x_admin_key)
 
     code = (body.code or _random_code()).strip().upper()
@@ -76,7 +76,7 @@ def create_invite_code(body: CreateCodeRequest, x_admin_key: str = Header(...)):
 
 
 @router.get("/invite-codes")
-def list_invite_codes(x_admin_key: str = Header(...)):
+def list_invite_codes(x_admin_key: str | None = Header(None)):
     require_admin_header(x_admin_key)
 
     with transaction() as cur:
@@ -87,7 +87,7 @@ def list_invite_codes(x_admin_key: str = Header(...)):
 
 
 @router.delete("/invite-codes/{code}")
-def revoke_invite_code(code: str, x_admin_key: str = Header(...)):
+def revoke_invite_code(code: str, x_admin_key: str | None = Header(None)):
     require_admin_header(x_admin_key)
 
     with transaction() as cur:
@@ -117,19 +117,19 @@ def _set_admin_flag(email: str, value: bool) -> dict:
 
 
 @router.post("/users/{email}/set-admin")
-def set_user_admin(email: str, x_admin_key: str = Header(...)):
+def set_user_admin(email: str, x_admin_key: str | None = Header(None)):
     require_admin_header(x_admin_key)
     return _set_admin_flag(email, True)
 
 
 @router.post("/users/{email}/revoke-admin")
-def revoke_user_admin(email: str, x_admin_key: str = Header(...)):
+def revoke_user_admin(email: str, x_admin_key: str | None = Header(None)):
     require_admin_header(x_admin_key)
     return _set_admin_flag(email, False)
 
 
 @router.get("/users")
-def list_users(x_admin_key: str = Header(...)):
+def list_users(x_admin_key: str | None = Header(None)):
     """List all registered users (X-Admin-Key auth)."""
     require_admin_header(x_admin_key)
 

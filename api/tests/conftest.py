@@ -26,6 +26,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 # 这样 config.py 不会因为缺 JWT_SECRET 而 hard fail
 os.environ.setdefault("JWT_SECRET", "test-secret-32-chars-long-enough!")
 os.environ.setdefault("DATABASE_URL", "")  # 空 = 测试不连真实 DB
+# ADMIN_SECRET 设成一个非空常量；如果不设，auth.require_admin_header
+# 会 raise 503（"Admin not configured"）而不是我们想测的 403。
+os.environ.setdefault("ADMIN_SECRET", "test-admin-secret-unknown-to-fake-users")
 
 # ── 注入外部依赖的 stub ──────────────────────────────────────────────
 # crm_match 和 crm_db 都住在 ~/.openclaw/workspace/scripts/ —— 本地可能
@@ -66,10 +69,31 @@ if "crm_db" not in sys.modules:
 # ═════════════════════��══════════════════════════════════════════
 
 
+# 全部用户都需要携带 UserResponse schema 里的必填字段
+# （avatar_url / provider / created_at / last_login）—— 否则
+# /api/auth/me 的 response_model 校验会抛 ValidationError → 500。
+
+
+def _base_user() -> dict:
+    """公共字段，子类加角色位。"""
+    return {
+        "avatar_url": None,
+        "provider": "email",
+        "created_at": "2026-04-01T00:00:00",
+        "last_login": None,
+        "company": None,
+        "title": None,
+        "phone": None,
+        "bio": None,
+        "preferences_json": None,
+    }
+
+
 @pytest.fixture
 def external_user():
     """模拟一个普通外部用户（合作伙伴）"""
     return {
+        **_base_user(),
         "id": "user-ext-001",
         "email": "partner@example.com",
         "name": "外部用户",
@@ -83,6 +107,7 @@ def external_user():
 def internal_user():
     """模拟一个内部员工（可以看隐藏字段）"""
     return {
+        **_base_user(),
         "id": "user-int-001",
         "email": "analyst@yafocapital.com",
         "name": "内部分析师",
@@ -96,6 +121,7 @@ def internal_user():
 def admin_user():
     """模拟一个管理员"""
     return {
+        **_base_user(),
         "id": "user-adm-001",
         "email": "admin@yafocapital.com",
         "name": "管理员",
@@ -181,11 +207,18 @@ def client(app, external_user, internal_user, admin_user, monkeypatch):
     测试结束后自动还原，不影响其他测试。
     """
     from auth import get_current_user, get_optional_user
+    from fastapi import Header
     from fastapi.testclient import TestClient
 
     # 用一个查表函数来决定"这个 token 对应哪个用户"
-    # 真实请求里 get_current_user 会去查 Postgres，测试里我们跳过
-    def _fake_get_current_user(authorization: str = None):
+    # 真实请求里 get_current_user 会去查 Postgres，测试里我们跳过。
+    #
+    # ⚠️ Header(None) 必须显式声明 —— FastAPI 用 override 函数的
+    # 签名决定怎么注入参数。没 Header(None) 标注的话 FastAPI 不会
+    # 从请求 header 里把 Authorization 塞进来，override 永远收到
+    # None，所有带 token 的请求都会挂 401。这个 bug 静默存在过很久
+    # （tests/security/test_permissions.py 里 6 个 xfail 的正主）。
+    def _fake_get_current_user(authorization: str | None = Header(None)):
         from fastapi import HTTPException
 
         if not authorization:
@@ -193,7 +226,16 @@ def client(app, external_user, internal_user, admin_user, monkeypatch):
         token = authorization.replace("Bearer ", "")
         from auth import decode_token
 
-        claims = decode_token(token)
+        # 真 get_current_user 把所有 decode 失败（垃圾 / 过期 / 错 secret）
+        # 归一到 401；fake 也要这么做，否则 jwt.InvalidTokenError 会漏到
+        # FastAPI 的 exception handler 变成 500。
+        try:
+            claims = decode_token(token)
+        except Exception:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired token",
+            ) from None
         uid = claims["user_id"]
         users = {
             external_user["id"]: external_user,
@@ -205,7 +247,7 @@ def client(app, external_user, internal_user, admin_user, monkeypatch):
             raise HTTPException(status_code=401, detail="User not found")
         return user
 
-    def _fake_get_optional_user(authorization: str = None):
+    def _fake_get_optional_user(authorization: str | None = Header(None)):
         if not authorization:
             return None
         try:

@@ -256,17 +256,18 @@ def require_admin(user: dict = Depends(get_current_user)) -> dict:
 _ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "")
 
 
-def require_admin_header(x_admin_key: str) -> None:
+def require_admin_header(x_admin_key: str | None) -> None:
     """Validate an ``X-Admin-Key`` header value against ``ADMIN_SECRET``.
 
-    Called directly from endpoints that accept the header (not a
-    ``Depends`` dependency — endpoints declare their own Header(...)
-    param and pass the value in).
+    Accepts ``None`` (missing header) and treats it the same as a wrong
+    key — both get 403. Endpoints should declare the header as
+    ``Header(None)`` (not ``Header(...)``), otherwise FastAPI rejects
+    missing-header requests with 422 before we can raise 403.
     """
     if not _ADMIN_SECRET:
         raise HTTPException(
             status_code=503,
             detail="Admin not configured (ADMIN_SECRET not set)",
         )
-    if x_admin_key != _ADMIN_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid admin key")
+    if not x_admin_key or x_admin_key != _ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin key")
