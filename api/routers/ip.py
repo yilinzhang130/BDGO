@@ -1,9 +1,10 @@
-"""IP/Patent endpoints."""
+"""IP/Patent endpoints — HTTP contract only; SQL in services/crm/ip."""
 
 from urllib.parse import unquote
 
-from crm_store import LIKE_ESCAPE, like_contains, query_one
+from crm_store import LIKE_ESCAPE, like_contains
 from fastapi import APIRouter, HTTPException, Query
+from services.crm import ip as ip_service
 from services.crm.list_view import PaginatedResponse, list_table_view
 
 router = APIRouter()
@@ -67,8 +68,7 @@ def list_ip(
 
 @router.get("/{patent_number}")
 def get_patent(patent_number: str):
-    patent_number = unquote(patent_number)
-    row = query_one('SELECT * FROM "IP" WHERE "专利号" = ?', (patent_number,))
-    if not row:
+    row = ip_service.fetch_patent(unquote(patent_number))
+    if row is None:
         raise HTTPException(status_code=404, detail="Patent not found")
     return row
