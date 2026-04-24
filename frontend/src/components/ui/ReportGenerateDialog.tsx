@@ -6,7 +6,7 @@ import { ReportFormStage } from "./report/ReportFormStage";
 import { ReportRunningStage } from "./report/ReportRunningStage";
 import { ReportDoneStage } from "./report/ReportDoneStage";
 import { ReportErrorStage } from "./report/ReportErrorStage";
-import type { ReportService, ReportStartInfo } from "./report/types";
+import type { FieldValue, ReportService, ReportStartInfo } from "./report/types";
 
 export type { ReportService, ReportStartInfo } from "./report/types";
 
@@ -17,11 +17,11 @@ interface Props {
   // completed inline (sync). Caller is responsible for closing the dialog
   // and rendering progress elsewhere (e.g. as a chat message card).
   onStarted?: (info: ReportStartInfo) => void;
-  initialParams?: Record<string, any>;
+  initialParams?: Record<string, FieldValue>;
 }
 
 export function ReportGenerateDialog({ service, onClose, onStarted, initialParams }: Props) {
-  const [params, setParams] = useState<Record<string, any>>(initialParams || {});
+  const [params, setParams] = useState<Record<string, FieldValue>>(initialParams || {});
   const { stage, progressLog, result, errorMsg, submit, retry } = useReportPolling({
     service,
     params,

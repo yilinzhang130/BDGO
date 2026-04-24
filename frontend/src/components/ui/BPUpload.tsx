@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { uploadBP, runTask, fetchTaskStatus } from "@/lib/api";
+import { uploadBP, runTask, fetchTaskStatus, type UploadBPResponse } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
 
 interface Props {
@@ -17,7 +17,7 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState(0);
   const [stage, setStage] = useState<Stage>("upload");
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<UploadBPResponse | null>(null);
   const [analysisStatus, setAnalysisStatus] = useState("");
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);

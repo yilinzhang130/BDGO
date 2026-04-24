@@ -4,6 +4,6 @@ export function isBrowser(): boolean {
 }
 
 /** Fire-and-forget: swallow rejections with a labelled console.error. */
-export function bg(promise: Promise<any>, label: string): void {
+export function bg(promise: Promise<unknown>, label: string): void {
   promise.catch((err) => console.error(`[${label}]`, err));
 }
