@@ -104,8 +104,19 @@ async def lifespan(app: FastAPI):
     init_pool() is safe to call with zero keys configured — it just logs a
     warning; chat endpoints will 500 if hit without keys, but the service
     still boots so admin endpoints / health checks work.
+
+    Also reclaims any report tasks orphaned by a previous worker death
+    (daemon=True threads die when the process goes away). Startup is the
+    natural moment to sweep — whatever was ``running`` before we came
+    up is not running anymore.
     """
     init_pool()
+    try:
+        from services.report_builder import reclaim_stale_tasks
+
+        reclaim_stale_tasks()
+    except Exception:
+        logging.getLogger(__name__).exception("Startup: reclaim_stale_tasks failed")
     try:
         yield
     finally:

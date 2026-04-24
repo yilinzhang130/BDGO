@@ -241,7 +241,7 @@ class ReportService(ABC):
 # ─────────────────────────────────────────────────────────────
 
 import json as _json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 _task_cache: dict[
     str, dict
@@ -418,6 +418,54 @@ def list_tasks(limit: int = 50, user_id: str | None = None) -> list[dict]:
         cached = _task_cache.get(d["task_id"])
         out.append(_row_to_task(d, progress_log=cached["progress_log"] if cached else []))
     return out
+
+
+def reclaim_stale_tasks(max_age_seconds: int = 900) -> int:
+    """Mark orphaned queued/running tasks as failed.
+
+    Report tasks run in ``daemon=True`` threads so they die when the
+    uvicorn worker is replaced (``--reload``, deploy, OOM kill). The row
+    in ``report_history`` is left at status='running' and the UI polls
+    it forever. This sweeps any queued/running row whose last known
+    activity (``started_at`` if set, else ``created_at``) is older than
+    ``max_age_seconds`` and flips it to failed with an explanatory
+    error. Safe to call on startup and/or periodically.
+
+    Returns the number of rows reclaimed.
+    """
+    from auth_db import transaction
+
+    cutoff = datetime.utcnow() - timedelta(seconds=max_age_seconds)
+    error_msg = (
+        f"任务中断：超过 {max_age_seconds // 60} 分钟未完成，"
+        "可能因为服务重启或进程异常。已自动标记为失败，请重新生成。"
+    )
+    try:
+        with transaction() as cur:
+            cur.execute(
+                "UPDATE report_history "
+                "SET status = %s, error = %s, finished_at = %s "
+                "WHERE status IN (%s, %s) "
+                "AND COALESCE(started_at, created_at) < %s",
+                (
+                    STATUS_FAILED,
+                    error_msg,
+                    datetime.utcnow(),
+                    STATUS_QUEUED,
+                    STATUS_RUNNING,
+                    cutoff,
+                ),
+            )
+            reclaimed = cur.rowcount or 0
+    except Exception:
+        logger.exception("Failed to reclaim stale report tasks")
+        return 0
+
+    if reclaimed:
+        logger.warning(
+            "Reclaimed %d stale report task(s) older than %ds", reclaimed, max_age_seconds
+        )
+    return reclaimed
 
 
 def execute_task(task_id: str, service: ReportService, params: dict) -> None:
