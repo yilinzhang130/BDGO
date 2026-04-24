@@ -10,6 +10,10 @@ import {
   postMessage,
   postEntity,
   deleteEntity,
+  type ServerSessionDetail,
+  type ServerSessionSummary,
+  type ServerSessionMessage,
+  type ServerSessionEntity,
 } from "./api";
 import { isBrowser, bg } from "./browser";
 import { getToken } from "./auth";
@@ -132,13 +136,13 @@ function touchSession(id: string, mutator: (s: ChatSession) => ChatSession) {
 // Server hydration
 // ═══════════════════════════════════════════
 
-function mapServerSession(raw: any): ChatSession {
+function mapServerSession(raw: ServerSessionDetail): ChatSession {
   return {
     id: raw.id,
     title: raw.title || "New Chat",
     createdAt: new Date(raw.created_at).getTime(),
     updatedAt: new Date(raw.updated_at).getTime(),
-    messages: (raw.messages || []).map((m: any) => {
+    messages: (raw.messages || []).map((m: ServerSessionMessage) => {
       const parsed = parseStoredTools(m.tools_json);
       return {
         id: m.id,
@@ -156,7 +160,7 @@ function mapServerSession(raw: any): ChatSession {
         createdAt: new Date(m.created_at || raw.created_at).getTime(),
       };
     }),
-    contextEntities: (raw.context_entities || []).map((e: any) => ({
+    contextEntities: (raw.context_entities || []).map((e: ServerSessionEntity) => ({
       id: e.id,
       entityType: e.entity_type as EntityType,
       title: e.title,
@@ -168,7 +172,7 @@ function mapServerSession(raw: any): ChatSession {
   };
 }
 
-function mapServerSessionSummary(raw: any): ChatSession {
+function mapServerSessionSummary(raw: ServerSessionSummary): ChatSession {
   return {
     id: raw.id,
     title: raw.title || "New Chat",
