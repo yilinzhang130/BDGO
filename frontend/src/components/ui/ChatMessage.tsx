@@ -193,8 +193,19 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
 
     poll();
     pollRef.current = setInterval(poll, 4000);
+    // Hard cap: if we haven't seen completed/failed after 5 min, flip the
+    // card to a failed state so the user gets a retry button instead of
+    // an indefinite spinner. The backend task may still be running (or
+    // orphaned by a worker restart) — retry re-queues either way.
     const timeout = setTimeout(() => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (!doneRef.current) {
+        doneRef.current = true;
+        setErrorDetail(
+          "报告生成超过 5 分钟仍未返回结果。后台任务可能已中断或仍在进行，请点击重试。",
+        );
+        setStatus("failed");
+      }
     }, 300_000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
