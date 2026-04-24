@@ -37,7 +37,7 @@ class GrantBody(BaseModel):
 
 
 @router.post("/admin/credits/grant")
-def admin_grant(body: GrantBody, x_admin_key: str = Header(...)):
+def admin_grant(body: GrantBody, x_admin_key: str | None = Header(None)):
     require_admin_header(x_admin_key)
     if body.amount <= 0:
         raise HTTPException(400, "amount 必须大于 0")
