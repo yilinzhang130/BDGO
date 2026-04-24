@@ -26,7 +26,7 @@ const SCALAR_FIELDS: [string, string][] = [
   ["Last Updated", "last_updated"],
 ];
 
-function CapabilityMap({ data }: { data: Record<string, string> }) {
+function CapabilityMap({ data }: { data: Record<string, string> | null }) {
   if (!data || typeof data !== "object")
     return <span style={{ color: "var(--text-secondary)" }}>-</span>;
   const colorMap: Record<string, string> = {
@@ -128,7 +128,7 @@ function SunkCostMap({ data }: { data: Record<string, SunkCostEntry> }) {
   );
 }
 
-function DealTypePref({ data }: { data: Record<string, number> }) {
+function DealTypePref({ data }: { data: Record<string, number> | null }) {
   if (!data || typeof data !== "object")
     return <span style={{ color: "var(--text-secondary)" }}>-</span>;
   const total = Object.values(data).reduce((a, b) => a + b, 0);
@@ -168,13 +168,19 @@ export default function BuyerDetailPage() {
   }, [name]);
 
   const capabilities = useMemo(
-    () => (buyer ? safeJsonParse(buyer.commercial_capabilities) : null),
+    () => (buyer ? safeJsonParse<Record<string, string>>(buyer.commercial_capabilities) : null),
     [buyer],
   );
-  const theses = useMemo(() => (buyer ? safeJsonParse(buyer.bd_pattern_theses) : null), [buyer]);
-  const sunkCost = useMemo(() => (buyer ? safeJsonParse(buyer.sunk_cost_by_ta) : null), [buyer]);
+  const theses = useMemo(
+    () => (buyer ? safeJsonParse<BDThesis[]>(buyer.bd_pattern_theses) : null),
+    [buyer],
+  );
+  const sunkCost = useMemo(
+    () => (buyer ? safeJsonParse<Record<string, SunkCostEntry>>(buyer.sunk_cost_by_ta) : null),
+    [buyer],
+  );
   const dealTypePref = useMemo(
-    () => (buyer ? safeJsonParse(buyer.deal_type_preference) : null),
+    () => (buyer ? safeJsonParse<Record<string, number>>(buyer.deal_type_preference) : null),
     [buyer],
   );
 
