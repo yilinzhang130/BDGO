@@ -71,7 +71,9 @@ def mock_crm_queries(monkeypatch):
     import routers.buyers as buyers_router
     import services.crm.list_view as list_view_mod
 
-    fake_paginate = MagicMock(return_value={"data": [], "page": 1, "page_size": 50, "total": 0})
+    fake_paginate = MagicMock(
+        return_value={"data": [], "page": 1, "page_size": 50, "total": 0, "total_pages": 0}
+    )
     fake_query_one = MagicMock(return_value=None)
 
     monkeypatch.setattr(crm_store, "paginate", fake_paginate)
