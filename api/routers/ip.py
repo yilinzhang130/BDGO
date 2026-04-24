@@ -4,12 +4,12 @@ from urllib.parse import unquote
 
 from crm_store import LIKE_ESCAPE, like_contains, query_one
 from fastapi import APIRouter, HTTPException, Query
-from services.crm.list_view import list_table_view
+from services.crm.list_view import PaginatedResponse, list_table_view
 
 router = APIRouter()
 
 
-@router.get("")
+@router.get("", response_model=PaginatedResponse)
 def list_ip(
     q: str = Query("", description="Search patent/company/asset"),
     company: str = Query(""),

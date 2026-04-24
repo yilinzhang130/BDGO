@@ -5,12 +5,12 @@ from urllib.parse import unquote
 from auth import public_api
 from crm_store import LIKE_ESCAPE, like_contains, query_one
 from fastapi import APIRouter, HTTPException, Query
-from services.crm.list_view import list_table_view
+from services.crm.list_view import PaginatedResponse, list_table_view
 
 router = APIRouter()
 
 
-@router.get("")
+@router.get("", response_model=PaginatedResponse)
 @public_api
 def list_buyers(
     q: str = Query("", description="Search company name"),

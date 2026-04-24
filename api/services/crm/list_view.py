@@ -14,8 +14,28 @@ to this helper.
 
 from __future__ import annotations
 
+from typing import Any
+
 from crm_store import paginate
 from field_policy import strip_hidden
+from pydantic import BaseModel
+
+
+class PaginatedResponse(BaseModel):
+    """OpenAPI response envelope for list endpoints.
+
+    ``data`` is kept as ``list[dict]`` rather than a per-table row model
+    because (a) row shapes vary per table, (b) ``strip_hidden`` may omit
+    columns for external users — enumerating every possible shape in
+    the schema would be noise in /docs without compile-time benefit.
+    Row fields remain documented via the individual entity endpoints.
+    """
+
+    data: list[dict[str, Any]]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
 
 
 def list_table_view(
