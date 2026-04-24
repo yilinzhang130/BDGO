@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchReportStatus, generateReport, type TaskStatusResponse } from "@/lib/api";
 import { addCompletedReport } from "@/lib/reports";
-import type { ReportService, ReportStage, ReportStartInfo } from "@/components/ui/report/types";
+import type {
+  FieldValue,
+  ReportService,
+  ReportStage,
+  ReportStartInfo,
+} from "@/components/ui/report/types";
 
 type ReportResult = TaskStatusResponse["result"];
 
@@ -24,7 +29,7 @@ export function useReportPolling({
   onStarted,
 }: {
   service: ReportService;
-  params: Record<string, unknown>;
+  params: Record<string, FieldValue>;
   onStarted?: (info: ReportStartInfo) => void;
 }) {
   const [stage, setStage] = useState<ReportStage>("form");
@@ -126,7 +131,7 @@ export function useReportPolling({
 
 function deriveTitle(
   service: ReportService,
-  params: Record<string, unknown>,
+  params: Record<string, FieldValue>,
   meta: Record<string, unknown>,
 ): string {
   if (typeof meta.title === "string" && meta.title) return meta.title;

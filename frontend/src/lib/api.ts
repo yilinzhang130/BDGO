@@ -241,47 +241,69 @@ export const fetchPipelineByPhase = () => get<PhaseCount[]>(`${BASE}/stats/pipel
 export const fetchIndicationsTop = () => get<IndicationCount[]>(`${BASE}/stats/indications-top`);
 export const fetchDealsByType = () => get<DealTypeCount[]>(`${BASE}/stats/deals-by-type`);
 export const fetchDealsTimeline = () => get<DealTimelinePoint[]>(`${BASE}/stats/deals-timeline`);
+// CRM rows have Chinese column names + scalar cell values (Postgres
+// returns SQL scalars as string/number; JSON serialises NULL to null).
+// Cells are rendered directly into JSX, so a union narrower than
+// unknown keeps the call sites lint-clean without forcing String().
+export type CRMCell = string | number | boolean | null;
+export type CRMRow = Record<string, CRMCell>;
+
+export interface PaginatedCRM {
+  data: CRMRow[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
 // Companies
 export const fetchCompanies = (params: Record<string, string | number>) =>
-  get(`${BASE}/companies`, params);
-export const fetchCompany = (name: string) => get(`${BASE}/companies/${encodeURIComponent(name)}`);
+  get<PaginatedCRM>(`${BASE}/companies`, params);
+export const fetchCompany = (name: string) =>
+  get<CRMRow>(`${BASE}/companies/${encodeURIComponent(name)}`);
 export const fetchCompanyAssets = (name: string, page = 1) =>
-  get(`${BASE}/companies/${encodeURIComponent(name)}/assets`, { page });
+  get<PaginatedCRM>(`${BASE}/companies/${encodeURIComponent(name)}/assets`, { page });
 export const fetchCompanyTrials = (name: string, page = 1) =>
-  get(`${BASE}/companies/${encodeURIComponent(name)}/trials`, { page });
+  get<PaginatedCRM>(`${BASE}/companies/${encodeURIComponent(name)}/trials`, { page });
 export const fetchCompanyDeals = (name: string) =>
-  get(`${BASE}/companies/${encodeURIComponent(name)}/deals`);
+  get<CRMRow[]>(`${BASE}/companies/${encodeURIComponent(name)}/deals`);
 
 // Assets
 export const fetchAssets = (params: Record<string, string | number>) =>
-  get(`${BASE}/assets`, params);
+  get<PaginatedCRM>(`${BASE}/assets`, params);
 export const fetchAsset = (company: string, name: string) =>
-  get(`${BASE}/assets/${encodeURIComponent(company)}/${encodeURIComponent(name)}`);
+  get<CRMRow>(`${BASE}/assets/${encodeURIComponent(company)}/${encodeURIComponent(name)}`);
 export const fetchAssetTrials = (company: string, name: string, page = 1) =>
-  get(`${BASE}/assets/${encodeURIComponent(company)}/${encodeURIComponent(name)}/trials`, { page });
+  get<PaginatedCRM>(
+    `${BASE}/assets/${encodeURIComponent(company)}/${encodeURIComponent(name)}/trials`,
+    { page },
+  );
 
 // Clinical
 export const fetchClinical = (params: Record<string, string | number>) =>
-  get(`${BASE}/clinical`, params);
+  get<PaginatedCRM>(`${BASE}/clinical`, params);
 export const fetchClinicalRecord = (id: string) =>
-  get(`${BASE}/clinical/${encodeURIComponent(id)}`);
+  get<CRMRow>(`${BASE}/clinical/${encodeURIComponent(id)}`);
 
 // Deals
-export const fetchDeals = (params: Record<string, string | number>) => get(`${BASE}/deals`, params);
-export const fetchDeal = (name: string) => get(`${BASE}/deals/${encodeURIComponent(name)}`);
+export const fetchDeals = (params: Record<string, string | number>) =>
+  get<PaginatedCRM>(`${BASE}/deals`, params);
+export const fetchDeal = (name: string) => get<CRMRow>(`${BASE}/deals/${encodeURIComponent(name)}`);
 
 // IP
-export const fetchIP = (params: Record<string, string | number>) => get(`${BASE}/ip`, params);
-export const fetchPatent = (id: string) => get(`${BASE}/ip/${encodeURIComponent(id)}`);
+export const fetchIP = (params: Record<string, string | number>) =>
+  get<PaginatedCRM>(`${BASE}/ip`, params);
+export const fetchPatent = (id: string) => get<CRMRow>(`${BASE}/ip/${encodeURIComponent(id)}`);
 
 // Catalysts
 export const fetchCatalysts = (params: Record<string, string | number>) =>
-  get(`${BASE}/catalysts`, params);
+  get<PaginatedCRM>(`${BASE}/catalysts`, params);
 
 // Buyers (MNC Profiles)
 export const fetchBuyers = (params: Record<string, string | number>) =>
-  get(`${BASE}/buyers`, params);
-export const fetchBuyer = (name: string) => get(`${BASE}/buyers/${encodeURIComponent(name)}`);
+  get<PaginatedCRM>(`${BASE}/buyers`, params);
+export const fetchBuyer = (name: string) =>
+  get<CRMRow>(`${BASE}/buyers/${encodeURIComponent(name)}`);
 
 // Write (edit/delete)
 export const updateRecord = (
