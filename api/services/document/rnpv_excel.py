@@ -24,52 +24,58 @@ except ImportError:
     print("ERROR: openpyxl is required. Install with: pip install openpyxl")
     sys.exit(1)
 
-# ── Color Palette ──
-DARK_BLUE = "1F4E79"
-MED_BLUE = "2E75B6"
-LIGHT_BLUE = "D6E4F0"
-INPUT_BLUE = "BDD7EE"
-WHITE = "FFFFFF"
-LIGHT_GRAY = "F2F2F2"
-GREEN = "548235"
-LIGHT_GREEN = "E2EFDA"
-RED = "C00000"
-LIGHT_RED = "FCE4EC"
-ORANGE = "ED7D31"
-DARK_GRAY = "404040"
-YELLOW = "FFF2CC"
-PURPLE = "7030A0"
-TEAL = "00B0F0"
-
-# ── Styles ──
-HEADER_FONT = Font(name="Calibri", size=11, bold=True, color=WHITE)
-HEADER_FILL = PatternFill(start_color=DARK_BLUE, end_color=DARK_BLUE, fill_type="solid")
-SUBHEADER_FONT = Font(name="Calibri", size=10, bold=True, color=DARK_BLUE)
-SUBHEADER_FILL = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
-INPUT_FILL = PatternFill(start_color=INPUT_BLUE, end_color=INPUT_BLUE, fill_type="solid")
-RESEARCH_FILL = PatternFill(start_color=LIGHT_GREEN, end_color=LIGHT_GREEN, fill_type="solid")
-SECTION_FONT = Font(name="Calibri", size=12, bold=True, color=DARK_BLUE)
-NORMAL_FONT = Font(name="Calibri", size=10, color=DARK_GRAY)
-BOLD_FONT = Font(name="Calibri", size=10, bold=True, color=DARK_GRAY)
-FORMULA_FONT = Font(name="Calibri", size=10, color="000000")  # Black = formula (IB standard)
-LINK_FONT = Font(name="Calibri", size=10, color="008000")  # Green = cross-sheet link
-INPUT_FONT = Font(name="Calibri", size=10, color="0000FF")  # Blue = user input
-PCT_FORMAT = "0.0%"
-PCT2_FORMAT = "0.00%"
-USD_FORMAT = "$#,##0"
-USD_M_FORMAT = "$#,##0.0"
-NUM_FORMAT = "#,##0"
-THIN_BORDER = Border(
-    left=Side(style="thin", color="D9D9D9"),
-    right=Side(style="thin", color="D9D9D9"),
-    top=Side(style="thin", color="D9D9D9"),
-    bottom=Side(style="thin", color="D9D9D9"),
+from .rnpv._helpers import (
+    apply_header_row,
+    apply_subheader_row,
+    calc_note,
+    s_curve,
+    section_title,
+    set_col_widths,
+    write_formula_row,
+    write_input_cell,
+    write_label_value,
+    write_row,
 )
-BOTTOM_BORDER = Border(bottom=Side(style="medium", color=DARK_BLUE))
-PASS_FILL = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-FAIL_FILL = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-WARN_FILL = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
-
+from .rnpv._styles import (
+    BOLD_FONT,
+    BOTTOM_BORDER,
+    DARK_BLUE,
+    DARK_GRAY,
+    FAIL_FILL,
+    FORMULA_FONT,
+    GREEN,
+    HEADER_FILL,
+    HEADER_FONT,
+    INPUT_BLUE,
+    INPUT_FILL,
+    INPUT_FONT,
+    LIGHT_BLUE,
+    LIGHT_GRAY,
+    LIGHT_GREEN,
+    LIGHT_RED,
+    LINK_FONT,
+    MED_BLUE,
+    NORMAL_FONT,
+    NUM_FORMAT,
+    ORANGE,
+    PASS_FILL,
+    PCT2_FORMAT,
+    PCT_FORMAT,
+    PURPLE,
+    RED,
+    RESEARCH_FILL,
+    SECTION_FONT,
+    SUBHEADER_FILL,
+    SUBHEADER_FONT,
+    TEAL,
+    THIN_BORDER,
+    USD_FORMAT,
+    USD_M_FORMAT,
+    WARN_FILL,
+    WHITE,
+    YELLOW,
+)
+from .rnpv.assumptions import build_assumptions_sheet
 
 # ── CellTracker — Cross-sheet reference management ──
 
@@ -96,542 +102,6 @@ class CellTracker:
 
     def col_letter(self, col):
         return get_column_letter(col)
-
-
-# ── Helpers ──
-
-
-def s_curve(year, peak, ramp_years=7):
-    if year <= 0:
-        return 0
-    if year >= ramp_years:
-        return peak
-    midpoint = ramp_years / 2
-    steepness = 1.2
-    raw = 1 / (1 + math.exp(-steepness * (year - midpoint)))
-    raw_min = 1 / (1 + math.exp(-steepness * (1 - midpoint)))
-    raw_max = 1 / (1 + math.exp(-steepness * (ramp_years - midpoint)))
-    normalized = (raw - raw_min) / (raw_max - raw_min)
-    return peak * normalized
-
-
-def apply_header_row(ws, row, max_col):
-    for col in range(1, max_col + 1):
-        cell = ws.cell(row=row, column=col)
-        cell.font = HEADER_FONT
-        cell.fill = HEADER_FILL
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = THIN_BORDER
-
-
-def apply_subheader_row(ws, row, max_col):
-    for col in range(1, max_col + 1):
-        cell = ws.cell(row=row, column=col)
-        cell.font = SUBHEADER_FONT
-        cell.fill = SUBHEADER_FILL
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border = THIN_BORDER
-
-
-def write_row(ws, row, data, font=None, fill=None, num_fmt=None, bold_first=False):
-    for i, val in enumerate(data, 1):
-        cell = ws.cell(row=row, column=i, value=val)
-        cell.font = font or NORMAL_FONT
-        if fill:
-            cell.fill = fill
-        if num_fmt and i > 1:
-            cell.number_format = num_fmt
-        if bold_first and i == 1:
-            cell.font = BOLD_FONT
-        cell.border = THIN_BORDER
-        cell.alignment = Alignment(horizontal="right" if i > 1 else "left", vertical="center")
-
-
-def write_formula_row(ws, row, label, formulas, font=None, fill=None, num_fmt=None):
-    """Write a row where col 1 = label, col 2+ = Excel formulas."""
-    cell = ws.cell(row=row, column=1, value=label)
-    cell.font = BOLD_FONT
-    cell.border = THIN_BORDER
-    cell.alignment = Alignment(horizontal="left", vertical="center")
-    for i, f in enumerate(formulas, 2):
-        cell = ws.cell(row=row, column=i, value=f)
-        cell.font = font or FORMULA_FONT
-        if fill:
-            cell.fill = fill
-        if num_fmt:
-            cell.number_format = num_fmt
-        cell.border = THIN_BORDER
-        cell.alignment = Alignment(horizontal="right", vertical="center")
-
-
-def write_label_value(
-    ws, row, col, label, val, fmt=None, label_font=None, val_font=None, fill=None
-):
-    c1 = ws.cell(row=row, column=col, value=label)
-    c1.font = label_font or BOLD_FONT
-    c1.border = THIN_BORDER
-    c2 = ws.cell(row=row, column=col + 1, value=val)
-    c2.font = val_font or Font(name="Calibri", size=11, bold=True, color=DARK_BLUE)
-    if fmt:
-        c2.number_format = fmt
-    if fill:
-        c2.fill = fill
-    c2.border = THIN_BORDER
-
-
-def set_col_widths(ws, widths):
-    for col, w in widths.items():
-        ws.column_dimensions[col].width = w
-
-
-def section_title(ws, row, col, text):
-    ws.cell(row=row, column=col, value=text).font = SECTION_FONT
-
-
-def calc_note(ws, row, col, text):
-    c = ws.cell(row=row, column=col, value=text)
-    c.font = Font(name="Calibri", size=9, italic=True, color="808080")
-
-
-def write_input_cell(ws, row, col, val, fmt=None, tracker=None, key=None, sheet_name=None):
-    """Write a blue-font input cell and optionally register in tracker."""
-    c = ws.cell(row=row, column=col, value=val)
-    c.font = INPUT_FONT
-    c.fill = INPUT_FILL
-    c.border = THIN_BORDER
-    if fmt:
-        c.number_format = fmt
-    if tracker and key and sheet_name:
-        tracker.set(key, sheet_name, row, col)
-    return c
-
-
-# ── Sheet 1: Assumptions (Single Source of Truth) ──
-
-
-def build_assumptions_sheet(wb, config, tracker):
-    ws = wb.active
-    ws.title = "Assumptions"
-    ws.sheet_properties.tabColor = DARK_BLUE
-    SN = "Assumptions"
-
-    meta = config["metadata"]
-    indications = config["indications"]
-    costs = config["costs"]
-    discount = config["discount"]
-    proj_years = discount.get("projection_years", 20)
-    base_year = meta.get("base_year", datetime.now().year)
-
-    set_col_widths(ws, {"A": 38, "B": 18, "C": 22, "D": 18, "E": 18, "F": 18, "G": 18})
-
-    r = 1
-    ws.cell(row=r, column=1, value=f"rNPV Valuation Model — {meta['company']} / {meta['asset']}")
-    ws.cell(row=r, column=1).font = Font(name="Calibri", size=14, bold=True, color=DARK_BLUE)
-    r += 1
-    ws.cell(
-        row=r,
-        column=1,
-        value=f"Analyst: {meta.get('analyst', 'N/A')}  |  Date: {meta.get('date', datetime.now().strftime('%Y-%m-%d'))}",
-    )
-    ws.cell(row=r, column=1).font = Font(name="Calibri", size=10, color="808080")
-    r += 1
-    ws.cell(row=r, column=1, value="Color Legend:").font = Font(
-        name="Calibri", size=9, bold=True, color="808080"
-    )
-    c = ws.cell(row=r, column=2, value="User Input (Blue)")
-    c.fill = INPUT_FILL
-    c.font = Font(name="Calibri", size=9, color="0000FF")
-    c = ws.cell(row=r, column=3, value="Formula (Black)")
-    c.font = Font(name="Calibri", size=9, color="000000")
-    c = ws.cell(row=r, column=4, value="Cross-Sheet Link (Green)")
-    c.font = Font(name="Calibri", size=9, color="008000")
-    r += 2
-
-    # ── General ──
-    section_title(ws, r, 1, "GENERAL ASSUMPTIONS")
-    r += 1
-    headers = ["Parameter", "Value", "Source / Notes"]
-    for i, h in enumerate(headers, 1):
-        ws.cell(row=r, column=i, value=h)
-    apply_header_row(ws, r, 3)
-    r += 1
-
-    # Company / Asset info (static)
-    for label, val in [
-        ("Company", meta["company"]),
-        ("Asset / Drug", meta["asset"]),
-        ("Modality", meta.get("modality", "N/A")),
-        ("Therapeutic Area", meta.get("therapeutic_area", "N/A")),
-    ]:
-        ws.cell(row=r, column=1, value=label).font = NORMAL_FONT
-        ws.cell(row=r, column=2, value=val).font = NORMAL_FONT
-        for col in range(1, 4):
-            ws.cell(row=r, column=col).border = THIN_BORDER
-        r += 1
-
-    # WACC
-    ws.cell(row=r, column=1, value="WACC").font = NORMAL_FONT
-    write_input_cell(ws, r, 2, discount["wacc"], PCT_FORMAT, tracker, "wacc", SN)
-    ws.cell(
-        row=r, column=3, value=discount.get("wacc_source", "Default biotech")
-    ).font = NORMAL_FONT
-    for col in range(1, 4):
-        ws.cell(row=r, column=col).border = THIN_BORDER
-    r += 1
-
-    # Tax Rate
-    ws.cell(row=r, column=1, value="Tax Rate").font = NORMAL_FONT
-    write_input_cell(ws, r, 2, discount.get("tax_rate", 0.20), PCT_FORMAT, tracker, "tax_rate", SN)
-    ws.cell(row=r, column=3, value="Global blended effective").font = NORMAL_FONT
-    for col in range(1, 4):
-        ws.cell(row=r, column=col).border = THIN_BORDER
-    r += 1
-
-    # Projection Years
-    ws.cell(row=r, column=1, value="Projection Years").font = NORMAL_FONT
-    write_input_cell(ws, r, 2, proj_years, None, tracker, "proj_years", SN)
-    for col in range(1, 4):
-        ws.cell(row=r, column=col).border = THIN_BORDER
-    r += 1
-
-    # Base Year
-    ws.cell(row=r, column=1, value="Base Year").font = NORMAL_FONT
-    write_input_cell(ws, r, 2, base_year, None, tracker, "base_year", SN)
-    for col in range(1, 4):
-        ws.cell(row=r, column=col).border = THIN_BORDER
-    r += 1
-
-    # COGS margin
-    ws.cell(row=r, column=1, value="COGS (% of Net Revenue)").font = NORMAL_FONT
-    write_input_cell(
-        ws, r, 2, costs.get("cogs_margin", 0.20), PCT_FORMAT, tracker, "cogs_margin", SN
-    )
-    for col in range(1, 4):
-        ws.cell(row=r, column=col).border = THIN_BORDER
-    r += 2
-
-    # ── Per-Indication ──
-    for ind_idx, ind in enumerate(indications):
-        section_title(ws, r, 1, f"INDICATION {ind_idx + 1}: {ind['name']}")
-        if ind.get("line_of_therapy"):
-            ws.cell(row=r, column=3, value=f"Line: {ind['line_of_therapy']}")
-            ws.cell(row=r, column=3).font = Font(name="Calibri", size=10, bold=True, color=ORANGE)
-        r += 1
-
-        geo_keys = list(ind["geography_data"].keys())
-        n_geos = len(geo_keys)
-
-        # Patient funnel inputs
-        geo_headers = ["Patient Funnel"] + geo_keys + ["Source"]
-        for i, h in enumerate(geo_headers, 1):
-            ws.cell(row=r, column=i, value=h)
-        apply_header_row(ws, r, len(geo_headers))
-        r += 1
-
-        funnel_params = [
-            ("Prevalence / Incidence", "prevalence", NUM_FORMAT),
-            ("Diagnosed Rate", "diagnosed_rate", PCT_FORMAT),
-            ("Treatment Eligible Rate", "eligible_rate", PCT_FORMAT),
-            ("Line-of-Therapy Share", "line_share", PCT_FORMAT),
-            ("Drug-Treatable Rate", "drug_treatable_rate", PCT_FORMAT),
-            ("Addressable Rate (Access)", "addressable_rate", PCT_FORMAT),
-        ]
-        for label, key, fmt in funnel_params:
-            ws.cell(row=r, column=1, value=label).font = NORMAL_FONT
-            ws.cell(row=r, column=1).border = THIN_BORDER
-            for g_idx, geo in enumerate(geo_keys):
-                val = ind["geography_data"][geo].get(key, 0)
-                write_input_cell(
-                    ws, r, 2 + g_idx, val, fmt, tracker, f"ind{ind_idx}.{geo}.{key}", SN
-                )
-            source = ind.get("data_sources", {}).get(key, "")
-            ws.cell(row=r, column=n_geos + 2, value=source).font = Font(
-                name="Calibri", size=9, color="808080"
-            )
-            ws.cell(row=r, column=n_geos + 2).border = THIN_BORDER
-            r += 1
-
-        # Calculated addressable patients (formula)
-        ws.cell(row=r, column=1, value="-> Addressable Patients").font = BOLD_FONT
-        ws.cell(row=r, column=1).border = THIN_BORDER
-        for g_idx, geo in enumerate(geo_keys):
-            col = 2 + g_idx
-            prev_ref = tracker.local(f"ind{ind_idx}.{geo}.prevalence")
-            diag_ref = tracker.local(f"ind{ind_idx}.{geo}.diagnosed_rate")
-            elig_ref = tracker.local(f"ind{ind_idx}.{geo}.eligible_rate")
-            line_ref = tracker.local(f"ind{ind_idx}.{geo}.line_share")
-            treat_ref = tracker.local(f"ind{ind_idx}.{geo}.drug_treatable_rate")
-            addr_ref = tracker.local(f"ind{ind_idx}.{geo}.addressable_rate")
-            formula = f"=INT({prev_ref}*{diag_ref}*{elig_ref}*{line_ref}*{treat_ref}*{addr_ref})"
-            c = ws.cell(row=r, column=col, value=formula)
-            c.font = FORMULA_FONT
-            c.number_format = NUM_FORMAT
-            c.border = THIN_BORDER
-            c.fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
-            tracker.set(f"ind{ind_idx}.{geo}.addressable", SN, r, col)
-        ws.cell(
-            row=r, column=n_geos + 2, value="Prev x Diag x Elig x Line x Treat x Access"
-        ).font = Font(name="Calibri", size=9, italic=True, color="808080")
-        r += 2
-
-        # Pricing
-        ws.cell(row=r, column=1, value="PRICING").font = Font(
-            name="Calibri", size=10, bold=True, color=GREEN
-        )
-        r += 1
-        for label, key, fmt in [
-            ("List Price ($)", "list_price", USD_FORMAT),
-            ("Gross-to-Net Ratio", "gtn", PCT_FORMAT),
-        ]:
-            ws.cell(row=r, column=1, value=label).font = NORMAL_FONT
-            ws.cell(row=r, column=1).border = THIN_BORDER
-            for g_idx, geo in enumerate(geo_keys):
-                if key == "list_price":
-                    val = ind.get("pricing", {}).get(geo, 0)
-                else:
-                    val = ind.get("gross_to_net", {}).get(geo, 0.70)
-                write_input_cell(
-                    ws, r, 2 + g_idx, val, fmt, tracker, f"ind{ind_idx}.{geo}.{key}", SN
-                )
-            r += 1
-
-        # Net Price (formula)
-        ws.cell(row=r, column=1, value="-> Net Price ($)").font = BOLD_FONT
-        ws.cell(row=r, column=1).border = THIN_BORDER
-        for g_idx, geo in enumerate(geo_keys):
-            col = 2 + g_idx
-            lp = tracker.local(f"ind{ind_idx}.{geo}.list_price")
-            gtn = tracker.local(f"ind{ind_idx}.{geo}.gtn")
-            formula = f"={lp}*{gtn}"
-            c = ws.cell(row=r, column=col, value=formula)
-            c.font = FORMULA_FONT
-            c.number_format = USD_FORMAT
-            c.border = THIN_BORDER
-            tracker.set(f"ind{ind_idx}.{geo}.net_price", SN, r, col)
-        r += 2
-
-        # Penetration curve (pre-computed as editable year-by-year inputs)
-        ws.cell(row=r, column=1, value="MARKET PENETRATION").font = Font(
-            name="Calibri", size=10, bold=True, color=GREEN
-        )
-        r += 1
-
-        pen = ind.get("penetration_curve", {})
-        peak_pen = pen.get("peak", 0.15)
-        ramp_yrs = pen.get("ramp_years", 7)
-        loe_year = pen.get("loe_year_from_launch", 12)
-        post_loe = pen.get("post_loe_erosion_per_year", 0.30)
-        launch_offset = ind.get("years_to_launch", 5)
-
-        for label, val, fmt in [
-            ("Peak Penetration", peak_pen, PCT_FORMAT),
-            ("Ramp-up Years", ramp_yrs, None),
-            ("LOE Year (from launch)", loe_year, None),
-            ("Post-LOE Erosion/yr", post_loe, PCT_FORMAT),
-            ("Years to Launch", launch_offset, None),
-        ]:
-            ws.cell(row=r, column=1, value=f"  {label}").font = NORMAL_FONT
-            write_input_cell(
-                ws,
-                r,
-                2,
-                val,
-                fmt,
-                tracker,
-                f"ind{ind_idx}.pen.{label.lower().replace(' ', '_').replace('/', '_')}",
-                SN,
-            )
-            r += 1
-
-        tracker.set(f"ind{ind_idx}.years_to_launch", SN, r - 1, 2)  # last one was Years to Launch
-
-        # Year-by-year penetration % (pre-computed, editable)
-        r += 1
-        ws.cell(row=r, column=1, value="Penetration by Year:").font = Font(
-            name="Calibri", size=10, bold=True, color=GREEN
-        )
-        r += 1
-        year_headers = ["Year"] + [str(base_year + y) for y in range(proj_years)]
-        for i, h in enumerate(year_headers, 1):
-            ws.cell(row=r, column=i, value=h)
-        apply_header_row(ws, r, len(year_headers))
-        r += 1
-
-        # Compute penetration values
-        pen_vals = []
-        for yr_offset in range(proj_years):
-            yrs_since_launch = yr_offset - launch_offset
-            if yrs_since_launch < 0:
-                pen_vals.append(0)
-            elif yrs_since_launch < loe_year:
-                pv = s_curve(yrs_since_launch + 1, peak_pen, ramp_yrs)
-                pen_vals.append(pv)
-            else:
-                years_post_loe = yrs_since_launch - loe_year
-                base_pen = s_curve(loe_year, peak_pen, ramp_yrs)
-                eroded = base_pen * ((1 - post_loe) ** (years_post_loe + 1))
-                pen_vals.append(eroded)
-
-        ws.cell(row=r, column=1, value="Penetration %").font = NORMAL_FONT
-        ws.cell(row=r, column=1).border = THIN_BORDER
-        for y in range(proj_years):
-            col = 2 + y
-            write_input_cell(
-                ws, r, col, pen_vals[y], PCT2_FORMAT, tracker, f"ind{ind_idx}.pen_y{y}", SN
-            )
-        r += 2
-
-        # PoS
-        ws.cell(row=r, column=1, value="PROBABILITY OF SUCCESS").font = Font(
-            name="Calibri", size=10, bold=True, color=GREEN
-        )
-        r += 1
-        pos = ind.get("pos", {})
-        ws.cell(row=r, column=1, value="  Current Phase").font = NORMAL_FONT
-        ws.cell(row=r, column=2, value=pos.get("current_phase", "Phase 1")).font = INPUT_FONT
-        r += 1
-
-        phase_trans = pos.get("phase_transitions", {})
-        for trans_name, trans_val in phase_trans.items():
-            label = trans_name.replace("_to_", " -> ").replace("_", " ").title()
-            ws.cell(row=r, column=1, value=f"  {label}").font = NORMAL_FONT
-            write_input_cell(
-                ws, r, 2, trans_val, PCT_FORMAT, tracker, f"ind{ind_idx}.pos.{trans_name}", SN
-            )
-            r += 1
-
-        cum_pos = pos.get("cumulative", 0.10)
-        ws.cell(row=r, column=1, value="  -> Cumulative PoS").font = BOLD_FONT
-        write_input_cell(ws, r, 2, cum_pos, PCT_FORMAT, tracker, f"ind{ind_idx}.cum_pos", SN)
-        ws.cell(row=r, column=2).font = Font(name="Calibri", size=12, bold=True, color=RED)
-        r += 2
-
-    # ── R&D Costs ──
-    section_title(ws, r, 1, "R&D COST ASSUMPTIONS ($M)")
-    r += 1
-    rd_headers = [
-        "Phase",
-        "Total Cost ($M)",
-        "Duration (Yr)",
-        "Start Year (offset)",
-        "# Trials",
-        "Patients/Trial",
-        "# Sites",
-        "Source",
-    ]
-    for i, h in enumerate(rd_headers, 1):
-        ws.cell(row=r, column=i, value=h)
-    apply_header_row(ws, r, len(rd_headers))
-    r += 1
-
-    for p_idx, phase in enumerate(costs.get("rd_by_phase", [])):
-        ws.cell(row=r, column=1, value=phase.get("phase", "")).font = NORMAL_FONT
-        ws.cell(row=r, column=1).border = THIN_BORDER
-        write_input_cell(
-            ws, r, 2, phase.get("cost_mm", 0), USD_M_FORMAT, tracker, f"rd{p_idx}.cost", SN
-        )
-        write_input_cell(
-            ws, r, 3, phase.get("duration_years", 1), None, tracker, f"rd{p_idx}.duration", SN
-        )
-        write_input_cell(
-            ws, r, 4, phase.get("start_year", 0), None, tracker, f"rd{p_idx}.start", SN
-        )
-        write_input_cell(ws, r, 5, phase.get("num_trials", 1), None)
-        write_input_cell(ws, r, 6, phase.get("patients_per_trial", ""), None)
-        write_input_cell(ws, r, 7, phase.get("num_sites", ""), None)
-        ws.cell(row=r, column=8, value=phase.get("source", "")).font = Font(
-            name="Calibri", size=9, color="808080"
-        )
-        ws.cell(row=r, column=8).border = THIN_BORDER
-        r += 1
-
-    config["_rd_phase_count"] = len(costs.get("rd_by_phase", []))
-    r += 1
-
-    # CMC
-    cmc = costs.get("cmc", {})
-    if cmc:
-        cmc_total = sum(v for v in cmc.values() if isinstance(v, (int, float)))
-        ws.cell(row=r, column=1, value="CMC / Manufacturing Total ($M)").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, cmc_total, USD_M_FORMAT, tracker, "cmc_total", SN)
-        ws.cell(row=r, column=3, value="Spread over 5 years").font = Font(
-            name="Calibri", size=9, color="808080"
-        )
-        r += 2
-
-    # ── SG&A ──
-    section_title(ws, r, 1, "SG&A ASSUMPTIONS")
-    r += 1
-    sga = costs.get("sga", {})
-    sales = sga.get("sales_team", {})
-    if sales:
-        ws.cell(row=r, column=1, value="Sales Reps (Full Deploy)").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, sales.get("reps", 100), None, tracker, "sga.reps", SN)
-        r += 1
-        ws.cell(row=r, column=1, value="Cost per Rep ($K/yr)").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, sales.get("cost_per_rep_k", 280), USD_FORMAT, tracker, "sga.cost_per_rep", SN
-        )
-        r += 1
-        ramp = sales.get("ramp_schedule", [0.3, 0.6, 1.0])
-        ws.cell(row=r, column=1, value="Ramp: Pre-launch %").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, ramp[0] if len(ramp) > 0 else 0.3, PCT_FORMAT, tracker, "sga.ramp0", SN
-        )
-        r += 1
-        ws.cell(row=r, column=1, value="Ramp: Launch %").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, ramp[1] if len(ramp) > 1 else 0.6, PCT_FORMAT, tracker, "sga.ramp1", SN
-        )
-        r += 1
-        ws.cell(row=r, column=1, value="Ramp: Year 2+ %").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, ramp[2] if len(ramp) > 2 else 1.0, PCT_FORMAT, tracker, "sga.ramp2", SN
-        )
-        r += 1
-
-    msls = sga.get("msls", {})
-    if msls:
-        ws.cell(row=r, column=1, value="MSL Count").font = NORMAL_FONT
-        write_input_cell(ws, r, 2, msls.get("count", 20), None, tracker, "sga.msl_count", SN)
-        r += 1
-        ws.cell(row=r, column=1, value="Cost per MSL ($K/yr)").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, msls.get("cost_per_msl_k", 350), USD_FORMAT, tracker, "sga.msl_cost", SN
-        )
-        r += 1
-
-    mktg = sga.get("marketing", {})
-    if mktg:
-        ws.cell(row=r, column=1, value="Congress/KOL ($M/yr)").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, mktg.get("congress_annual_mm", 3), USD_M_FORMAT, tracker, "sga.congress", SN
-        )
-        r += 1
-        ws.cell(row=r, column=1, value="Publications ($M/yr)").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, mktg.get("publications_mm", 1), USD_M_FORMAT, tracker, "sga.pubs", SN
-        )
-        r += 1
-        ws.cell(row=r, column=1, value="Digital Marketing ($M/yr)").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, mktg.get("digital_marketing_mm", 2), USD_M_FORMAT, tracker, "sga.digital", SN
-        )
-        r += 1
-        ws.cell(row=r, column=1, value="Pre-Launch Mktg Total ($M)").font = NORMAL_FONT
-        write_input_cell(
-            ws, r, 2, mktg.get("prelaunch_total_mm", 5), USD_M_FORMAT, tracker, "sga.prelaunch", SN
-        )
-        r += 1
-
-    ws.cell(row=r, column=1, value="G&A (% of Revenue)").font = NORMAL_FONT
-    write_input_cell(
-        ws, r, 2, sga.get("ga_pct_of_revenue", 0.05), PCT_FORMAT, tracker, "sga.ga_pct", SN
-    )
-    r += 1
-
-    ws.freeze_panes = "A5"
-    return ws
 
 
 # ── Sheet 2: Patient Funnel (Formulas -> Assumptions) ──
