@@ -21,7 +21,9 @@ from ._styles import (
 SN = "Cost Structure"
 
 
-def _write_year_row(ws, r, label, formula_fn, proj_years, total_col, label_font=NORMAL_FONT, fill=None):
+def _write_year_row(
+    ws, r, label, formula_fn, proj_years, total_col, label_font=NORMAL_FONT, fill=None
+):
     """Write one cost row: label in col 1, per-year formulas, SUM in total_col.
 
     formula_fn(y) returns the Excel formula string for column (2 + y).
@@ -56,7 +58,9 @@ def _write_header(ws, config, proj_years, base_year):
     ws.cell(row=r, column=1).font = Font(name="Calibri", size=14, bold=True, color=DARK_BLUE)
     r += 1
     calc_note(
-        ws, r, 1,
+        ws,
+        r,
+        1,
         "All costs use formulas referencing Assumptions. R&D spread linearly over duration.",
     )
     r += 2
@@ -92,9 +96,12 @@ def _write_rd_section(ws, config, tracker, proj_years, total_col, r):
     if tracker.refs.get("cmc_total"):
         cmc_ref = tracker.get("cmc_total")
         _write_year_row(
-            ws, r, "  CMC / Manufacturing",
+            ws,
+            r,
+            "  CMC / Manufacturing",
             lambda y: f"=IF({y}<5,{cmc_ref}/5,0)",
-            proj_years, total_col,
+            proj_years,
+            total_col,
         )
         rd_rows.append(r)
         r += 1
@@ -105,8 +112,14 @@ def _write_rd_section(ws, config, tracker, proj_years, total_col, r):
 
     fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
     _write_year_row(
-        ws, r, "  TOTAL R&D", rd_total_formula, proj_years, total_col,
-        label_font=BOLD_FONT, fill=fill,
+        ws,
+        r,
+        "  TOTAL R&D",
+        rd_total_formula,
+        proj_years,
+        total_col,
+        label_font=BOLD_FONT,
+        fill=fill,
     )
     _register_row(ws, r, tracker, "cost.rd", proj_years)
     rd_total_row = r
@@ -173,9 +186,12 @@ def _write_sga_components(ws, config, tracker, first_launch, proj_years, total_c
         cpr = tracker.get("sga.cost_per_rep")
         r0, r1, r2 = (tracker.get(f"sga.ramp{i}") for i in range(3))
         _write_year_row(
-            ws, r, "  Sales Team",
+            ws,
+            r,
+            "  Sales Team",
             lambda y: _sales_formula(y, first_launch, reps, cpr, r0, r1, r2),
-            proj_years, total_col,
+            proj_years,
+            total_col,
         )
         component_rows.append(r)
         r += 1
@@ -184,9 +200,12 @@ def _write_sga_components(ws, config, tracker, first_launch, proj_years, total_c
         ct = tracker.get("sga.msl_count")
         cost = tracker.get("sga.msl_cost")
         _write_year_row(
-            ws, r, "  MSLs",
+            ws,
+            r,
+            "  MSLs",
             lambda y: _msl_formula(y, first_launch, ct, cost),
-            proj_years, total_col,
+            proj_years,
+            total_col,
         )
         component_rows.append(r)
         r += 1
@@ -197,9 +216,12 @@ def _write_sga_components(ws, config, tracker, first_launch, proj_years, total_c
         digital = tracker.get("sga.digital")
         prelaunch = tracker.get("sga.prelaunch")
         _write_year_row(
-            ws, r, "  Marketing & Promotion",
+            ws,
+            r,
+            "  Marketing & Promotion",
             lambda y: _marketing_formula(y, first_launch, congress, pubs, digital, prelaunch),
-            proj_years, total_col,
+            proj_years,
+            total_col,
         )
         component_rows.append(r)
         r += 1
@@ -207,9 +229,12 @@ def _write_sga_components(ws, config, tracker, first_launch, proj_years, total_c
     if tracker.refs.get("sga.ga_pct"):
         ga_ref = tracker.get("sga.ga_pct")
         _write_year_row(
-            ws, r, "  G&A",
+            ws,
+            r,
+            "  G&A",
             lambda y: _ga_formula(y, first_launch, ga_ref, tracker.get(f"rev.total.y{y}")),
-            proj_years, total_col,
+            proj_years,
+            total_col,
         )
         component_rows.append(r)
         r += 1
@@ -234,8 +259,14 @@ def _write_sga_section(ws, config, tracker, proj_years, total_col, r):
 
     fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
     _write_year_row(
-        ws, r, "  TOTAL SG&A", sga_total_formula, proj_years, total_col,
-        label_font=BOLD_FONT, fill=fill,
+        ws,
+        r,
+        "  TOTAL SG&A",
+        sga_total_formula,
+        proj_years,
+        total_col,
+        label_font=BOLD_FONT,
+        fill=fill,
     )
     _register_row(ws, r, tracker, "cost.sga", proj_years)
     return r + 2, r
@@ -248,8 +279,14 @@ def _write_grand_total(ws, tracker, rd_row, cogs_row, sga_row, proj_years, total
 
     fill = PatternFill(start_color=LIGHT_RED, end_color=LIGHT_RED, fill_type="solid")
     _write_year_row(
-        ws, r, "TOTAL COSTS ($M)", total_formula, proj_years, total_col,
-        label_font=BOLD_FONT, fill=fill,
+        ws,
+        r,
+        "TOTAL COSTS ($M)",
+        total_formula,
+        proj_years,
+        total_col,
+        label_font=BOLD_FONT,
+        fill=fill,
     )
     _register_row(ws, r, tracker, "cost.total", proj_years)
 
