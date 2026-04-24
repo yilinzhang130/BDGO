@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { useAuth } from "@/components/AuthProvider";
 import { fetchApiKeys, createApiKey, revokeApiKey, type ApiKeyRecord } from "@/lib/api";
+import { errorMessage } from "@/lib/format";
 
 // ---------------------------------------------------------------------------
 // Styles (mirrors /profile page for visual consistency)
@@ -207,8 +208,8 @@ export default function ApiKeysSettingsPage() {
     try {
       const { items } = await fetchApiKeys(false);
       setKeys(items);
-    } catch (err: any) {
-      showToast(err?.message || "加载 API Key 列表失败", "error");
+    } catch (err: unknown) {
+      showToast(errorMessage(err, "加载 API Key 列表失败"), "error");
     } finally {
       setLoading(false);
     }
@@ -230,8 +231,8 @@ export default function ApiKeysSettingsPage() {
       setRevealedSecret(res.key);
       setNewName("");
       setKeys((prev) => [res.record, ...prev]);
-    } catch (err: any) {
-      showToast(err?.message || "创建失败", "error");
+    } catch (err: unknown) {
+      showToast(errorMessage(err, "创建失败"), "error");
     } finally {
       setCreating(false);
     }
@@ -246,8 +247,8 @@ export default function ApiKeysSettingsPage() {
       // List excludes revoked by default; drop locally instead of refetching.
       setKeys((prev) => prev.filter((x) => x.id !== k.id));
       showToast("Key 已吊销", "success");
-    } catch (err: any) {
-      showToast(err?.message || "吊销失败", "error");
+    } catch (err: unknown) {
+      showToast(errorMessage(err, "吊销失败"), "error");
     }
   };
 

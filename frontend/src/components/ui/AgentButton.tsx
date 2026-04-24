@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { runTask, fetchTaskStatus } from "@/lib/api";
+import { errorMessage } from "@/lib/format";
 
 interface Props {
   label: string;
@@ -54,8 +55,8 @@ export function AgentButton({
       const { task_id } = await runTask(agent, message);
       setTaskId(task_id);
       setTimeout(() => pollStatus(task_id), 2000);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(errorMessage(e));
       setStatus("idle");
     }
   };

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { uploadBP, runTask, fetchTaskStatus } from "@/lib/api";
+import { errorMessage } from "@/lib/format";
 
 interface Props {
   company?: string;
@@ -45,8 +46,8 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
       setResult(res);
       setStage("uploaded");
       if (onUploaded) onUploaded(res.filename);
-    } catch (e: any) {
-      setError(e.message || "Upload failed");
+    } catch (e: unknown) {
+      setError(errorMessage(e, "Upload failed"));
     } finally {
       setUploading(false);
       setUploadPct(0);
@@ -80,9 +81,9 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
     try {
       const { task_id } = await runTask("company_analyst", `@分析 ${result.filename}`);
       setTimeout(() => pollAnalysis(task_id), 2000);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setStage("failed");
-      setError(e.message || "Failed to start analysis");
+      setError(errorMessage(e, "Failed to start analysis"));
     }
   };
 
