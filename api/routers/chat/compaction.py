@@ -101,10 +101,10 @@ def strip_tool_blocks_from_old(
             ]
             if text_blocks:
                 result.append({"role": m["role"], "content": text_blocks})
-            # else: message was only tool_use/tool_result/empty — drop it
+            # Otherwise message was only tool_use/tool_result/empty — dropped.
         elif isinstance(content, str) and content.strip():
             result.append(m)
-        # else: empty — drop
+        # Otherwise empty string content — dropped.
 
     return result
 

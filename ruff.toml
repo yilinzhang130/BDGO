@@ -30,7 +30,8 @@ exclude = [
 #   UP       —— pyupgrade(建议用新版 Python 语法)
 #   B        —— flake8-bugbear(常见 bug 模式)
 #   SIM      —— flake8-simplify(可简化的写法)
-select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM"]
+#   ERA      —— eradicate(commented-out code;M-010 扫干净后加的守门员)
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "ERA"]
 
 # 全局忽略 —— 这些不是 bug,是风格或框架约定
 ignore = [

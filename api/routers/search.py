@@ -7,7 +7,8 @@ from services.crm.resolve import fuzzy_company_names
 
 router = APIRouter()
 
-# (category, physical_table, search_cols, display_cols, pk_col, link_template)
+# Tuple layout per entry: category, physical_table, search_cols,
+# display_cols, pk_col, link_template.
 _SEARCH_TABLES = [
     (
         "companies",

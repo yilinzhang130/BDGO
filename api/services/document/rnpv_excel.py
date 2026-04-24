@@ -1034,7 +1034,9 @@ def build_cost_sheet(wb, config, tracker):
 
         for y in range(proj_years):
             col = 2 + y
-            # IF(AND(year_offset >= start, year_offset < start + CEILING(duration,1)), cost/duration, 0)
+            # Excel formula logic: within the phase window (from start
+            # through ceiling(duration) years), spread cost evenly;
+            # otherwise 0.
             formula = f"=IF(AND({y}>={start_ref},{y}<{start_ref}+CEILING({dur_ref},1)),{cost_ref}/{dur_ref},0)"
             c = ws.cell(row=r, column=col, value=formula)
             c.font = FORMULA_FONT
@@ -1361,7 +1363,7 @@ def build_pl_sheet(wb, config, tracker):
     rev_row = r
     r += 1
 
-    # COGS (negative)
+    # COGS row — subtracted, so formulas negate the cost lookup.
     ws.cell(row=r, column=1, value="(-) COGS").font = NORMAL_FONT
     ws.cell(row=r, column=1).border = THIN_BORDER
     for y in range(proj_years):
@@ -1411,7 +1413,7 @@ def build_pl_sheet(wb, config, tracker):
         c.border = THIN_BORDER
     r += 2
 
-    # R&D (negative)
+    # R&D row — subtracted, so formulas negate the cost lookup.
     ws.cell(row=r, column=1, value="(-) R&D").font = NORMAL_FONT
     ws.cell(row=r, column=1).border = THIN_BORDER
     for y in range(proj_years):
@@ -1426,7 +1428,7 @@ def build_pl_sheet(wb, config, tracker):
     rd_row = r
     r += 1
 
-    # SG&A (negative)
+    # SG&A row — subtracted, so formulas negate the cost lookup.
     ws.cell(row=r, column=1, value="(-) SG&A").font = NORMAL_FONT
     ws.cell(row=r, column=1).border = THIN_BORDER
     for y in range(proj_years):
@@ -1647,7 +1649,7 @@ def build_rnpv_sheet(wb, config, tracker):
         c.number_format = USD_M_FORMAT
         c.border = THIN_BORDER
         c.fill = PatternFill(start_color=YELLOW, end_color=YELLOW, fill_type="solid")
-    # NPV = SUM
+    # NPV row — sum of the risked-and-discounted cells across projection years.
     c = ws.cell(
         row=r,
         column=npv_col,

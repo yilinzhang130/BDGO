@@ -62,7 +62,7 @@ def _extract_entity(message: str) -> tuple[str, str, str]:
     if m:
         return ("asset", m.group(1).strip(), m.group(2).strip())
 
-    # Default: company
+    # Fallback: treat the whole message as a company name.
     return ("company", msg, "")
 
 
