@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { fetchDeals, fetchDealsByType } from "@/lib/api";
+import { fetchDeals, fetchDealsByType, type PaginatedCRM, type DealTypeCount } from "@/lib/api";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const COLUMNS = [
@@ -30,8 +30,8 @@ export default function DealsPage() {
 function DealsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [data, setData] = useState<any>(null);
-  const [dealTypes, setDealTypes] = useState<any[]>([]);
+  const [data, setData] = useState<PaginatedCRM | null>(null);
+  const [dealTypes, setDealTypes] = useState<DealTypeCount[]>([]);
   const [q, setQ] = useState(searchParams.get("q") || "");
   const [type, setType] = useState("");
   const [sort, setSort] = useState("宣布日期");
@@ -120,10 +120,12 @@ function DealsContent() {
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((d: any) => (
+              {data?.data?.map((d) => (
                 <tr
-                  key={d["交易名称"]}
-                  onClick={() => router.push(`/deals/${encodeURIComponent(d["交易名称"])}`)}
+                  key={String(d["交易名称"] ?? "")}
+                  onClick={() =>
+                    router.push(`/deals/${encodeURIComponent(String(d["交易名称"] ?? ""))}`)
+                  }
                 >
                   <td style={{ fontWeight: 600 }}>{d["交易名称"]}</td>
                   <td>{d["交易类型"] || "-"}</td>
@@ -132,7 +134,7 @@ function DealsContent() {
                     onClick={(e) => {
                       e.stopPropagation();
                       if (d["买方公司"])
-                        router.push(`/companies/${encodeURIComponent(d["买方公司"])}`);
+                        router.push(`/companies/${encodeURIComponent(String(d["买方公司"]))}`);
                     }}
                   >
                     {d["买方公司"] || "-"}
@@ -142,7 +144,7 @@ function DealsContent() {
                     onClick={(e) => {
                       e.stopPropagation();
                       if (d["卖方/合作方"])
-                        router.push(`/companies/${encodeURIComponent(d["卖方/合作方"])}`);
+                        router.push(`/companies/${encodeURIComponent(String(d["卖方/合作方"]))}`);
                     }}
                   >
                     {d["卖方/合作方"] || "-"}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { fetchCompanies } from "@/lib/api";
+import { fetchCompanies, type PaginatedCRM } from "@/lib/api";
 import { phaseBadgeClass, priorityBadgeClass } from "@/lib/badges";
 
 const COLUMNS = [
@@ -18,7 +18,7 @@ const COLUMNS = [
 
 export default function CompaniesPage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PaginatedCRM | null>(null);
   const [q, setQ] = useState("");
   const [country, setCountry] = useState("");
   const [type, setType] = useState("");
@@ -158,16 +158,18 @@ export default function CompaniesPage() {
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((row: any) => (
+              {data?.data?.map((row) => (
                 <tr
-                  key={row["客户名称"]}
-                  onClick={() => router.push(`/companies/${encodeURIComponent(row["客户名称"])}`)}
+                  key={String(row["客户名称"] ?? "")}
+                  onClick={() =>
+                    router.push(`/companies/${encodeURIComponent(String(row["客户名称"] ?? ""))}`)
+                  }
                 >
                   <td style={{ fontWeight: 600 }}>{row["客户名称"]}</td>
                   <td>{row["客户类型"]}</td>
                   <td>{row["所处国家"]}</td>
                   <td>
-                    <span className={`badge ${phaseBadgeClass(row["核心产品的阶段"])}`}>
+                    <span className={`badge ${phaseBadgeClass(String(row["核心产品的阶段"] ?? ""))}`}>
                       {row["核心产品的阶段"] || "-"}
                     </span>
                   </td>
@@ -175,7 +177,7 @@ export default function CompaniesPage() {
                   <td>{row["公司质量评分"] || "-"}</td>
                   <td>
                     {row["BD跟进优先级"] ? (
-                      <span className={`badge ${priorityBadgeClass(row["BD跟进优先级"])}`}>
+                      <span className={`badge ${priorityBadgeClass(String(row["BD跟进优先级"]))}`}>
                         {row["BD跟进优先级"]}
                       </span>
                     ) : (

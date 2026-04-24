@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { fetchIP, deleteRecord } from "@/lib/api";
+import { fetchIP, deleteRecord, type PaginatedCRM } from "@/lib/api";
 import { statusBadgeClass } from "@/lib/badges";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -20,7 +20,7 @@ const COLUMNS = [
 
 export default function IPPage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PaginatedCRM | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [jurisdiction, setJurisdiction] = useState("");
@@ -111,10 +111,12 @@ export default function IPPage() {
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((row: any) => (
+              {data?.data?.map((row) => (
                 <tr
-                  key={row["专利号"]}
-                  onClick={() => router.push(`/ip/${encodeURIComponent(row["专利号"])}`)}
+                  key={String(row["专利号"] ?? "")}
+                  onClick={() =>
+                    router.push(`/ip/${encodeURIComponent(String(row["专利号"] ?? ""))}`)
+                  }
                 >
                   <td style={{ fontWeight: 600 }}>{row["专利号"]}</td>
                   <td>{row["专利持有人"] || "-"}</td>
@@ -123,7 +125,7 @@ export default function IPPage() {
                     style={{ cursor: "pointer", color: "var(--accent)" }}
                     onClick={() => {
                       if (row["关联公司"])
-                        router.push(`/companies/${encodeURIComponent(row["关联公司"])}`);
+                        router.push(`/companies/${encodeURIComponent(String(row["关联公司"]))}`);
                     }}
                   >
                     {row["关联公司"] || "-"}
@@ -131,7 +133,7 @@ export default function IPPage() {
                   <td>{row["专利类型"] || "-"}</td>
                   <td>{row["到期日"] || "-"}</td>
                   <td>
-                    <span className={`badge ${statusBadgeClass(row["状态"])}`}>
+                    <span className={`badge ${statusBadgeClass(String(row["状态"] ?? ""))}`}>
                       {row["状态"] || "-"}
                     </span>
                   </td>
@@ -141,7 +143,7 @@ export default function IPPage() {
                     <span
                       onClick={(e) => {
                         e.stopPropagation();
-                        setDeleting(row["专利号"]);
+                        setDeleting(String(row["专利号"] ?? ""));
                       }}
                       style={{ cursor: "pointer", color: "var(--red)", fontSize: "0.8rem" }}
                       title="Delete"

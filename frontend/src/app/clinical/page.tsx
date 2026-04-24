@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { fetchClinical } from "@/lib/api";
+import { fetchClinical, type PaginatedCRM } from "@/lib/api";
 import { phaseBadgeClass, resultBadgeClass } from "@/lib/badges";
 
 const COLUMNS = [
@@ -20,7 +20,7 @@ const COLUMNS = [
 
 export default function ClinicalPage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PaginatedCRM | null>(null);
   const [q, setQ] = useState("");
   const [phase, setPhase] = useState("");
   const [status, setStatus] = useState("");
@@ -121,17 +121,19 @@ export default function ClinicalPage() {
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((t: any) => (
+              {data?.data?.map((t) => (
                 <tr
-                  key={t["记录ID"]}
-                  onClick={() => router.push(`/clinical/${encodeURIComponent(t["记录ID"])}`)}
+                  key={String(t["记录ID"] ?? "")}
+                  onClick={() =>
+                    router.push(`/clinical/${encodeURIComponent(String(t["记录ID"] ?? ""))}`)
+                  }
                 >
                   <td style={{ fontWeight: 500 }}>{t["试验ID"]}</td>
                   <td>{t["公司名称"] || "-"}</td>
                   <td>{t["资产名称"] || "-"}</td>
-                  <td>{t["适应症"]?.slice(0, 30) || "-"}</td>
+                  <td>{String(t["适应症"] ?? "").slice(0, 30) || "-"}</td>
                   <td>
-                    <span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>
+                    <span className={`badge ${phaseBadgeClass(String(t["临床期次"] ?? ""))}`}>
                       {t["临床期次"] || "-"}
                     </span>
                   </td>
@@ -142,7 +144,7 @@ export default function ClinicalPage() {
                       : "-"}
                   </td>
                   <td>
-                    <span className={`badge ${resultBadgeClass(t["结果判定"])}`}>
+                    <span className={`badge ${resultBadgeClass(String(t["结果判定"] ?? ""))}`}>
                       {t["结果判定"] || "-"}
                     </span>
                   </td>

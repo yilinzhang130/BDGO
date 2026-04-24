@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchDeal, updateRecord, deleteRecord } from "@/lib/api";
+import { fetchDeal, updateRecord, deleteRecord, type CRMRow } from "@/lib/api";
 import { phaseBadgeClass } from "@/lib/badges";
 import { EditableField } from "@/components/ui/EditableField";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -68,7 +68,7 @@ export default function DealDetailPage() {
   const name = decodeURIComponent(params.name as string);
   const isAdmin = user?.is_admin === true;
 
-  const [deal, setDeal] = useState<any>(null);
+  const [deal, setDeal] = useState<CRMRow | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
 
@@ -105,7 +105,9 @@ export default function DealDetailPage() {
               {deal["买方公司"] && (
                 <span
                   style={{ cursor: "pointer", textDecoration: "underline" }}
-                  onClick={() => router.push(`/companies/${encodeURIComponent(deal["买方公司"])}`)}
+                  onClick={() =>
+                    router.push(`/companies/${encodeURIComponent(String(deal["买方公司"]))}`)
+                  }
                 >
                   Buyer: {deal["买方公司"]}
                 </span>
@@ -114,7 +116,7 @@ export default function DealDetailPage() {
                 <span
                   style={{ cursor: "pointer", textDecoration: "underline" }}
                   onClick={() =>
-                    router.push(`/companies/${encodeURIComponent(deal["卖方/合作方"])}`)
+                    router.push(`/companies/${encodeURIComponent(String(deal["卖方/合作方"]))}`)
                   }
                 >
                   Seller: {deal["卖方/合作方"]}
@@ -122,7 +124,7 @@ export default function DealDetailPage() {
               )}
               {deal["宣布日期"] && <span>{deal["宣布日期"]}</span>}
               {deal["临床阶段"] && (
-                <span className={`badge ${phaseBadgeClass(deal["临床阶段"])}`}>
+                <span className={`badge ${phaseBadgeClass(String(deal["临床阶段"]))}`}>
                   {deal["临床阶段"]}
                 </span>
               )}

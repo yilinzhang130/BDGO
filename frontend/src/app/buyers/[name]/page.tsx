@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchBuyer, updateRecord } from "@/lib/api";
+import { fetchBuyer, updateRecord, type CRMRow } from "@/lib/api";
 import { safeJsonParse } from "@/lib/format";
 import { EditableField } from "@/components/ui/EditableField";
 
@@ -57,7 +57,14 @@ function CapabilityMap({ data }: { data: Record<string, string> }) {
   );
 }
 
-function BDTheses({ data }: { data: any[] }) {
+interface BDThesis {
+  thesis: string;
+  deal_count?: number;
+  total_invested_m?: number;
+  deals?: string[];
+}
+
+function BDTheses({ data }: { data: BDThesis[] }) {
   if (!Array.isArray(data) || data.length === 0)
     return <span style={{ color: "var(--text-secondary)" }}>-</span>;
   return (
@@ -89,7 +96,12 @@ function BDTheses({ data }: { data: any[] }) {
   );
 }
 
-function SunkCostMap({ data }: { data: Record<string, any> }) {
+interface SunkCostEntry {
+  invested_m?: number;
+  deal_count?: number;
+}
+
+function SunkCostMap({ data }: { data: Record<string, SunkCostEntry> }) {
   if (!data || typeof data !== "object")
     return <span style={{ color: "var(--text-secondary)" }}>-</span>;
   return (
@@ -146,7 +158,7 @@ export default function BuyerDetailPage() {
   const router = useRouter();
   const name = decodeURIComponent(params.name as string);
 
-  const [buyer, setBuyer] = useState<any>(null);
+  const [buyer, setBuyer] = useState<CRMRow | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {

@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchAsset, fetchAssetTrials, updateRecord, deleteRecord } from "@/lib/api";
+import {
+  fetchAsset,
+  fetchAssetTrials,
+  updateRecord,
+  deleteRecord,
+  type CRMRow,
+  type PaginatedCRM,
+} from "@/lib/api";
 import { phaseBadgeClass, resultBadgeClass } from "@/lib/badges";
 import { parseNum } from "@/lib/format";
 import { WatchlistButton } from "@/components/ui/WatchlistButton";
@@ -106,8 +113,8 @@ export default function AssetDetailPage() {
   const company = decodeURIComponent(params.company as string);
   const name = decodeURIComponent(params.name as string);
 
-  const [asset, setAsset] = useState<any>(null);
-  const [trials, setTrials] = useState<any>(null);
+  const [asset, setAsset] = useState<CRMRow | null>(null);
+  const [trials, setTrials] = useState<PaginatedCRM | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const isAdmin = user?.is_admin === true;
@@ -189,7 +196,7 @@ export default function AssetDetailPage() {
                 {company}
               </span>
               {asset["临床阶段"] && (
-                <span className={`badge ${phaseBadgeClass(asset["临床阶段"])}`}>
+                <span className={`badge ${phaseBadgeClass(String(asset["临床阶段"]))}`}>
                   {asset["临床阶段"]}
                 </span>
               )}
@@ -339,12 +346,12 @@ export default function AssetDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {trials?.data?.map((t: any) => (
-                <tr key={t["记录ID"]}>
+              {trials?.data?.map((t) => (
+                <tr key={String(t["记录ID"] ?? "")}>
                   <td>{t["试验ID"]}</td>
-                  <td>{t["适应症"]?.slice(0, 35) || "-"}</td>
+                  <td>{String(t["适应症"] ?? "").slice(0, 35) || "-"}</td>
                   <td>
-                    <span className={`badge ${phaseBadgeClass(t["临床期次"])}`}>
+                    <span className={`badge ${phaseBadgeClass(String(t["临床期次"] ?? ""))}`}>
                       {t["临床期次"] || "-"}
                     </span>
                   </td>
@@ -356,7 +363,7 @@ export default function AssetDetailPage() {
                       : "-"}
                   </td>
                   <td>
-                    <span className={`badge ${resultBadgeClass(t["结果判定"])}`}>
+                    <span className={`badge ${resultBadgeClass(String(t["结果判定"] ?? ""))}`}>
                       {t["结果判定"] || "-"}
                     </span>
                   </td>
