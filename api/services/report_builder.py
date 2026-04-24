@@ -200,8 +200,10 @@ class ReportService(ABC):
     enable_qc: bool = False  # set True to append QC badge after run()
 
     # Optional conditional visibility rules consumed by the frontend form.
-    # Format: { field_name: { "visible_when": { discriminator_field: value_or_list } } }
-    # Example: { "topic": { "visible_when": { "mode": "survey" } } }
+    # Each key is a field name; the value declares when that field
+    # becomes visible based on another field's current value — e.g. the
+    # ``topic`` field only shows when ``mode`` equals ``"survey"``.
+    # See ReportFormStage for the runtime implementation.
     field_rules: dict = {}
 
     @abstractmethod

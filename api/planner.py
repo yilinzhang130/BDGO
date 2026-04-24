@@ -121,8 +121,9 @@ async def generate_plan(
         logger.exception("Planner LLM call failed")
         return None
 
-    # Extract text from Anthropic-compat response shape
-    # {"content": [{"type": "text", "text": "..."}]}
+    # Extract text from the Anthropic-compat response: each element in
+    # ``data["content"]`` is a block with a type field; text blocks carry
+    # their payload under ``text``.
     raw_text = ""
     for block in data.get("content", []):
         if block.get("type") == "text":

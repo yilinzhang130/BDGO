@@ -149,7 +149,7 @@ def create_key(
         row = cur.fetchone()
 
     # Logs only the 8-char prefix (safe identifier), never the full token.
-    # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+    # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure  # noqa: ERA001
     _logger.info("issued token user=%s name=%s prefix=%s", user_id, name, key_prefix)
     return {"key": full_key, "record": _serialize_row(row)}
 
@@ -247,6 +247,6 @@ def revoke_key(user_id: str, key_id: str) -> dict:
     if row is None:
         raise HTTPException(status_code=404, detail="API Key 未找到或已吊销")
     # Logs only the DB row UUID, never the token itself.
-    # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+    # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure  # noqa: ERA001
     _logger.info("revoked token user=%s row_id=%s", user_id, key_id)
     return _serialize_row(row)
