@@ -82,6 +82,7 @@ from .rnpv.assumptions import build_assumptions_sheet
 from .rnpv.cost import build_cost_sheet
 from .rnpv.pl import build_pl_sheet
 from .rnpv.qc import build_qc_sheet
+from .rnpv.references import build_references_sheet
 from .rnpv.rnpv_sheet import build_rnpv_sheet
 
 # ── CellTracker — Cross-sheet reference management ──
@@ -604,89 +605,6 @@ def build_sensitivity_sheet(wb, config, tracker):
         r += 1
 
     ws.freeze_panes = "A3"
-    return ws
-
-
-# ── Sheet 9: References ──
-
-
-def build_references_sheet(wb, config, tracker):
-    ws = wb.create_sheet("References")
-    ws.sheet_properties.tabColor = "00B0F0"
-
-    set_col_widths(ws, {"A": 10, "B": 20, "C": 55, "D": 25, "E": 18, "F": 45})
-
-    r = 1
-    ws.cell(row=r, column=1, value="DATA SOURCES & REFERENCES")
-    ws.cell(row=r, column=1).font = Font(name="Calibri", size=14, bold=True, color=DARK_BLUE)
-    r += 2
-
-    headers = ["Ref #", "Category", "Description", "Type", "Date", "URL"]
-    for i, h in enumerate(headers, 1):
-        ws.cell(row=r, column=i, value=h)
-    apply_header_row(ws, r, len(headers))
-    r += 1
-
-    references = config.get("references", [])
-    if not references:
-        # Auto-collect from data_sources
-        seen = set()
-        ref_n = 0
-        for ind in config.get("indications", []):
-            for key, src in ind.get("data_sources", {}).items():
-                if src and src not in seen:
-                    seen.add(src)
-                    ref_n += 1
-                    references.append(
-                        {
-                            "id": f"R{ref_n}",
-                            "category": "Input",
-                            "description": src,
-                            "type": "Various",
-                            "date": "",
-                            "url": "",
-                        }
-                    )
-
-    ref_count = 0
-    for ref in references:
-        ref_count += 1
-        ws.cell(row=r, column=1, value=f"[{ref.get('id', f'R{ref_count}')}]").font = Font(
-            name="Calibri", size=10, bold=True, color=MED_BLUE
-        )
-        ws.cell(row=r, column=2, value=ref.get("category", "")).font = NORMAL_FONT
-        ws.cell(row=r, column=3, value=ref.get("description", "")).font = NORMAL_FONT
-        ws.cell(row=r, column=4, value=ref.get("type", "")).font = NORMAL_FONT
-        ws.cell(row=r, column=5, value=ref.get("date", "")).font = NORMAL_FONT
-        url = ref.get("url", "")
-        c = ws.cell(row=r, column=6, value=url)
-        if url and url.startswith("http"):
-            c.font = Font(name="Calibri", size=10, color=MED_BLUE, underline="single")
-        else:
-            c.font = NORMAL_FONT
-        for col in range(1, 7):
-            ws.cell(row=r, column=col).border = THIN_BORDER
-        r += 1
-
-    # Coverage summary
-    r += 2
-    ref_sourced = 0
-    ref_total = 0
-    for ind in config.get("indications", []):
-        ds = ind.get("data_sources", {})
-        for p in ["prevalence", "diagnosed_rate", "eligible_rate", "pricing"]:
-            ref_total += 1
-            if ds.get(p):
-                ref_sourced += 1
-    coverage = ref_sourced / ref_total if ref_total > 0 else 0
-    write_label_value(ws, r, 1, "References", ref_count)
-    r += 1
-    write_label_value(ws, r, 1, "Key Params Sourced", f"{ref_sourced}/{ref_total} ({coverage:.0%})")
-
-    config["_ref_count"] = ref_count
-    config["_ref_coverage_pct"] = coverage
-    config["_ref_sourced"] = ref_sourced
-    config["_ref_total_params"] = ref_total
     return ws
 
 
