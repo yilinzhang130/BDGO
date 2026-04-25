@@ -141,6 +141,28 @@ def record_usage(
     try:
         with auth_db.transaction() as cur:
             _ensure_row(cur, user_id)
+
+            # SEC-004: Lock the credits row for the duration of this transaction
+            # to serialize concurrent deductions from the same user.  Without
+            # FOR UPDATE, two concurrent record_usage calls could both read the
+            # same pre-deduction balance and apply GREATEST(balance-X, 0) on
+            # stale data — the second write would silently under-charge.
+            cur.execute(
+                "SELECT balance FROM credits WHERE user_id = %s FOR UPDATE",
+                (user_id,),
+            )
+            balance_before = float((cur.fetchone() or {}).get("balance", 0))
+            if balance_before < credits_charged and credits_charged > 0:
+                logger.warning(
+                    "CREDIT_RACE_DETECTED user=%s session=%s model=%s "
+                    "balance_before=%.2f credits_charged=%.2f — deducting anyway",
+                    user_id,
+                    session_id,
+                    model_id,
+                    balance_before,
+                    credits_charged,
+                )
+
             cur.execute(
                 """
                 INSERT INTO usage_logs
