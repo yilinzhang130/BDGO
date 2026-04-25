@@ -227,6 +227,8 @@ app.include_router(
     sessions_router.router, prefix="/api/sessions", tags=["sessions"], dependencies=_auth
 )
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"], dependencies=_auth)
+# Public share endpoints — no JWT required; recipients access via share link
+app.include_router(reports.public_router, prefix="/api/reports", tags=["reports-public"])
 app.include_router(
     catalysts.router, prefix="/api/catalysts", tags=["catalysts"], dependencies=_auth
 )

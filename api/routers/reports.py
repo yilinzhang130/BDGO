@@ -35,6 +35,9 @@ from services.report_builder import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+# Routes that must be accessible without a JWT (public share links).
+# Mounted separately in main.py without the global _auth dependency.
+public_router = APIRouter()
 
 # Bounded thread pool for async report execution. Using a fixed-size pool
 # instead of daemon threads prevents unbounded memory / MiniMax-key growth under
@@ -381,7 +384,7 @@ def create_share_link(req: ShareRequest, request: Request, user: dict = Depends(
     return {"token": token, "url": f"{base_url}/share/{token}"}
 
 
-@router.get("/share/{token}")
+@public_router.get("/share/{token}")
 def get_shared_report(token: str):
     """Public endpoint — get report metadata by share token. No auth required."""
     with transaction() as cur:
@@ -413,7 +416,7 @@ def get_shared_report(token: str):
     }
 
 
-@router.get("/share/{token}/download/{format}")
+@public_router.get("/share/{token}/download/{format}")
 def download_shared_report(token: str, format: str):
     """Public endpoint — download a shared report file. No auth required."""
     with transaction() as cur:
