@@ -37,6 +37,7 @@ export const SLASH_COMMANDS: Omit<
   { alias: "timing", slug: "timing-advisor" },
   { alias: "log", slug: "outreach-log" },
   { alias: "outreach", slug: "outreach-list" },
+  { alias: "import-reply", slug: "import-reply" },
 ];
 
 export function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
