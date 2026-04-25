@@ -60,7 +60,7 @@ async def upload_bp(
                 if size > _MAX_UPLOAD_BYTES:
                     raise HTTPException(
                         status_code=413,
-                        detail=f"File too large. Maximum upload size is {_MAX_UPLOAD_BYTES // (1024*1024)} MB.",
+                        detail=f"File too large. Maximum upload size is {_MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
                     )
                 f.write(chunk)
     except HTTPException:

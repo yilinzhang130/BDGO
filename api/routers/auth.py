@@ -28,8 +28,8 @@ router = APIRouter()
 # with a Redis-backed counter (e.g. slowapi + redis).
 # ---------------------------------------------------------------------------
 
-_RL_MAX_ATTEMPTS = 10       # max requests per IP per window
-_RL_WINDOW_SECONDS = 60.0   # sliding window length in seconds
+_RL_MAX_ATTEMPTS = 10  # max requests per IP per window
+_RL_WINDOW_SECONDS = 60.0  # sliding window length in seconds
 
 # ip → (attempt_count, window_start_monotonic)
 _rl_store: dict[str, tuple[int, float]] = {}

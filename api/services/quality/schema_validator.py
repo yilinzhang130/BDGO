@@ -177,10 +177,12 @@ class Section:
 def split_sections(blocks: list[Block], schema: dict) -> dict[str, Section]:
     all_sec_defs: list[tuple[str, str, str, list[str]]] = []
     for sec_def in schema.get("sections", []):
-        all_sec_defs.append(("ch", sec_def["id"], sec_def["name"], sec_def.get("heading_patterns", [])))
+        all_sec_defs.append(
+            ("ch", sec_def["id"], sec_def["name"], sec_def.get("heading_patterns", []))
+        )
     for app in schema.get("appendices", []):
-        pat = rf'附录\s*{app["id"]}|Appendix\s+{app["id"]}'
-        all_sec_defs.append(("app", f'appendix_{app["id"]}', app["name"], [pat]))
+        pat = rf"附录\s*{app['id']}|Appendix\s+{app['id']}"
+        all_sec_defs.append(("app", f"appendix_{app['id']}", app["name"], [pat]))
 
     sec_starts: dict[str, int] = {}
     for _kind, sid, _name, patterns in all_sec_defs:
@@ -273,7 +275,9 @@ def check_front_matter(
 
     fc = fm.get("firepower_card", {})
     if fc.get("required"):
-        missing = [kw for kw in fc.get("must_contain_all", []) if not re.search(kw, full, re.IGNORECASE)]
+        missing = [
+            kw for kw in fc.get("must_contain_all", []) if not re.search(kw, full, re.IGNORECASE)
+        ]
         if missing:
             r.add(
                 "fail",
@@ -285,8 +289,14 @@ def check_front_matter(
     qh = fm.get("quick_hit_page", {})
     if qh.get("required"):
         qh_signals = [
-            "Quick-Hit", "quick hit", "速读", "资产匹配清单", "3 分钟",
-            "shopping list", "接触点", "first contact",
+            "Quick-Hit",
+            "quick hit",
+            "速读",
+            "资产匹配清单",
+            "3 分钟",
+            "shopping list",
+            "接触点",
+            "first contact",
         ]
         sig_hits = [s for s in qh_signals if re.search(re.escape(s), full, re.IGNORECASE)]
         if not sig_hits:
@@ -308,8 +318,15 @@ def check_front_matter(
                     "asset_shopping_list": ["匹配清单", "shopping list", "watchlist", "在看的"],
                     "top3_directions_preview": ["Top 3", "Top3", "三个方向", "Top 3 方向"],
                     "top_directions_preview": [
-                        "Top 2", "Top2", "两个方向", "Top 3", "Top3",
-                        "三个方向", "方向预览", "Top 方向", "Top directions",
+                        "Top 2",
+                        "Top2",
+                        "两个方向",
+                        "Top 3",
+                        "Top3",
+                        "三个方向",
+                        "方向预览",
+                        "Top 方向",
+                        "Top directions",
                     ],
                     "first_contact_point": ["接触人", "接触点", "contact", "第一个敲门"],
                     "recommended_deal_structure_summary": ["建议结构", "推荐结构", "交易结构建议"],
@@ -389,12 +406,14 @@ def check_sections(sections: dict[str, Section], schema: dict, r: AuditResult):
                         f'子章节应含关键词 "{kw}"，未检测到',
                     )
             if sub.get("must_contain_one_of"):
-                if not any(re.search(k, sec.text, re.IGNORECASE) for k in sub["must_contain_one_of"]):
+                if not any(
+                    re.search(k, sec.text, re.IGNORECASE) for k in sub["must_contain_one_of"]
+                ):
                     r.add(
                         "fail",
                         "subsection_content",
                         f"{sid}.{sub_id}",
-                        f'子章节应至少含以下之一: {sub["must_contain_one_of"]}',
+                        f"子章节应至少含以下之一: {sub['must_contain_one_of']}",
                     )
             if sub.get("min_quotes"):
                 quotes = re.findall(r'["“”][^"“”]{10,}["“”]', sec.text)
@@ -403,25 +422,29 @@ def check_sections(sections: dict[str, Section], schema: dict, r: AuditResult):
                         "fail",
                         "subsection_content",
                         f"{sid}.{sub_id}",
-                        f'应含 ≥{sub["min_quotes"]} 个直接引述，检测到 {len(quotes)}',
+                        f"应含 ≥{sub['min_quotes']} 个直接引述，检测到 {len(quotes)}",
                     )
             if sub.get("min_deep_dives"):
-                cnt = len(re.findall(r"案例[1-9一二三四五]|深度复盘|Deep Dive", sec.text, re.IGNORECASE))
+                cnt = len(
+                    re.findall(r"案例[1-9一二三四五]|深度复盘|Deep Dive", sec.text, re.IGNORECASE)
+                )
                 if cnt < sub["min_deep_dives"]:
                     r.add(
                         "warn",
                         "subsection_content",
                         f"{sid}.{sub_id}",
-                        f'深度复盘案例数={cnt}，要求 >={sub["min_deep_dives"]}',
+                        f"深度复盘案例数={cnt}，要求 >={sub['min_deep_dives']}",
                     )
             if sub.get("min_failures"):
-                cnt = len(re.findall(r"失败|terminated|miss endpoint|未达|撤市", sec.text, re.IGNORECASE))
+                cnt = len(
+                    re.findall(r"失败|terminated|miss endpoint|未达|撤市", sec.text, re.IGNORECASE)
+                )
                 if cnt < sub["min_failures"]:
                     r.add(
                         "warn",
                         "subsection_content",
                         f"{sid}.{sub_id}",
-                        f'失败案例关键词出现 {cnt} 次，要求 >={sub["min_failures"]}',
+                        f"失败案例关键词出现 {cnt} 次，要求 >={sub['min_failures']}",
                     )
             if sub.get("min_peers"):
                 if not sec.tables():
@@ -429,7 +452,7 @@ def check_sections(sections: dict[str, Section], schema: dict, r: AuditResult):
                         "warn",
                         "subsection_content",
                         f"{sid}.{sub_id}",
-                        f'未检测到同业对标表格（要求 ≥{sub["min_peers"]} 家对标）',
+                        f"未检测到同业对标表格（要求 ≥{sub['min_peers']} 家对标）",
                     )
             if sub.get("min_directions"):
                 dir_patterns = [
@@ -445,7 +468,7 @@ def check_sections(sections: dict[str, Section], schema: dict, r: AuditResult):
                         "fail",
                         "subsection_content",
                         f"{sid}.{sub_id}",
-                        f'Top方向数={hits}，要求 >={sub["min_directions"]}',
+                        f"Top方向数={hits}，要求 >={sub['min_directions']}",
                     )
 
 
@@ -464,7 +487,18 @@ def check_ch3_iterative(sections: dict[str, Section], schema: dict, r: AuditResu
             ta_ids.add(m.group(1))
     ta_count = len(ta_ids)
     if ta_count == 0:
-        ta_keywords = ["肿瘤", "代谢", "心血管", "免疫", "疫苗", "罕见病", "神经", "血液", "眼科", "皮肤"]
+        ta_keywords = [
+            "肿瘤",
+            "代谢",
+            "心血管",
+            "免疫",
+            "疫苗",
+            "罕见病",
+            "神经",
+            "血液",
+            "眼科",
+            "皮肤",
+        ]
         ta_count = sum(1 for kw in ta_keywords if kw in ch3.text)
 
     r.stats["ch3_ta_count"] = ta_count
@@ -494,7 +528,7 @@ def check_ch3_iterative(sections: dict[str, Section], schema: dict, r: AuditResu
 
 def check_appendices(sections: dict[str, Section], schema: dict, r: AuditResult):
     for app in schema.get("appendices", []):
-        sid = f'appendix_{app["id"]}'
+        sid = f"appendix_{app['id']}"
         if sid not in sections:
             if app.get("required"):
                 r.add(
@@ -510,11 +544,13 @@ def check_banned_phrases(full: str, schema: dict, r: AuditResult):
         pattern = rule["pattern"]
         matches = re.findall(pattern, full)
         if matches:
-            severity = {"high": "fail", "medium": "warn", "low": "info"}[rule.get("severity", "medium")]
+            severity = {"high": "fail", "medium": "warn", "low": "info"}[
+                rule.get("severity", "medium")
+            ]
             r.add(
                 severity,
                 "banned_phrase",
-                f'writing/{rule.get("category", "unknown")}',
+                f"writing/{rule.get('category', 'unknown')}",
                 f'命中禁用词 "{pattern}" × {len(matches)}',
                 evidence=", ".join(matches[:3]),
             )
@@ -552,7 +588,7 @@ def check_citations(full: str, schema: dict, r: AuditResult):
         return
 
     m = re.search(ref_header_pat, full)
-    refs_block = full[m.end():] if m else ""
+    refs_block = full[m.end() :] if m else ""
     declared = {int(mm.group(1)) for mm in re.finditer(r"\[(\d+)\]", refs_block)}
 
     r.stats["citations_used"] = sorted(used_set)
@@ -621,9 +657,7 @@ def check_cross_refs(sections: dict[str, Section], _schema: dict, r: AuditResult
 # ────────────────────────────────────────────────
 def _resolve_schema(mode: str) -> Path:
     if mode not in _SCHEMA_BY_MODE:
-        raise ValueError(
-            f"Unknown schema mode '{mode}'. Known modes: {list(_SCHEMA_BY_MODE)}"
-        )
+        raise ValueError(f"Unknown schema mode '{mode}'. Known modes: {list(_SCHEMA_BY_MODE)}")
     p = _SCHEMAS_DIR / _SCHEMA_BY_MODE[mode]
     if not p.exists():
         raise FileNotFoundError(f"Schema file missing: {p}")
