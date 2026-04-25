@@ -12,7 +12,6 @@ These don't make LLM calls — that's integration territory. We exercise:
 from __future__ import annotations
 
 import pytest
-
 from services import REPORT_SERVICES
 from services.reports.legal_review import (
     _CONTRACT_TYPE_NAMES,

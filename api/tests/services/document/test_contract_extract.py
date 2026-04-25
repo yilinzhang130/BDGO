@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from docx import Document
-
 from services.document.contract_extract import extract_contract_text
 
 

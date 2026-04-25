@@ -67,7 +67,7 @@ class LegalReviewInput(BaseModel):
     focus: str | None = None  # 自由文本，e.g. "重点看 IP 转移和排他"
 
     @model_validator(mode="after")
-    def _require_text_or_filename(self) -> "LegalReviewInput":
+    def _require_text_or_filename(self) -> LegalReviewInput:
         if not self.contract_text and not self.filename:
             raise ValueError("必须提供 contract_text（粘贴文本）或 filename（上传文件名）之一")
         return self
@@ -421,15 +421,15 @@ class LegalReviewService(ReportService):
 
         contract_text, truncated = self._truncate(contract_text)
         if truncated:
-            ctx.log(
-                f"合同正文超过 {_MAX_CONTRACT_CHARS} 字，已截断尾部以适配 LLM 上下文"
-            )
+            ctx.log(f"合同正文超过 {_MAX_CONTRACT_CHARS} 字，已截断尾部以适配 LLM 上下文")
 
         contract_type_name = _CONTRACT_TYPE_NAMES[inp.contract_type]
         report_title = self._compose_title(inp, contract_type_name)
 
         ctx.log(f"调用 LLM 审查 {contract_type_name}...")
-        markdown = self._call_llm(inp, contract_text, contract_type_name, report_title, truncated, ctx)
+        markdown = self._call_llm(
+            inp, contract_text, contract_type_name, report_title, truncated, ctx
+        )
 
         if len(markdown) < 800:
             raise RuntimeError("LLM returned empty or very short legal review")
@@ -441,7 +441,9 @@ class LegalReviewService(ReportService):
 
         ctx.log("Rendering Word document...")
         doc = docx_builder.new_report_document()
-        docx_builder.add_title(doc, title=report_title, subtitle=f"BD 合同审查 · {contract_type_name}")
+        docx_builder.add_title(
+            doc, title=report_title, subtitle=f"BD 合同审查 · {contract_type_name}"
+        )
         docx_builder.markdown_to_docx(markdown, doc)
         docx_bytes = docx_builder.document_to_bytes(doc)
 
@@ -467,9 +469,7 @@ class LegalReviewService(ReportService):
 
     # ── helpers ─────────────────────────────────────────────
 
-    def _resolve_contract_text(
-        self, inp: LegalReviewInput, ctx: ReportContext
-    ) -> tuple[str, str]:
+    def _resolve_contract_text(self, inp: LegalReviewInput, ctx: ReportContext) -> tuple[str, str]:
         """Return (text, source_label). Prefers filename if both given."""
         if inp.filename:
             ctx.log(f"Extracting contract text from {inp.filename}...")
