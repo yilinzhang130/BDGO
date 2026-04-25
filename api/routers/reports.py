@@ -13,11 +13,11 @@ from __future__ import annotations
 import json
 import logging
 import secrets
-import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from auth import get_current_user
 from auth_db import transaction
-from config import REPORTS_DIR, safe_path_within
+from config import REPORT_MAX_WORKERS, REPORTS_DIR, safe_path_within
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from field_policy import is_admin_user
@@ -35,6 +35,27 @@ from services.report_builder import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Bounded thread pool for async report execution. Using a fixed-size pool
+# instead of daemon threads prevents unbounded memory / MiniMax-key growth under
+# burst load. Each worker holds at most one report at a time; the default of 6
+# matches the expected concurrent-report ceiling for a single-worker deployment.
+# Raised by setting REPORT_MAX_WORKERS env var.
+_report_executor = ThreadPoolExecutor(
+    max_workers=REPORT_MAX_WORKERS,
+    thread_name_prefix="report",
+)
+
+
+def shutdown_executor() -> None:
+    """Cancel pending futures and stop accepting new tasks.
+
+    Called from the FastAPI lifespan on shutdown so uvicorn does not hang
+    waiting for long-running report threads. In-flight tasks are interrupted
+    at the next cooperative check; orphaned DB rows are swept by
+    ``reclaim_stale_tasks`` on the next startup.
+    """
+    _report_executor.shutdown(wait=False, cancel_futures=True)
 
 MEDIA_TYPE_MAP = {
     "md": "text/markdown; charset=utf-8",
@@ -104,11 +125,7 @@ def _dispatch_task(task_id: str, service, slug: str, params: dict, user_id: str)
     if service.mode == "sync":
         execute_task(task_id, service, params)
         return get_task(task_id)
-    threading.Thread(
-        target=execute_task,
-        args=(task_id, service, params),
-        daemon=True,
-    ).start()
+    _report_executor.submit(execute_task, task_id, service, params)
     return {
         "task_id": task_id,
         "status": STATUS_QUEUED,

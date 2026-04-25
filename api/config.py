@@ -203,6 +203,12 @@ PLANNER_LLM_TIMEOUT_SECONDS = int(os.environ.get("PLANNER_LLM_TIMEOUT_SECONDS", 
 AUTH_DB_POOL_MIN = int(os.environ.get("AUTH_DB_POOL_MIN", "2"))
 AUTH_DB_POOL_MAX = int(os.environ.get("AUTH_DB_POOL_MAX", "20"))
 
+# Max simultaneous async report tasks (buyer_profile, dd_checklist, …).
+# Each task holds a thread + MiniMax key + potentially large in-memory objects
+# (rNPV Excel ~10–50 MB). Default 6 keeps memory bounded for a single-worker
+# deployment; raise via env var for multi-worker or high-memory hosts.
+REPORT_MAX_WORKERS = int(os.environ.get("REPORT_MAX_WORKERS", "6"))
+
 
 # ─────────────────────────────────────────────────────────────
 # Shared helpers
