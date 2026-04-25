@@ -9,6 +9,7 @@ See feedback_tavily_key_rotation.md for history.
 
 from __future__ import annotations
 
+import atexit
 import logging
 import threading
 from pathlib import Path
@@ -20,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 TAVILY_URL = "https://api.tavily.com/search"
 DEFAULT_TIMEOUT = 10.0
+
+# Shared client — Tavily is called on every chat turn (quick-search) and inside
+# report pipelines. Reusing a persistent client avoids per-call TLS handshake
+# overhead. Timeout is passed per-request so callers can tune it.
+_http_client = httpx.Client(
+    limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+)
+atexit.register(_http_client.close)
 
 
 def _load_keys() -> list[str]:
@@ -95,50 +104,50 @@ def search_web(
         "include_raw_content": False,
     }
 
-    with httpx.Client(timeout=timeout) as client:
-        for key in keys:
+    for key in keys:
+        try:
+            resp = _http_client.post(
+                TAVILY_URL,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=timeout,
+            )
+        except httpx.HTTPError as e:
+            logger.warning("Tavily request network error: %s", e)
+            continue  # Try next key on network errors
+
+        if resp.status_code == 200:
+            with _lock:
+                _usage[key] = _usage.get(key, 0) + 1
             try:
-                resp = client.post(
-                    TAVILY_URL,
-                    json=payload,
-                    headers={
-                        "Authorization": f"Bearer {key}",
-                        "Content-Type": "application/json",
-                    },
-                )
-            except httpx.HTTPError as e:
-                logger.warning("Tavily request network error: %s", e)
-                continue  # Try next key on network errors
+                data = resp.json()
+            except Exception:
+                return []
+            return [
+                {
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "snippet": (r.get("content") or r.get("raw_content") or "")[:500],
+                }
+                for r in data.get("results", [])
+            ]
 
-            if resp.status_code == 200:
-                with _lock:
-                    _usage[key] = _usage.get(key, 0) + 1
-                try:
-                    data = resp.json()
-                except Exception:
-                    return []
-                return [
-                    {
-                        "title": r.get("title", ""),
-                        "url": r.get("url", ""),
-                        "snippet": (r.get("content") or r.get("raw_content") or "")[:500],
-                    }
-                    for r in data.get("results", [])
-                ]
+        if resp.status_code in (401, 403, 429):
+            # Ban this key for the rest of the process and try the next one
+            logger.warning(
+                "Tavily key banned (status=%d, key=...%s) — advancing",
+                resp.status_code,
+                key[-6:],
+            )
+            with _lock:
+                _banned.add(key)
+            continue
 
-            if resp.status_code in (401, 403, 429):
-                # Ban this key for the rest of the process and try the next one
-                logger.warning(
-                    "Tavily key banned (status=%d, key=...%s) — advancing",
-                    resp.status_code,
-                    key[-6:],
-                )
-                with _lock:
-                    _banned.add(key)
-                continue
-
-            # Some other server error — don't ban, just give up this attempt
-            logger.warning("Tavily HTTP %d: %s", resp.status_code, resp.text[:200])
-            return []
+        # Some other server error — don't ban, just give up this attempt
+        logger.warning("Tavily HTTP %d: %s", resp.status_code, resp.text[:200])
+        return []
 
     return []

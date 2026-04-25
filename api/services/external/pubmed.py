@@ -8,6 +8,7 @@ Docs: https://www.ncbi.nlm.nih.gov/books/NBK25501/
 
 from __future__ import annotations
 
+import atexit
 import logging
 import re
 import time
@@ -24,6 +25,14 @@ FETCH_URL = f"{EUTILS_BASE}/efetch.fcgi"
 
 RATE_LIMIT_SECONDS = 0.4  # 3 req/s with margin
 DEFAULT_TIMEOUT = 15.0
+
+# Shared client — avoids per-call TCP+TLS handshake to eutils.ncbi.nlm.nih.gov.
+# keepalive is modest (NCBI enforces 3 req/s; a single connection is usually enough).
+# Timeouts are set per-request because efetch needs 2× the search timeout.
+_http_client = httpx.Client(
+    limits=httpx.Limits(max_keepalive_connections=3, max_connections=5),
+)
+atexit.register(_http_client.close)
 
 
 def _sleep_rate_limit() -> None:
@@ -52,21 +61,21 @@ def search_articles(
         full_query = f'({query}) AND ("{this_year - years_back}"[dp] : "{this_year}"[dp])'
 
     try:
-        with httpx.Client(timeout=DEFAULT_TIMEOUT) as client:
-            resp = client.get(
-                SEARCH_URL,
-                params={
-                    "db": "pubmed",
-                    "term": full_query,
-                    "retmax": max_results,
-                    "retmode": "json",
-                    "sort": sort,
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            pmids = data.get("esearchresult", {}).get("idlist", [])
-            return list(pmids)
+        resp = _http_client.get(
+            SEARCH_URL,
+            params={
+                "db": "pubmed",
+                "term": full_query,
+                "retmax": max_results,
+                "retmode": "json",
+                "sort": sort,
+            },
+            timeout=DEFAULT_TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        pmids = data.get("esearchresult", {}).get("idlist", [])
+        return list(pmids)
     except Exception as e:
         logger.warning("PubMed search error for '%s': %s", query, e)
         return []
@@ -87,20 +96,20 @@ def get_article_metadata(pmids: list[str]) -> list[dict]:
     # Batch via esummary for metadata (one call for many PMIDs)
     summary_map: dict[str, dict] = {}
     try:
-        with httpx.Client(timeout=DEFAULT_TIMEOUT) as client:
-            resp = client.get(
-                SUMMARY_URL,
-                params={
-                    "db": "pubmed",
-                    "id": ",".join(pmids),
-                    "retmode": "json",
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json().get("result", {})
-            for pmid in pmids:
-                if pmid in data:
-                    summary_map[pmid] = data[pmid]
+        resp = _http_client.get(
+            SUMMARY_URL,
+            params={
+                "db": "pubmed",
+                "id": ",".join(pmids),
+                "retmode": "json",
+            },
+            timeout=DEFAULT_TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json().get("result", {})
+        for pmid in pmids:
+            if pmid in data:
+                summary_map[pmid] = data[pmid]
     except Exception as e:
         logger.warning("PubMed esummary batch error: %s", e)
     finally:
@@ -109,18 +118,18 @@ def get_article_metadata(pmids: list[str]) -> list[dict]:
     # Batch efetch for abstracts (plain text, all PMIDs in one shot)
     abstracts_text = ""
     try:
-        with httpx.Client(timeout=DEFAULT_TIMEOUT * 2) as client:
-            resp = client.get(
-                FETCH_URL,
-                params={
-                    "db": "pubmed",
-                    "id": ",".join(pmids),
-                    "rettype": "abstract",
-                    "retmode": "text",
-                },
-            )
-            resp.raise_for_status()
-            abstracts_text = resp.text
+        resp = _http_client.get(
+            FETCH_URL,
+            params={
+                "db": "pubmed",
+                "id": ",".join(pmids),
+                "rettype": "abstract",
+                "retmode": "text",
+            },
+            timeout=DEFAULT_TIMEOUT * 2,
+        )
+        resp.raise_for_status()
+        abstracts_text = resp.text
     except Exception as e:
         logger.warning("PubMed efetch abstract error: %s", e)
     finally:
@@ -186,19 +195,19 @@ def fetch_single(pmid: str | None = None, doi: str | None = None) -> dict:
     if not pmid and doi:
         # Resolve DOI → PMID
         try:
-            with httpx.Client(timeout=DEFAULT_TIMEOUT) as client:
-                resp = client.get(
-                    SEARCH_URL,
-                    params={
-                        "db": "pubmed",
-                        "term": f"{doi}[doi]",
-                        "retmode": "json",
-                    },
-                )
-                resp.raise_for_status()
-                pmids = resp.json().get("esearchresult", {}).get("idlist", [])
-                if pmids:
-                    pmid = pmids[0]
+            resp = _http_client.get(
+                SEARCH_URL,
+                params={
+                    "db": "pubmed",
+                    "term": f"{doi}[doi]",
+                    "retmode": "json",
+                },
+                timeout=DEFAULT_TIMEOUT,
+            )
+            resp.raise_for_status()
+            pmids = resp.json().get("esearchresult", {}).get("idlist", [])
+            if pmids:
+                pmid = pmids[0]
         except Exception as e:
             logger.warning("DOI resolution failed for %s: %s", doi, e)
         finally:
