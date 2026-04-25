@@ -46,7 +46,15 @@ export default async function CompaniesPage({
   } = params;
 
   const data = await fetchCompaniesServer({
-    q, country, type, priority, tracked, sort, order, page, page_size: "50",
+    q,
+    country,
+    type,
+    priority,
+    tracked,
+    sort,
+    order,
+    page,
+    page_size: "50",
   });
 
   const pg = data.page;
@@ -85,7 +93,9 @@ export default async function CompaniesPage({
                     <td>{row["客户类型"]}</td>
                     <td>{row["所处国家"]}</td>
                     <td>
-                      <span className={`badge ${phaseBadgeClass(String(row["核心产品的阶段"] ?? ""))}`}>
+                      <span
+                        className={`badge ${phaseBadgeClass(String(row["核心产品的阶段"] ?? ""))}`}
+                      >
                         {row["核心产品的阶段"] || "-"}
                       </span>
                     </td>
@@ -93,10 +103,14 @@ export default async function CompaniesPage({
                     <td>{row["公司质量评分"] || "-"}</td>
                     <td>
                       {row["BD跟进优先级"] ? (
-                        <span className={`badge ${priorityBadgeClass(String(row["BD跟进优先级"]))}`}>
+                        <span
+                          className={`badge ${priorityBadgeClass(String(row["BD跟进优先级"]))}`}
+                        >
                           {row["BD跟进优先级"]}
                         </span>
-                      ) : "-"}
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td>{row["追踪状态"] || "-"}</td>
                   </tr>
@@ -109,13 +123,19 @@ export default async function CompaniesPage({
         {data.total_pages > 1 && (
           <div className="pagination">
             {pg > 1 ? (
-              <Link href={pageHref(params, pg - 1)} scroll={false}>Prev</Link>
+              <Link href={pageHref(params, pg - 1)} scroll={false}>
+                Prev
+              </Link>
             ) : (
               <span className="disabled">Prev</span>
             )}
-            <span>Page {pg} of {data.total_pages}</span>
+            <span>
+              Page {pg} of {data.total_pages}
+            </span>
             {pg < data.total_pages ? (
-              <Link href={pageHref(params, pg + 1)} scroll={false}>Next</Link>
+              <Link href={pageHref(params, pg + 1)} scroll={false}>
+                Next
+              </Link>
             ) : (
               <span className="disabled">Next</span>
             )}

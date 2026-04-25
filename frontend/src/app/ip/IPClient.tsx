@@ -121,7 +121,11 @@ export function IPClient({ initialData }: Props) {
             <thead>
               <tr>
                 {COLUMNS.map((col) => (
-                  <th key={col.key} onClick={() => handleSort(col.key)} style={{ cursor: "pointer" }}>
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    style={{ cursor: "pointer" }}
+                  >
                     {col.label}
                     {sort === col.key ? (order === "asc" ? " ▲" : " ▼") : ""}
                   </th>

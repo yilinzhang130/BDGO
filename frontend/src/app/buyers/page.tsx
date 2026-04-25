@@ -33,12 +33,7 @@ export default async function BuyersPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const params = await searchParams;
-  const {
-    q = "",
-    sort = "company_name",
-    order = "asc",
-    page = "1",
-  } = params;
+  const { q = "", sort = "company_name", order = "asc", page = "1" } = params;
 
   const data = await fetchBuyersServer({ q, sort, order, page, page_size: "50" });
   const pg = data.page;
@@ -91,13 +86,19 @@ export default async function BuyersPage({
         {data.total_pages > 1 && (
           <div className="pagination">
             {pg > 1 ? (
-              <Link href={pageHref(params, pg - 1)} scroll={false}>Prev</Link>
+              <Link href={pageHref(params, pg - 1)} scroll={false}>
+                Prev
+              </Link>
             ) : (
               <span className="disabled">Prev</span>
             )}
-            <span>Page {pg} of {data.total_pages}</span>
+            <span>
+              Page {pg} of {data.total_pages}
+            </span>
             {pg < data.total_pages ? (
-              <Link href={pageHref(params, pg + 1)} scroll={false}>Next</Link>
+              <Link href={pageHref(params, pg + 1)} scroll={false}>
+                Next
+              </Link>
             ) : (
               <span className="disabled">Next</span>
             )}

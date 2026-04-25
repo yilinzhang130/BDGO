@@ -16,7 +16,15 @@ export default async function IPPage({
     page = "1",
   } = params;
 
-  const initialData = await fetchIPServer({ q, status, jurisdiction, sort, order, page, page_size: "50" });
+  const initialData = await fetchIPServer({
+    q,
+    status,
+    jurisdiction,
+    sort,
+    order,
+    page,
+    page_size: "50",
+  });
 
   return <IPClient initialData={initialData} />;
 }

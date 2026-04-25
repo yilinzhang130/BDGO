@@ -35,7 +35,9 @@ export function DealsClient({ initialData, initialDealTypes }: Props) {
   const [page, setPage] = useState(1);
 
   const load = useCallback(
-    (overrides?: Partial<{ q: string; type: string; sort: string; order: string; page: number }>) => {
+    (
+      overrides?: Partial<{ q: string; type: string; sort: string; order: string; page: number }>,
+    ) => {
       const params = { q, type, sort, order, page, ...overrides };
       fetchDeals({ ...params, page_size: 50 }).then(setData);
     },
@@ -112,7 +114,11 @@ export function DealsClient({ initialData, initialDealTypes }: Props) {
             <thead>
               <tr>
                 {COLUMNS.map((col) => (
-                  <th key={col.key} onClick={() => handleSort(col.key)} style={{ cursor: "pointer" }}>
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    style={{ cursor: "pointer" }}
+                  >
                     {col.label}
                     {sort === col.key ? (order === "asc" ? " ▲" : " ▼") : ""}
                   </th>

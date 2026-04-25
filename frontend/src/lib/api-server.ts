@@ -10,13 +10,9 @@
 import { cookies } from "next/headers";
 import type { PaginatedCRM, DealTypeCount } from "./api";
 
-const BACKEND =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://127.0.0.1:8001";
+const BACKEND = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://127.0.0.1:8001";
 
-async function serverGet<T>(
-  path: string,
-  params?: Record<string, string | number>,
-): Promise<T> {
+async function serverGet<T>(path: string, params?: Record<string, string | number>): Promise<T> {
   const cookieStore = await cookies();
   const token = cookieStore.get("bdgo_token")?.value;
 
@@ -62,5 +58,4 @@ export const fetchIPServer = (params: Record<string, string>) =>
 export const fetchBuyersServer = (params: Record<string, string>) =>
   serverGet<PaginatedCRM>("/api/buyers", params);
 
-export const fetchDealsByTypeServer = () =>
-  serverGet<DealTypeCount[]>("/api/stats/deals-by-type");
+export const fetchDealsByTypeServer = () => serverGet<DealTypeCount[]>("/api/stats/deals-by-type");

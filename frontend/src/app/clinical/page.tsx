@@ -47,7 +47,14 @@ export default async function ClinicalPage({
   } = params;
 
   const data = await fetchClinicalServer({
-    q, phase, status, result, sort, order, page, page_size: "50",
+    q,
+    phase,
+    status,
+    result,
+    sort,
+    order,
+    page,
+    page_size: "50",
   });
 
   const pg = data.page;
@@ -84,7 +91,9 @@ export default async function ClinicalPage({
                       <Link href={`/clinical/${encodeURIComponent(id)}`}>{id}</Link>
                     </td>
                     <td>
-                      <Link href={`/companies/${encodeURIComponent(String(row["公司名称"] ?? ""))}`}>
+                      <Link
+                        href={`/companies/${encodeURIComponent(String(row["公司名称"] ?? ""))}`}
+                      >
                         {row["公司名称"]}
                       </Link>
                     </td>
@@ -102,7 +111,9 @@ export default async function ClinicalPage({
                         <span className={`badge ${resultBadgeClass(String(row["结果判定"]))}`}>
                           {row["结果判定"]}
                         </span>
-                      ) : "-"}
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td>{row["安全性标志"] || "-"}</td>
                     <td>{row["数据状态"] || "-"}</td>
@@ -116,13 +127,19 @@ export default async function ClinicalPage({
         {data.total_pages > 1 && (
           <div className="pagination">
             {pg > 1 ? (
-              <Link href={pageHref(params, pg - 1)} scroll={false}>Prev</Link>
+              <Link href={pageHref(params, pg - 1)} scroll={false}>
+                Prev
+              </Link>
             ) : (
               <span className="disabled">Prev</span>
             )}
-            <span>Page {pg} of {data.total_pages}</span>
+            <span>
+              Page {pg} of {data.total_pages}
+            </span>
             {pg < data.total_pages ? (
-              <Link href={pageHref(params, pg + 1)} scroll={false}>Next</Link>
+              <Link href={pageHref(params, pg + 1)} scroll={false}>
+                Next
+              </Link>
             ) : (
               <span className="disabled">Next</span>
             )}

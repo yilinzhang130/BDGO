@@ -37,19 +37,25 @@ export function ClinicalFilters({ params }: Props) {
       <select defaultValue={params.phase ?? ""} onChange={(e) => push({ phase: e.target.value })}>
         <option value="">All Phases</option>
         {["Phase 1", "Phase 2", "Phase 3", "Phase 1/2", "Phase 2/3"].map((p) => (
-          <option key={p} value={p}>{p}</option>
+          <option key={p} value={p}>
+            {p}
+          </option>
         ))}
       </select>
       <select defaultValue={params.status ?? ""} onChange={(e) => push({ status: e.target.value })}>
         <option value="">All Status</option>
         {["已读出", "待读出", "进行中"].map((s) => (
-          <option key={s} value={s}>{s}</option>
+          <option key={s} value={s}>
+            {s}
+          </option>
         ))}
       </select>
       <select defaultValue={params.result ?? ""} onChange={(e) => push({ result: e.target.value })}>
         <option value="">All Results</option>
         {["阳性", "混合", "阴性", "未达终点"].map((r) => (
-          <option key={r} value={r}>{r}</option>
+          <option key={r} value={r}>
+            {r}
+          </option>
         ))}
       </select>
     </div>

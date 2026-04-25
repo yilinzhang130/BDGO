@@ -46,7 +46,15 @@ export default async function AssetsPage({
   } = params;
 
   const data = await fetchAssetsServer({
-    q, phase, disease, scored, tracked, sort, order, page, page_size: "50",
+    q,
+    phase,
+    disease,
+    scored,
+    tracked,
+    sort,
+    order,
+    page,
+    page_size: "50",
   });
 
   const pg = data.page;
@@ -81,7 +89,9 @@ export default async function AssetsPage({
                 return (
                   <tr key={name}>
                     <td style={{ fontWeight: 600 }}>
-                      <Link href={`/assets/${encodeURIComponent(company)}/${encodeURIComponent(name)}`}>
+                      <Link
+                        href={`/assets/${encodeURIComponent(company)}/${encodeURIComponent(name)}`}
+                      >
                         {name}
                       </Link>
                     </td>
@@ -108,13 +118,19 @@ export default async function AssetsPage({
         {data.total_pages > 1 && (
           <div className="pagination">
             {pg > 1 ? (
-              <Link href={pageHref(params, pg - 1)} scroll={false}>Prev</Link>
+              <Link href={pageHref(params, pg - 1)} scroll={false}>
+                Prev
+              </Link>
             ) : (
               <span className="disabled">Prev</span>
             )}
-            <span>Page {pg} of {data.total_pages}</span>
+            <span>
+              Page {pg} of {data.total_pages}
+            </span>
             {pg < data.total_pages ? (
-              <Link href={pageHref(params, pg + 1)} scroll={false}>Next</Link>
+              <Link href={pageHref(params, pg + 1)} scroll={false}>
+                Next
+              </Link>
             ) : (
               <span className="disabled">Next</span>
             )}

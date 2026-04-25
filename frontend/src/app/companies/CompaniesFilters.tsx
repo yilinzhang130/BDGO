@@ -39,17 +39,36 @@ export function CompaniesFilters({ params }: Props) {
         onChange={(e) => push({ country: e.target.value })}
       >
         <option value="">All Countries</option>
-        {["USA", "China", "Korea", "UK", "France", "Germany", "Japan", "Switzerland", "Canada", "Israel"].map((c) => (
-          <option key={c} value={c}>{c}</option>
+        {[
+          "USA",
+          "China",
+          "Korea",
+          "UK",
+          "France",
+          "Germany",
+          "Japan",
+          "Switzerland",
+          "Canada",
+          "Israel",
+        ].map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
         ))}
       </select>
-      <select
-        defaultValue={params.type ?? ""}
-        onChange={(e) => push({ type: e.target.value })}
-      >
+      <select defaultValue={params.type ?? ""} onChange={(e) => push({ type: e.target.value })}>
         <option value="">All Types</option>
-        {["Biotech(USA)", "Biotech(China)", "Biotech(Europe)", "Biotech(Other)", "海外药企", "中国药企"].map((t) => (
-          <option key={t} value={t}>{t}</option>
+        {[
+          "Biotech(USA)",
+          "Biotech(China)",
+          "Biotech(Europe)",
+          "Biotech(Other)",
+          "海外药企",
+          "中国药企",
+        ].map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
         ))}
       </select>
       <select
@@ -58,7 +77,9 @@ export function CompaniesFilters({ params }: Props) {
       >
         <option value="">All Priorities</option>
         {["A", "B", "C", "D"].map((p) => (
-          <option key={p} value={p}>{p}</option>
+          <option key={p} value={p}>
+            {p}
+          </option>
         ))}
       </select>
       <select
@@ -67,7 +88,9 @@ export function CompaniesFilters({ params }: Props) {
       >
         <option value="">All Status</option>
         {["追踪中", "待分类", "排除"].map((s) => (
-          <option key={s} value={s}>{s}</option>
+          <option key={s} value={s}>
+            {s}
+          </option>
         ))}
       </select>
     </div>
