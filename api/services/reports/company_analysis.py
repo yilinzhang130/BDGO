@@ -392,19 +392,35 @@ class CompanyAnalysisService(ReportService):
     def _build_suggested_commands(
         self, inp: CompanyAnalysisInput, assets: list[dict]
     ) -> list[dict]:
-        """After company analysis → most natural next step is outreach.
+        """After company analysis → suggest timing check + outreach.
 
         Map:
-          buyer perspective → /email to_company=<biotech> from_perspective=buyer
-                              + (optional) /evaluate if we have an asset
-          seller perspective → /email to_company=<MNC> from_perspective=seller
-          neutral → /email cold_outreach (perspective default)
-                    + (optional) /target if we have a clear lead asset
+          all perspectives → /timing (check best outreach window)
+                             + /email (cold outreach, perspective-aware)
+          buyer + full asset → also /evaluate
         """
         chips: list[dict] = []
+        email_perspective = inp.perspective if inp.perspective != "neutral" else "seller"
+
+        # Timing chip — offered first (check before contacting)
+        timing_cmd_parts = [
+            "/timing",
+            f' company_name="{inp.company_name}"',
+            f" perspective={email_perspective}",
+        ]
+        if assets:
+            lead_asset = assets[0].get("资产名称")
+            if lead_asset:
+                timing_cmd_parts.append(f' asset_name="{lead_asset}"')
+        chips.append(
+            {
+                "label": "Check Outreach Timing",
+                "command": "".join(timing_cmd_parts),
+                "slug": "timing-advisor",
+            }
+        )
 
         # Email chip — always offered, perspective-aware
-        email_perspective = inp.perspective if inp.perspective != "neutral" else "seller"
         email_cmd_parts = [
             "/email",
             f' to_company="{inp.company_name}"',

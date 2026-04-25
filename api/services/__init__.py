@@ -22,6 +22,7 @@ from services.reports.outreach_email import OutreachEmailService
 from services.reports.paper_analysis import PaperAnalysisService
 from services.reports.rnpv_valuation import RNPVValuationService
 from services.reports.target_radar import TargetRadarService
+from services.reports.timing_advisor import TimingAdvisorService
 
 REPORT_SERVICES: dict[str, ReportService] = {
     PaperAnalysisService.slug: PaperAnalysisService(),
@@ -38,6 +39,7 @@ REPORT_SERVICES: dict[str, ReportService] = {
     OutreachEmailService.slug: OutreachEmailService(),
     RNPVValuationService.slug: RNPVValuationService(),
     TargetRadarService.slug: TargetRadarService(),
+    TimingAdvisorService.slug: TimingAdvisorService(),
 }
 
 
