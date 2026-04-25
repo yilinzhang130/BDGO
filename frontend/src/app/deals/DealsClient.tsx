@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { fetchDeals, fetchDealsByType, type PaginatedCRM, type DealTypeCount } from "@/lib/api";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -33,6 +33,7 @@ export function DealsClient({ initialData, initialDealTypes }: Props) {
   const [sort, setSort] = useState("宣布日期");
   const [order, setOrder] = useState("desc");
   const [page, setPage] = useState(1);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(
     (
@@ -55,8 +56,11 @@ export function DealsClient({ initialData, initialDealTypes }: Props) {
 
   const handleQ = (val: string) => {
     setQ(val);
-    setPage(1);
-    load({ q: val, page: 1 });
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => {
+      setPage(1);
+      load({ q: val, page: 1 });
+    }, 300);
   };
 
   const handleType = (val: string) => {

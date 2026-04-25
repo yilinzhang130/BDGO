@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { fetchIP, deleteRecord, type PaginatedCRM } from "@/lib/api";
 import { statusBadgeClass } from "@/lib/badges";
@@ -32,6 +32,7 @@ export function IPClient({ initialData }: Props) {
   const [order, setOrder] = useState("asc");
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(
     (
@@ -60,8 +61,11 @@ export function IPClient({ initialData }: Props) {
 
   const handleQ = (val: string) => {
     setQ(val);
-    setPage(1);
-    load({ q: val, page: 1 });
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => {
+      setPage(1);
+      load({ q: val, page: 1 });
+    }, 300);
   };
 
   const handleStatus = (val: string) => {

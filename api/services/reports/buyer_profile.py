@@ -352,6 +352,7 @@ class BuyerProfileService(ReportService):
                 system=system_prompt,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=max_tok,
+                label=f"bp_ch{ch_num}",
             )
             ctx.log(f"第{ch_num}章完成（{len(result)}字）")
             return ch_num, result
