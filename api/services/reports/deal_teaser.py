@@ -228,6 +228,14 @@ class DealTeaserService(ReportService):
         docx_bytes = docx_builder.document_to_bytes(doc)
         ctx.save_file(f"deal_teaser_{slug}.docx", docx_bytes, format="docx")
 
+        # BD lifecycle stage 3: after teaser, the natural next move is an NDA.
+        # Pre-build the /legal slash command so the chat UI can offer it as a chip.
+        nda_command = (
+            f'/legal contract_type=cda party_position="乙方"'
+            f' counterparty="{inp.company_name}"'
+            f' project_name="{inp.asset_name} ({inp.indication})"'
+        )
+
         return ReportResult(
             markdown=markdown,
             meta={
@@ -238,6 +246,13 @@ class DealTeaserService(ReportService):
                 "target": inp.target,
                 "phase": inp.phase,
                 "highlights_count": len(highlights),
+                "suggested_commands": [
+                    {
+                        "label": "Draft NDA / CDA",
+                        "command": nda_command,
+                        "slug": "legal-review",
+                    }
+                ],
             },
         )
 
