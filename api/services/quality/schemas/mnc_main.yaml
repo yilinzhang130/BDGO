@@ -1,0 +1,396 @@
+# MNC Buyer Profile — Main Report Schema v0.2 (BD-facing .docx)
+# 变更基线：v0.1 (mnc_schema.v01.yaml)
+# 设计原则：
+#   (1) BD 读者 3 分钟能判断"要不要出手"
+#   (2) 研发读者深度数据迁到 mnc_data_schema.yaml 对应 .xlsx
+#   (3) 删去低信号章节（风险、历史早期、财务指标重复、资产变现推测）
+#   (4) 新增 BD 操作性内容（资产匹配清单/触发日历/decision-chain/comps/deal-breakers）
+#   (5) R&D Deep-Dive 作为独立可选章节（主报告保持叙事性，xlsx 承载穷举数据）
+
+report_type: mnc_buyer_profile_main
+schema_version: "0.2"
+target_total_words:
+  min: 22000
+  max: 30000      # v0.1 为 30k-45k；现压至 22k-30k（xlsx 承担了详尽数据）
+
+# ══════════════════════════════════════════════
+# 前置元素
+# ══════════════════════════════════════════════
+front_matter:
+  cover:
+    required: true
+    must_contain: ['CONFIDENTIAL']
+  toc:
+    required: true
+    must_contain_one_of: ['目录', 'Contents']
+
+  report_guide:
+    required: true
+    must_contain_groups:
+      - ['目的', '旨在', '核心问题', '目标']
+      - ['使用', '读者', '用法', '路径']
+
+  exec_summary:
+    required: true
+    min_words: 1800
+    max_words: 2500
+    label_format: '核心发现\s*[1-5]'
+    min_labels: 5
+
+  # ── 合并版火力卡：原火力卡 + 原 ch6.1 关键财务指标
+  firepower_card:
+    required: true
+    must_contain_all:
+      - '年收入'
+      - '现金'
+      - '自由现金流|FCF'
+      - 'R&D'
+      - '信用评级'
+      - '净债务'
+      - '市值'
+      - '最大单笔交易'
+
+  # ── NEW: Quick-Hit 页（3 分钟速读的核心）
+  quick_hit_page:
+    required: true
+    min_words: 800
+    max_words: 1500
+    required_blocks:
+      - asset_shopping_list       # 资产匹配清单
+      - top3_directions_preview   # ch8 Top 3 前置（名字+分数+金额区间）
+      - first_contact_point       # 建议第一接触人
+      - recommended_deal_structure_summary  # 一行建议结构
+
+    # 资产匹配清单：MNC 公开/暗示在看的具体资产名
+    asset_shopping_list_rules:
+      min_items: 5         # 至少 5 条 explicit/implicit interest signals
+      per_item_required_fields:
+        - asset_or_topic     # 例："TROP2 ADC"
+        - signal_source      # 例："JPM 2026 Bourla"
+        - signal_date        # 例："2026-01-13"
+        - signal_strength    # explicit / implicit / speculative
+
+# ══════════════════════════════════════════════
+# 主体章节
+# ══════════════════════════════════════════════
+sections:
+
+  - id: ch1
+    name: 公司介绍
+    heading_patterns: ['第一章', '1\.\s*公司介绍']
+    required: true
+    subsections:
+      # 原 1.1 成立与演变 → 压缩为"近10年关键转折"
+      - id: '1.1'
+        name: 近10年关键转折
+        required: true
+        max_words: 1000
+        must_contain_one_of: ['2015', '2016', '2017', '2018', '2019', '2020']
+      - id: '1.2'
+        name: 管理层背景
+        required: true
+        must_contain_all: ['CEO', 'CSO', 'CFO']
+      - id: '1.3'
+        name: 企业文化与交易偏好
+        required: true
+      # NEW: BD 决策链（nice_to_have——依赖可搜集性，有些 MNC 不公开审批阈值）
+      - id: '1.4'
+        name: BD 决策链与审批阈值
+        nice_to_have: true
+        required_blocks: [decision_chain_table]
+        must_contain_one_of: ['审批', '决策', 'approve', '阈值', '权限']
+        fallback_note: 若信息稀缺，允许写"insufficient public data"并说明推断依据
+
+  - id: ch2
+    name: 管线全景 + BD触发日历
+    heading_patterns: ['第二章', '2\.\s*管线']
+    required: true
+    subsections:
+      - id: '2.1'
+        name: 管线分布总览（阶段×TA×modality 合一）
+        required: true
+        max_words: 600    # 压缩：原 2.1 + 2.2 合并，仅保留 mini-chart 级
+        required_blocks: [mini_chart_stage, mini_chart_ta, mini_chart_modality]
+      # NEW: BD 触发日历（nice_to_have——某些 MNC 信息稀缺）
+      - id: '2.2'
+        name: BD 触发日历
+        nice_to_have: true
+        required_blocks: [bd_trigger_calendar]
+        must_contain_all: ['财报', '会议']
+        description: 财报日/JPM/ASCO/BIO/投资者日/管理层合同更新窗口，告诉 BD 什么时候接触
+        fallback_note: 若仅能拿到财报日，至少列当年 Q 期；其它事件标"待补"
+      # 原 2.3 催化剂日历
+      - id: '2.3'
+        name: 管线催化剂日历
+        required: true
+        must_contain_one_of: ['2026', '2027', '2028']
+    produces: [ta_list, catalysts, bd_triggers]
+
+  - id: ch3
+    name: 治疗领域缺口分析
+    heading_patterns: ['第三章', '3\.\s*治疗领域']
+    required: true
+    type: iterative
+    iter_over: ta_list
+    min_items: 3
+    target_words: 10000     # 原 15000：roster 迁到 xlsx 后压缩
+    per_item_required:
+      - competitor_table      # 保留
+      - gap_analysis_prose    # 保留，是 BD 核心洞察
+      - so_what_sentence      # 必含"缺口 → 买家行为"因果
+      # 管线 roster 不再要求散文，迁到 xlsx Pipeline_Roster sheet
+    per_item_removed_from_v01:
+      - pipeline_snapshot_prose  # 迁到 xlsx
+    produces: [gap_list]
+
+  - id: ch4
+    name: BD 交易历史与动量
+    heading_patterns: ['第四章', '4\.\s*BD']
+    required: true
+    subsections:
+      - id: '4.1'
+        name: 历史交易时间线
+        required: true
+        max_words: 600
+        required_blocks: [deal_timeline_table]
+      - id: '4.2'
+        name: 沉没成本动量分析
+        required: true
+        must_contain_one_of: ['沉没成本', 'sunk cost', '动量']
+        required_blocks: [sunk_cost_table_per_ta]
+      - id: '4.3'
+        name: 交易案例深度复盘
+        required: true
+        min_deep_dives: 2
+      - id: '4.4'
+        name: 失败交易与 BD 行为转变
+        required: true
+        min_failures: 2
+        must_contain_causality: true
+      # NEW: Deal-breakers 清单（nice_to_have——需要足够的历史交易数据才能提炼）
+      - id: '4.5'
+        name: 该MNC的Deal-Breakers
+        nice_to_have: true
+        required_blocks: [deal_breakers_list]
+        description: |
+          历史交易中反复出现的拒绝模式。例：
+          "从未做过纯 royalty-only 结构" / "不接受 CVR" / "美欧双权 minimum"
+        min_items: 3
+        precondition: Deal_History sheet 行数 >= 10，否则本节可用"数据不足"说明
+
+  - id: ch5
+    name: 高管战略信号
+    heading_patterns: ['第五章', '5\.\s*高管']
+    required: true
+    subsections:
+      - {id: '5.1', name: CEO, required: true, min_quotes: 1}
+      - {id: '5.2', name: CSO, required: true, min_quotes: 1}
+      - {id: '5.3', name: CFO, required: true, min_quotes: 1}
+      # v0.1 的 5.4 Board 删除（低信号）
+      - {id: '5.4', name: 卖方分析师共识（压缩为一段）, required: true,
+         max_words: 500,
+         must_contain_one_of: ['分析师', 'analyst', '共识']}
+
+  # 原 v0.1 ch6 财务火力详评 → 压缩，6.1 合入火力卡、6.3 删除
+  - id: ch6
+    name: 财务火力判断
+    heading_patterns: ['第六章', '6\.\s*财务']
+    required: true
+    subsections:
+      - id: '6.1'   # 原 6.2
+        name: BD交易规模判断
+        required: true
+      - id: '6.2'   # 原 6.4
+        name: 同业财务对标
+        required: true
+        min_peers: 3
+    removed_from_v01:
+      - id: '6.1_old'
+        name: 关键财务指标
+        reason: 与火力卡完全重复，合并入火力卡
+      - id: '6.3'
+        name: 资产变现空间
+        reason: divestiture 推测命中率低，删
+
+  - id: ch7
+    name: 专利悬崖与收入替代
+    heading_patterns: ['第七章', '7\.\s*专利']
+    required: true
+    subsections:
+      - {id: '7.1', name: 产品级LOE时间表, required: true, required_blocks: [loe_table]}
+      - {id: '7.2', name: 收入替代模型, required: true, required_blocks: [replacement_model_table]}
+
+  - id: ch8
+    name: 中国BD机会矩阵
+    heading_patterns: ['第八章', '8\.\s*中国']
+    required: true
+    subsections:
+      - id: '8.1'
+        name: 加权评分方法
+        required: true
+        must_contain_all: ['W1', 'W2', 'W3', 'W4', 'W5']
+      - id: '8.2'
+        name: 评分结果
+        required: true
+        required_blocks: [score_table_all_directions]
+      - id: '8.3'
+        name: Top 3方向详细卡片
+        required: true
+        min_directions: 3
+        min_assets_per_direction: 3
+        # 原附录 B DNA 契合度验证合并进来
+        per_direction_required_fields:
+          - direction_name
+          - weighted_score
+          - gap_source       # 对应 ch3 哪个缺口
+          - candidate_assets # 3-5 个中国资产
+          - dna_fit_score    # 原附录B 内容
+          - competitive_buyers
+      - id: '8.4'
+        name: 竞争买方分析
+        required: true
+    consumes: [gap_list]
+
+  - id: ch9
+    name: 交易结构与谈判策略
+    heading_patterns: ['第九章', '9\.\s*交易']
+    required: true
+    subsections:
+      - id: '9.1'
+        name: 该MNC偏好的交易结构
+        required: true
+        must_contain_one_of: ['upfront', 'milestones', 'royalties', '首付', '里程碑']
+      - id: '9.2'
+        name: 针对不同方向的推荐模式
+        required: true
+      - id: '9.3'
+        name: 谈判要点与风险提示
+        required: true
+      - id: '9.4'
+        name: 时间窗口判断
+        required: true
+      # NEW: 交易 comps 基准
+      - id: '9.5'
+        name: 同类交易Comps基准
+        required: true
+        required_blocks: [comps_table]
+        description: |
+          同 TA × 同阶段近 3 年交易的 upfront 中位数/P25/P75，
+          里程碑 max 中位数，royalty tier 分布。
+          卖方用此判断自己报价是否 fit。
+
+  # v0.1 ch10 风险因素 → 全删（boilerplate）
+  # 移除原因：多数内容是 boilerplate 地缘政治+管理层变动推测，对 BD 决策影响低。
+  # 真实风险以 inline callout 方式嵌入对应章节（例 Bourla 任期信号写入 5.1）。
+
+  # NEW: R&D Deep-Dive（独立章节，给研发读者看深度，但主体仍是叙事）
+  - id: research_deepdive
+    name: R&D 深度视角（研发读者专章）
+    heading_patterns: ['研发深度', 'R&D 深度', 'Research Deep']
+    required: true
+    target_words: 3500
+    subsections:
+      - id: 'R1'
+        name: R&D 组织架构与关键科学家
+        required: true
+        required_blocks: [rd_org_table]
+        description: TA Head / 重要 VP 招募/离职信号 / R&D site 分布 / 近 2 年关键 hires
+      - id: 'R2'
+        name: 技术平台深度拆解
+        required: true
+        min_platforms: 3
+        per_platform_required_fields:
+          - platform_name
+          - origin            # internal / acquired
+          - key_assets_derived
+          - patent_status
+          - external_licensees
+      - id: 'R3'
+        name: Preclinical 与 Discovery 管线概要
+        required: true
+        description: |
+          不要求穷举（xlsx Pipeline_Roster 承担），但要讲该MNC
+          preclinical 的战略重心：modality 偏好、目标机制、预期 IND 年份
+      - id: 'R4'
+        name: 非 BD 型合作（学术 / research alliance）
+        required: true
+        description: 区别于 ch4 的 M&A/license，包含学术合作 / research JV / key academic partnerships
+
+  - id: conclusion
+    name: 结论与行动建议
+    heading_patterns: ['结论', '行动建议']
+    required: true
+    required_blocks: [summary_judgement, action_roadmap_12mo]
+
+# ══════════════════════════════════════════════
+# 附录（精简）
+# ══════════════════════════════════════════════
+appendices:
+  # v0.1 附录 A CRM数据查询记录 → 删（移到 OpenClaw 内部 log）
+  # v0.1 附录 B DNA 契合度验证 → 合并到 ch8.3（每个方向的卡片里）
+  - {id: C, name: 参考文献, required: true, must_match_citations: true}
+  - {id: D, name: 方法论备注与附件索引, required: true,
+     description: 含本次使用的 xlsx 附件 sheet 列表、Key contacts 可选信息}
+
+# ══════════════════════════════════════════════
+# 外部数据契约：对应 xlsx 必须存在
+# ══════════════════════════════════════════════
+companion_data_pack:
+  required: true
+  schema_file: mnc_data_schema.yaml
+  description: |
+    每份主 docx 报告必须伴随一份 xlsx 数据附件，包含：
+    Pipeline_Roster / Catalyst_Calendar / Modality_Breakdown /
+    Platforms / RD_Org / Research_Alliances / Deal_History / Comps
+    缺失 xlsx 时主报告视为 incomplete。
+
+# ══════════════════════════════════════════════
+# 写作质量规则（沿用 v0.1）
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - {pattern: '一方面.{0,40}另一方面', category: balance, severity: high}
+    - {pattern: '综上所述', category: balance, severity: high}
+    - {pattern: '总的来说', category: balance, severity: high}
+    - {pattern: '由此可见', category: balance, severity: high}
+    - {pattern: '不难看出', category: balance, severity: high}
+    - {pattern: '不仅如此', category: balance, severity: medium}
+    - {pattern: '除此之外', category: balance, severity: medium}
+    - {pattern: '值得注意的是', category: balance, severity: medium}
+    - {pattern: '需要指出的是', category: balance, severity: medium}
+    - {pattern: '全方位', category: empty_adj, severity: high}
+    - {pattern: '深层次', category: empty_adj, severity: high}
+    - {pattern: '多维度', category: empty_adj, severity: high}
+    - {pattern: '立体化', category: empty_adj, severity: high}
+    - {pattern: '前瞻性布局', category: empty_adj, severity: high}
+    - {pattern: '战略性布局', category: empty_adj, severity: high}
+    - {pattern: '深度布局', category: empty_adj, severity: high}
+    - {pattern: '颠覆性的', category: empty_adj, severity: medium}
+    - {pattern: '变革性的', category: empty_adj, severity: medium}
+    - {pattern: '突破性的', category: empty_adj, severity: medium}
+    - {pattern: '（[^（）]{2,6}抑制剂）', category: empty_parens, severity: low}
+    - {pattern: '（[^（）]{2,6}激动剂）', category: empty_parens, severity: low}
+  banned_chars:
+    - 'emoji_range'
+    - '✅|❌|⚠️|🔴|🟡|🟢'
+    - '═{5,}'
+
+citation_rules:
+  inline_format: '\[\d+\]'
+  references_section: '参考文献|参考来源|References'
+  require_sequential: true
+  require_all_used: true
+
+cross_refs:
+  - id: ch4_sunk_cost_ta_in_plan
+    rule: ch4.ta_mentions ⊆ ch3.ta_list
+    severity: medium
+  - id: ch8_directions_in_gap_list
+    rule: ch8.top3 ⊆ ch3.gap_list
+    severity: high
+  - id: quick_hit_top3_matches_ch8
+    rule: quick_hit_page.top3_directions_preview == ch8.top3
+    severity: high
+  - id: ch9_comps_match_top3_TAs
+    rule: ch9.comps_table.covers ⊇ ch8.top3.TAs
+    severity: medium

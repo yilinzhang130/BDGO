@@ -33,6 +33,7 @@ except ImportError:
 from pydantic import BaseModel
 
 from services.document import docx_builder
+from services.quality import audit_to_dict, validate_markdown
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -491,6 +492,18 @@ class BuyerProfileService(ReportService):
             ctx.log("Extracting structured data for CRM enrichment...")
             self._enrich_and_save_to_crm(resolved_name, markdown, ctx)
 
+        # Phase 6: Schema validation (non-blocking — failures still ship the report)
+        schema_audit: dict = {}
+        try:
+            audit = validate_markdown(markdown, mode="mnc")
+            schema_audit = audit_to_dict(audit)
+            ctx.log(
+                f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}"
+            )
+        except Exception:
+            logger.exception("Schema validation failed for task %s", ctx.task_id)
+            schema_audit = {"error": "validator_exception"}
+
         return ReportResult(
             markdown=markdown,
             meta={
@@ -503,6 +516,7 @@ class BuyerProfileService(ReportService):
                 "web_results_count": len(web_results),
                 "chapters": 8,
                 "total_chars": total_chars,
+                "schema_audit": schema_audit,
             },
         )
 
