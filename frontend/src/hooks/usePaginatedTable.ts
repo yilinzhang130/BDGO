@@ -8,6 +8,14 @@
  * Usage:
  *   const { data, sort, order, handleSort, handleFilter, handlePage } =
  *     usePaginatedTable({ fetchFn: fetchDeals, initialData, defaultSort: "宣布日期", defaultOrder: "desc" });
+ *
+ * ⚠️  STABILITY REQUIREMENT (M-028):
+ *   `fetchFn` MUST be a stable reference (module-level function or wrapped in
+ *   useCallback/useMemo at the call site).  Passing an inline arrow function
+ *   or a new function reference on every render will cause `load` to be
+ *   recreated on each render, which may trigger repeated fetch loops.
+ *   All current call sites (DealsClient, IPClient) pass module-level API
+ *   functions (fetchDeals, fetchIP) which are already stable.
  */
 
 import { useState, useCallback, useRef } from "react";
@@ -54,7 +62,6 @@ export function usePaginatedTable({
       };
       fetchFn(params).then(setData);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [fetchFn, sort, order, page, filters],
   );
 
