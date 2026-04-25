@@ -1,8 +1,6 @@
-"use client";
-
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { fetchBuyers, type PaginatedCRM } from "@/lib/api";
+import Link from "next/link";
+import { fetchBuyersServer } from "@/lib/api-server";
+import { BuyersFilters } from "./BuyersFilters";
 
 const COLUMNS = [
   { key: "company_name", label: "Company" },
@@ -15,49 +13,38 @@ const COLUMNS = [
   { key: "last_updated", label: "Updated" },
 ];
 
-export default function BuyersPage() {
-  const router = useRouter();
-  const [data, setData] = useState<PaginatedCRM | null>(null);
-  const [q, setQ] = useState("");
-  const [sort, setSort] = useState("company_name");
-  const [order, setOrder] = useState("asc");
-  const [page, setPage] = useState(1);
+function sortHref(params: Record<string, string>, col: string) {
+  const sp = new URLSearchParams(params);
+  sp.set("sort", col);
+  sp.set("order", params.sort === col && params.order === "asc" ? "desc" : "asc");
+  sp.delete("page");
+  return `?${sp.toString()}`;
+}
 
-  const load = useCallback(() => {
-    fetchBuyers({ q, sort, order, page, page_size: 50 }).then(setData);
-  }, [q, sort, order, page]);
+function pageHref(params: Record<string, string>, pg: number) {
+  const sp = new URLSearchParams(params);
+  sp.set("page", String(pg));
+  return `?${sp.toString()}`;
+}
 
-  useEffect(() => {
-    load();
-  }, [load]);
+export default async function BuyersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
+  const { q = "", sort = "company_name", order = "asc", page = "1" } = params;
 
-  const handleSort = (col: string) => {
-    if (sort === col) {
-      setOrder(order === "asc" ? "desc" : "asc");
-    } else {
-      setSort(col);
-      setOrder("asc");
-    }
-    setPage(1);
-  };
+  const data = await fetchBuyersServer({ q, sort, order, page, page_size: "50" });
+  const pg = data.page;
 
   return (
     <div>
       <div className="page-header">
-        <h1>MNC Buyer Profiles ({data?.total ?? "..."})</h1>
+        <h1>MNC Buyer Profiles ({data.total})</h1>
       </div>
 
-      <div className="filter-bar">
-        <input
-          placeholder="Search buyer company..."
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
-          style={{ width: 260 }}
-        />
-      </div>
+      <BuyersFilters params={params} />
 
       <div className="card">
         <div className="data-table-wrapper">
@@ -65,46 +52,56 @@ export default function BuyersPage() {
             <thead>
               <tr>
                 {COLUMNS.map((col) => (
-                  <th key={col.key} onClick={() => handleSort(col.key)}>
-                    {col.label}
-                    {sort === col.key ? (order === "asc" ? " \u25B2" : " \u25BC") : ""}
+                  <th key={col.key}>
+                    <Link href={sortHref(params, col.key)} scroll={false}>
+                      {col.label}
+                      {sort === col.key ? (order === "asc" ? " ▲" : " ▼") : ""}
+                    </Link>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((b) => (
-                <tr
-                  key={String(b.company_name ?? "")}
-                  onClick={() =>
-                    router.push(`/buyers/${encodeURIComponent(String(b.company_name ?? ""))}`)
-                  }
-                >
-                  <td style={{ fontWeight: 600 }}>{b.company_name}</td>
-                  <td>{b.heritage_ta || "-"}</td>
-                  <td>{b.risk_appetite || "-"}</td>
-                  <td>{b.deal_size_preference || "-"}</td>
-                  <td>{b.annual_revenue || "-"}</td>
-                  <td>{b.ceo_name || "-"}</td>
-                  <td>{b.head_bd_name || "-"}</td>
-                  <td>{b.last_updated || "-"}</td>
-                </tr>
-              ))}
+              {data.data?.map((b) => {
+                const name = String(b.company_name ?? "");
+                return (
+                  <tr key={name}>
+                    <td style={{ fontWeight: 600 }}>
+                      <Link href={`/buyers/${encodeURIComponent(name)}`}>{name}</Link>
+                    </td>
+                    <td>{b.heritage_ta || "-"}</td>
+                    <td>{b.risk_appetite || "-"}</td>
+                    <td>{b.deal_size_preference || "-"}</td>
+                    <td>{b.annual_revenue || "-"}</td>
+                    <td>{b.ceo_name || "-"}</td>
+                    <td>{b.head_bd_name || "-"}</td>
+                    <td>{b.last_updated || "-"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {data && data.total_pages > 1 && (
+        {data.total_pages > 1 && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              Prev
-            </button>
+            {pg > 1 ? (
+              <Link href={pageHref(params, pg - 1)} scroll={false}>
+                Prev
+              </Link>
+            ) : (
+              <span className="disabled">Prev</span>
+            )}
             <span>
-              Page {data.page} of {data.total_pages}
+              Page {pg} of {data.total_pages}
             </span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
-              Next
-            </button>
+            {pg < data.total_pages ? (
+              <Link href={pageHref(params, pg + 1)} scroll={false}>
+                Next
+              </Link>
+            ) : (
+              <span className="disabled">Next</span>
+            )}
           </div>
         )}
       </div>

@@ -1,9 +1,7 @@
-"use client";
-
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { fetchCompanies, type PaginatedCRM } from "@/lib/api";
+import Link from "next/link";
+import { fetchCompaniesServer } from "@/lib/api-server";
 import { phaseBadgeClass, priorityBadgeClass } from "@/lib/badges";
+import { CompaniesFilters } from "./CompaniesFilters";
 
 const COLUMNS = [
   { key: "客户名称", label: "Company", width: "200px" },
@@ -16,129 +14,58 @@ const COLUMNS = [
   { key: "追踪状态", label: "Status", width: "80px" },
 ];
 
-export default function CompaniesPage() {
-  const router = useRouter();
-  const [data, setData] = useState<PaginatedCRM | null>(null);
-  const [q, setQ] = useState("");
-  const [country, setCountry] = useState("");
-  const [type, setType] = useState("");
-  const [priority, setPriority] = useState("");
-  const [tracked, setTracked] = useState("追踪中");
-  const [sort, setSort] = useState("客户名称");
-  const [order, setOrder] = useState("asc");
-  const [page, setPage] = useState(1);
+function sortHref(params: Record<string, string>, col: string): string {
+  const sp = new URLSearchParams(params);
+  sp.set("sort", col);
+  sp.set("order", params.sort === col && params.order === "asc" ? "desc" : "asc");
+  sp.delete("page");
+  return `?${sp.toString()}`;
+}
 
-  const load = useCallback(() => {
-    fetchCompanies({ q, country, type, priority, tracked, sort, order, page, page_size: 50 }).then(
-      setData,
-    );
-  }, [q, country, type, priority, tracked, sort, order, page]);
+function pageHref(params: Record<string, string>, pg: number): string {
+  const sp = new URLSearchParams(params);
+  sp.set("page", String(pg));
+  return `?${sp.toString()}`;
+}
 
-  useEffect(() => {
-    load();
-  }, [load]);
+export default async function CompaniesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
+  const {
+    q = "",
+    country = "",
+    type = "",
+    priority = "",
+    tracked = "追踪中",
+    sort = "客户名称",
+    order = "asc",
+    page = "1",
+  } = params;
 
-  const handleSort = (col: string) => {
-    if (sort === col) {
-      setOrder(order === "asc" ? "desc" : "asc");
-    } else {
-      setSort(col);
-      setOrder("asc");
-    }
-    setPage(1);
-  };
+  const data = await fetchCompaniesServer({
+    q,
+    country,
+    type,
+    priority,
+    tracked,
+    sort,
+    order,
+    page,
+    page_size: "50",
+  });
+
+  const pg = data.page;
 
   return (
     <div>
       <div className="page-header">
-        <h1>Companies ({data?.total ?? "..."})</h1>
+        <h1>Companies ({data.total})</h1>
       </div>
 
-      <div className="filter-bar">
-        <input
-          placeholder="Search company..."
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
-          style={{ width: 220 }}
-        />
-        <select
-          value={country}
-          onChange={(e) => {
-            setCountry(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Countries</option>
-          {[
-            "USA",
-            "China",
-            "Korea",
-            "UK",
-            "France",
-            "Germany",
-            "Japan",
-            "Switzerland",
-            "Canada",
-            "Israel",
-          ].map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <select
-          value={type}
-          onChange={(e) => {
-            setType(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Types</option>
-          {[
-            "Biotech(USA)",
-            "Biotech(China)",
-            "Biotech(Europe)",
-            "Biotech(Other)",
-            "海外药企",
-            "中国药企",
-          ].map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-        <select
-          value={priority}
-          onChange={(e) => {
-            setPriority(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Priorities</option>
-          {["A", "B", "C", "D"].map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <select
-          value={tracked}
-          onChange={(e) => {
-            setTracked(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Status</option>
-          {["追踪中", "待分类", "排除"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </div>
+      <CompaniesFilters params={params} />
 
       <div className="card">
         <div className="data-table-wrapper">
@@ -146,64 +73,72 @@ export default function CompaniesPage() {
             <thead>
               <tr>
                 {COLUMNS.map((col) => (
-                  <th
-                    key={col.key}
-                    style={{ width: col.width }}
-                    onClick={() => handleSort(col.key)}
-                  >
-                    {col.label}
-                    {sort === col.key ? (order === "asc" ? " \u25B2" : " \u25BC") : ""}
+                  <th key={col.key} style={{ width: col.width }}>
+                    <Link href={sortHref(params, col.key)} scroll={false}>
+                      {col.label}
+                      {sort === col.key ? (order === "asc" ? " ▲" : " ▼") : ""}
+                    </Link>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((row) => (
-                <tr
-                  key={String(row["客户名称"] ?? "")}
-                  onClick={() =>
-                    router.push(`/companies/${encodeURIComponent(String(row["客户名称"] ?? ""))}`)
-                  }
-                >
-                  <td style={{ fontWeight: 600 }}>{row["客户名称"]}</td>
-                  <td>{row["客户类型"]}</td>
-                  <td>{row["所处国家"]}</td>
-                  <td>
-                    <span
-                      className={`badge ${phaseBadgeClass(String(row["核心产品的阶段"] ?? ""))}`}
-                    >
-                      {row["核心产品的阶段"] || "-"}
-                    </span>
-                  </td>
-                  <td>{row["疾病领域"] || "-"}</td>
-                  <td>{row["公司质量评分"] || "-"}</td>
-                  <td>
-                    {row["BD跟进优先级"] ? (
-                      <span className={`badge ${priorityBadgeClass(String(row["BD跟进优先级"]))}`}>
-                        {row["BD跟进优先级"]}
+              {data.data?.map((row) => {
+                const name = String(row["客户名称"] ?? "");
+                return (
+                  <tr key={name}>
+                    <td style={{ fontWeight: 600 }}>
+                      <Link href={`/companies/${encodeURIComponent(name)}`}>{name}</Link>
+                    </td>
+                    <td>{row["客户类型"]}</td>
+                    <td>{row["所处国家"]}</td>
+                    <td>
+                      <span
+                        className={`badge ${phaseBadgeClass(String(row["核心产品的阶段"] ?? ""))}`}
+                      >
+                        {row["核心产品的阶段"] || "-"}
                       </span>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                  <td>{row["追踪状态"] || "-"}</td>
-                </tr>
-              ))}
+                    </td>
+                    <td>{row["疾病领域"] || "-"}</td>
+                    <td>{row["公司质量评分"] || "-"}</td>
+                    <td>
+                      {row["BD跟进优先级"] ? (
+                        <span
+                          className={`badge ${priorityBadgeClass(String(row["BD跟进优先级"]))}`}
+                        >
+                          {row["BD跟进优先级"]}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td>{row["追踪状态"] || "-"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {data && (
+        {data.total_pages > 1 && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              Prev
-            </button>
+            {pg > 1 ? (
+              <Link href={pageHref(params, pg - 1)} scroll={false}>
+                Prev
+              </Link>
+            ) : (
+              <span className="disabled">Prev</span>
+            )}
             <span>
-              Page {data.page} of {data.total_pages}
+              Page {pg} of {data.total_pages}
             </span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
-              Next
-            </button>
+            {pg < data.total_pages ? (
+              <Link href={pageHref(params, pg + 1)} scroll={false}>
+                Next
+              </Link>
+            ) : (
+              <span className="disabled">Next</span>
+            )}
           </div>
         )}
       </div>
