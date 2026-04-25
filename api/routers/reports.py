@@ -57,6 +57,7 @@ def shutdown_executor() -> None:
     """
     _report_executor.shutdown(wait=False, cancel_futures=True)
 
+
 MEDIA_TYPE_MAP = {
     "md": "text/markdown; charset=utf-8",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

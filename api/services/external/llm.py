@@ -56,9 +56,7 @@ def _call_one_sync(
     try:
         for attempt in range(3):
             try:
-                resp = _http_client.post(
-                    model.api_url, json=body, headers=headers, timeout=timeout
-                )
+                resp = _http_client.post(model.api_url, json=body, headers=headers, timeout=timeout)
             except httpx.TimeoutException as e:
                 raise RuntimeError(f"LLM request timed out after {timeout}s") from e
             except httpx.HTTPError as e:
