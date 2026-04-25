@@ -37,6 +37,8 @@ export default function ChatPage() {
   const [hydrated, setHydrated] = useState(false);
   const [planMode, setPlanMode] = useState<PlanMode>("auto");
   const [searchMode, setSearchMode] = useState<SearchMode>("agent");
+  // Intake seed handed off from upload page; auto-fires once activeId is ready.
+  const [pendingIntakeSeed, setPendingIntakeSeed] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef(input);
@@ -63,12 +65,21 @@ export default function ChatPage() {
       if (storedSearch === "agent" || storedSearch === "quick") setSearchMode(storedSearch);
     } catch {}
     if (!activeId) createSession();
-    // One-shot prefill from upload page hand-off (asset → /teaser flow)
+    // One-shot prefill from upload page hand-off.
+    // Two distinct keys:
+    //   - bdgo.chat.prefill     → quick chip flow (e.g. /teaser ...). Just fills input.
+    //   - bdgo.chat.intakeSeed  → BD intake flow. Auto-sends with plan_mode forced "on"
+    //                             (handled in a separate effect below once activeId is ready).
     try {
       const prefill = sessionStorage.getItem("bdgo.chat.prefill");
       if (prefill) {
         sessionStorage.removeItem("bdgo.chat.prefill");
         setInput(prefill);
+      }
+      const intakeSeed = sessionStorage.getItem("bdgo.chat.intakeSeed");
+      if (intakeSeed) {
+        sessionStorage.removeItem("bdgo.chat.intakeSeed");
+        setPendingIntakeSeed(intakeSeed);
       }
     } catch {}
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -150,6 +161,54 @@ export default function ChatPage() {
     },
     [input, isStreaming, activeId, attachments, addMessage, streamInto, planMode, searchMode],
   );
+
+  // Send a BD intake seed with plan_mode forced "on" — bypasses the user's
+  // configured planMode for this one turn so they always see the checklist
+  // regardless of their default setting.
+  const sendIntakeSeed = useCallback(
+    async (seed: string) => {
+      if (isStreaming || !activeId) return;
+
+      const userMsgId = crypto.randomUUID().slice(0, 12);
+      const assistantMsgId = crypto.randomUUID().slice(0, 12);
+
+      addMessage(activeId, {
+        id: userMsgId,
+        role: "user",
+        content: seed,
+        createdAt: Date.now(),
+      });
+      addMessage(activeId, {
+        id: assistantMsgId,
+        role: "assistant",
+        content: "",
+        tools: [],
+        streaming: true,
+        createdAt: Date.now(),
+      });
+
+      await streamInto({
+        targetSessionId: activeId,
+        assistantMsgId,
+        message: seed,
+        files: [],
+        planModeOverride: "on", // force plan mode for intake handoff
+        searchModeOverride: searchMode,
+      });
+    },
+    [isStreaming, activeId, addMessage, streamInto, searchMode],
+  );
+
+  // Auto-fire pending intake seed once a session exists and we're not busy.
+  // Single-shot: clears pendingIntakeSeed before dispatching so a re-render
+  // can't double-fire.
+  useEffect(() => {
+    if (pendingIntakeSeed && activeId && !isStreaming) {
+      const seed = pendingIntakeSeed;
+      setPendingIntakeSeed(null);
+      sendIntakeSeed(seed);
+    }
+  }, [pendingIntakeSeed, activeId, isStreaming, sendIntakeSeed]);
 
   if (!hydrated) {
     return (

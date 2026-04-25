@@ -373,6 +373,9 @@ export interface UploadBPResponse {
   text_preview?: string;
   extracted_asset?: ExtractedAsset;
   suggested_commands?: SuggestedCommand[];
+  // Planner-friendly seed message for kicking off a BD intake plan in chat.
+  // Present when extraction succeeded with company + asset_name.
+  intake_seed?: string;
 }
 
 export function uploadBP(

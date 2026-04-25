@@ -9,11 +9,21 @@ interface Props {
   onClose: () => void;
   onUploaded?: (filename: string) => void;
   onSuggestedCommand?: (command: string) => void;
+  // Triggered when user clicks "Start BD Intake" — the seed should be
+  // sent to chat in plan mode. Distinct from a normal /chip suggestion
+  // because chat must force-enable plan mode for this turn.
+  onIntakeStart?: (seed: string) => void;
 }
 
 type Stage = "upload" | "uploaded" | "analyzing" | "done" | "failed";
 
-export function BPUpload({ company, onClose, onUploaded, onSuggestedCommand }: Props) {
+export function BPUpload({
+  company,
+  onClose,
+  onUploaded,
+  onSuggestedCommand,
+  onIntakeStart,
+}: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState(0);
@@ -363,6 +373,27 @@ export function BPUpload({ company, onClose, onUploaded, onSuggestedCommand }: P
               >
                 Run AI Analysis
               </button>
+              {result.intake_seed && (
+                <button
+                  onClick={() => {
+                    if (onIntakeStart) onIntakeStart(result.intake_seed!);
+                    onClose();
+                  }}
+                  style={{
+                    padding: "0.5rem 1.2rem",
+                    border: "none",
+                    borderRadius: 6,
+                    background: "#10b981",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                  }}
+                  title="Plan a multi-step BD analysis (target / disease / IP / evaluate / buyers / timing / synthesis) — pick which steps to run."
+                >
+                  ⚡ Start BD Intake
+                </button>
+              )}
               {result.suggested_commands?.map((sc) => (
                 <button
                   key={sc.slug}
