@@ -16,7 +16,19 @@ import concurrent.futures
 import datetime
 import json
 import logging
+import os
+import sys
 from typing import Any
+
+# crm_db lives in the workspace scripts directory, not on the default Python
+# path. Import it once at module load so callers don't race on sys.path.insert.
+_scripts_dir = os.path.expanduser("~/.openclaw/workspace/scripts")
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
+try:
+    import crm_db as _crm_db
+except ImportError:
+    _crm_db = None  # type: ignore[assignment]
 
 from pydantic import BaseModel
 
@@ -576,20 +588,15 @@ class BuyerProfileService(ReportService):
                     data[key] = json.dumps(data[key], ensure_ascii=False)
 
             # Write to CRM via crm_db (works on VM/PG; no-op on local SQLite read-only)
-            import os as _os
-            import sys as _sys
-
-            _scripts_dir = _os.path.expanduser("~/.openclaw/workspace/scripts")
-            if _scripts_dir not in _sys.path:
-                _sys.path.insert(0, _scripts_dir)
-            import crm_db as _crm
-
-            if not _crm._is_pg():
+            if _crm_db is None:
+                ctx.log("CRM enrichment skipped — crm_db not importable")
+                return
+            if not _crm_db._is_pg():
                 ctx.log(
                     "CRM enrichment skipped — SQLite snapshot is read-only (run on VM to persist)"
                 )
                 return
-            action, key = _crm.upsert_row("MNC画像", data)
+            action, key = _crm_db.upsert_row("MNC画像", data)
             ctx.log(f"CRM enrichment: {action} MNC画像 entry for '{key}' — 下次可直接从 CRM 加载")
         except Exception as e:
             ctx.log(f"CRM enrichment failed (non-fatal): {e}")

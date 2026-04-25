@@ -44,7 +44,8 @@ export function setAuth(token: string, user: AuthUser): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   // Mirror to cookie so Server Components can read it via next/headers cookies()
-  document.cookie = `bdgo_token=${token}; path=/; SameSite=Lax; Max-Age=86400`;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `bdgo_token=${token}; path=/; SameSite=Lax; Max-Age=86400${secure}`;
 }
 
 export function clearAuth(): void {
