@@ -120,6 +120,19 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        # Mark any tasks still running on this worker as failed before the
+        # executor is torn down. The next startup's reclaim_stale_tasks would
+        # handle them too, but marking them here gives users immediate feedback.
+        try:
+            from services.report_builder import reclaim_stale_tasks
+
+            reclaim_stale_tasks(max_age_seconds=0)
+        except Exception:
+            logging.getLogger(__name__).exception("Shutdown: reclaim_stale_tasks failed")
+        try:
+            reports.shutdown_executor()
+        except Exception:
+            logging.getLogger(__name__).exception("Shutdown: report executor shutdown failed")
         await close_pool()
 
 

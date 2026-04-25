@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import re
 import time
 
@@ -53,9 +54,9 @@ def _call_one_sync(
 
                 if resp.status_code == 529:
                     if attempt < 2:
-                        wait = 2**attempt
+                        wait = (2**attempt) * (0.5 + random.random())
                         logger.warning(
-                            "%s 529 overload (attempt %d/3), retrying in %ds",
+                            "%s 529 overload (attempt %d/3), retrying in %.1fs",
                             model.id,
                             attempt + 1,
                             wait,

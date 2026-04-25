@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 from typing import Any
 
 from llm_pool import PoolSaturatedError, acquire_for, get_client
@@ -238,9 +239,9 @@ async def call_minimax_stream(
                     if resp.status_code == 529:
                         await resp.aread()
                         if attempt < _MAX_529_RETRIES - 1:
-                            wait = 2**attempt
+                            wait = (2**attempt) * (0.5 + random.random())
                             logger.warning(
-                                "MiniMax 529 (attempt %d/%d), retry in %ds",
+                                "MiniMax 529 (attempt %d/%d), retry in %.1fs",
                                 attempt + 1,
                                 _MAX_529_RETRIES,
                                 wait,
