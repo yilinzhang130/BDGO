@@ -255,6 +255,12 @@ class DealEvaluatorService(ReportService):
         ctx.save_file(f"deal_eval_{slug}.docx", docx_bytes, format="docx")
         ctx.log("Word document saved")
 
+        ts_command = (
+            f'/legal contract_type=ts party_position="乙方"'
+            f' counterparty="{inp.company_name}"'
+            f' project_name="{inp.asset_name} ({inp.indication})"'
+        )
+
         return ReportResult(
             markdown=markdown,
             meta={
@@ -266,5 +272,12 @@ class DealEvaluatorService(ReportService):
                 "phase": inp.phase,
                 "modality": inp.modality,
                 "total_chars": len(markdown),
+                "suggested_commands": [
+                    {
+                        "label": "Draft Term Sheet",
+                        "command": ts_command,
+                        "slug": "legal-review",
+                    }
+                ],
             },
         )

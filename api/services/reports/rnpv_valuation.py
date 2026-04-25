@@ -284,6 +284,12 @@ class RNPVValuationService(ReportService):
         md_filename = f"rnpv_{slug}.md"
         ctx.save_file(md_filename, markdown, format="md")
 
+        ts_command = (
+            f'/legal contract_type=ts party_position="乙方"'
+            f' counterparty="{inp.company_name}"'
+            f' project_name="{inp.asset_name} ({inp.indication})"'
+        )
+
         return ReportResult(
             markdown=markdown,
             meta={
@@ -303,6 +309,13 @@ class RNPVValuationService(ReportService):
                     "fail": config.get("_qc_fail", 0),
                 },
                 "ref_coverage_pct": config.get("_ref_coverage_pct", 0),
+                "suggested_commands": [
+                    {
+                        "label": "Draft Term Sheet",
+                        "command": ts_command,
+                        "slug": "legal-review",
+                    }
+                ],
             },
         )
 
