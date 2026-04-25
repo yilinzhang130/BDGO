@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS messages (
     attachments_json TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_session_created ON messages(session_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS context_entities (
     id VARCHAR(100) PRIMARY KEY,
