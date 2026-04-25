@@ -9,6 +9,8 @@ from config import BP_DIR, safe_path_within
 from crm_store import update_row
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from services.document.asset_extract import build_teaser_command, extract_asset_metadata
+from services.external.llm import call_llm_sync
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -94,9 +96,37 @@ async def upload_bp(
         "size": size,
         "analyze_command": analyze_command,
     }
+
+    # Best-effort asset metadata extraction → /teaser suggestion.
+    # Wrapped: extraction failure must never block the upload response.
+    try:
+        extracted = extract_asset_metadata(dest, _llm_fn)
+        if "error" not in extracted:
+            result["extracted_asset"] = extracted
+            teaser_cmd = build_teaser_command(extracted)
+            if teaser_cmd:
+                result["suggested_commands"] = [
+                    {
+                        "label": "Generate Deal Teaser",
+                        "command": teaser_cmd,
+                        "slug": "deal-teaser",
+                    }
+                ]
+        else:
+            logger.info("asset_extract skipped: %s", extracted.get("error"))
+    except Exception:
+        logger.exception("asset_extract failed for %s — continuing", safe_name)
+
     if warning:
         result["warning"] = warning
     return result
+
+
+def _llm_fn(system: str, messages: list[dict], max_tokens: int = 400) -> str:
+    """Adapter so asset_extract doesn't import ReportContext directly."""
+    return call_llm_sync(
+        system=system, messages=messages, max_tokens=max_tokens, label="asset_extract"
+    )
 
 
 @router.get("/files/bp/{filename}")

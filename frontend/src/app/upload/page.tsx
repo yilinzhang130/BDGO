@@ -1,11 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { BPUpload } from "@/components/ui/BPUpload";
 
 export default function UploadPage() {
+  const router = useRouter();
   const [showUpload, setShowUpload] = useState(true);
   const [lastUploaded, setLastUploaded] = useState<string | null>(null);
+
+  const handleSuggestedCommand = (command: string) => {
+    try {
+      sessionStorage.setItem("bdgo.chat.prefill", command);
+    } catch {
+      // sessionStorage may be unavailable (SSR/private mode); fall through
+    }
+    router.push("/chat");
+  };
 
   return (
     <div>
@@ -47,6 +58,7 @@ export default function UploadPage() {
         <BPUpload
           onClose={() => setShowUpload(false)}
           onUploaded={(filename) => setLastUploaded(filename)}
+          onSuggestedCommand={handleSuggestedCommand}
         />
       )}
     </div>

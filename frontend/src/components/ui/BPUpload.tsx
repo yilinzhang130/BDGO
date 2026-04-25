@@ -8,11 +8,12 @@ interface Props {
   company?: string;
   onClose: () => void;
   onUploaded?: (filename: string) => void;
+  onSuggestedCommand?: (command: string) => void;
 }
 
 type Stage = "upload" | "uploaded" | "analyzing" | "done" | "failed";
 
-export function BPUpload({ company, onClose, onUploaded }: Props) {
+export function BPUpload({ company, onClose, onUploaded, onSuggestedCommand }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState(0);
@@ -280,7 +281,7 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
           </>
         )}
 
-        {stage === "uploaded" && (
+        {stage === "uploaded" && result && (
           <div style={{ textAlign: "center", padding: "1rem 0" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#10b981" }}>
               &#10003;
@@ -290,12 +291,63 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
               style={{
                 fontSize: "0.85rem",
                 color: "var(--text-secondary)",
-                marginBottom: "1.5rem",
+                marginBottom: result.extracted_asset ? "0.75rem" : "1.5rem",
               }}
             >
               {result.filename}
             </div>
-            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+
+            {result.extracted_asset && (
+              <div
+                style={{
+                  textAlign: "left",
+                  fontSize: "0.78rem",
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  padding: "0.6rem 0.8rem",
+                  marginBottom: "1rem",
+                  lineHeight: 1.6,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginBottom: "0.3rem",
+                  }}
+                >
+                  Auto-extracted from document
+                </div>
+                {(
+                  [
+                    ["Company", result.extracted_asset.company_name],
+                    ["Asset", result.extracted_asset.asset_name],
+                    ["Indication", result.extracted_asset.indication],
+                    ["Target", result.extracted_asset.target],
+                    ["Phase", result.extracted_asset.phase],
+                    ["MoA", result.extracted_asset.moa],
+                  ] as const
+                )
+                  .filter(([, v]) => v)
+                  .map(([k, v]) => (
+                    <div key={k}>
+                      <span style={{ color: "var(--text-muted)" }}>{k}:</span> <strong>{v}</strong>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: "0.6rem",
+                justifyContent: "center",
+                flexWrap: "wrap",
+              }}
+            >
               <button
                 onClick={handleAnalyze}
                 style={{
@@ -311,6 +363,28 @@ export function BPUpload({ company, onClose, onUploaded }: Props) {
               >
                 Run AI Analysis
               </button>
+              {result.suggested_commands?.map((sc) => (
+                <button
+                  key={sc.slug}
+                  onClick={() => {
+                    if (onSuggestedCommand) onSuggestedCommand(sc.command);
+                    onClose();
+                  }}
+                  style={{
+                    padding: "0.5rem 1.2rem",
+                    border: "1px solid var(--accent)",
+                    borderRadius: 6,
+                    background: "var(--accent-light)",
+                    color: "var(--accent)",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                  }}
+                  title={sc.command}
+                >
+                  {sc.label}
+                </button>
+              ))}
               <button
                 onClick={onClose}
                 style={{
