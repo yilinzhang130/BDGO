@@ -11,12 +11,14 @@ from services.report_builder import ReportService
 from services.reports.buyer_profile import BuyerProfileService
 from services.reports.clinical_guidelines import ClinicalGuidelinesService
 from services.reports.commercial_assessment import CommercialAssessmentService
+from services.reports.company_analysis import CompanyAnalysisService
 from services.reports.dd_checklist import DDChecklistService
 from services.reports.deal_evaluator import DealEvaluatorService
 from services.reports.deal_teaser import DealTeaserService
 from services.reports.disease_landscape import DiseaseLandscapeService
 from services.reports.ip_landscape import IPLandscapeService
 from services.reports.legal_review import LegalReviewService
+from services.reports.outreach_email import OutreachEmailService
 from services.reports.paper_analysis import PaperAnalysisService
 from services.reports.rnpv_valuation import RNPVValuationService
 from services.reports.target_radar import TargetRadarService
@@ -26,12 +28,14 @@ REPORT_SERVICES: dict[str, ReportService] = {
     BuyerProfileService.slug: BuyerProfileService(),
     ClinicalGuidelinesService.slug: ClinicalGuidelinesService(),
     CommercialAssessmentService.slug: CommercialAssessmentService(),
+    CompanyAnalysisService.slug: CompanyAnalysisService(),
     DDChecklistService.slug: DDChecklistService(),
     DealEvaluatorService.slug: DealEvaluatorService(),
     DealTeaserService.slug: DealTeaserService(),
     DiseaseLandscapeService.slug: DiseaseLandscapeService(),
     IPLandscapeService.slug: IPLandscapeService(),
     LegalReviewService.slug: LegalReviewService(),
+    OutreachEmailService.slug: OutreachEmailService(),
     RNPVValuationService.slug: RNPVValuationService(),
     TargetRadarService.slug: TargetRadarService(),
 }
