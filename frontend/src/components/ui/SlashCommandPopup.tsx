@@ -31,6 +31,7 @@ export const SLASH_COMMANDS: Omit<
   { alias: "rnpv", slug: "rnpv-valuation" },
   { alias: "teaser", slug: "deal-teaser" },
   { alias: "legal", slug: "legal-review" },
+  { alias: "email", slug: "outreach-email" },
 ];
 
 export function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
