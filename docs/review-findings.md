@@ -21,9 +21,9 @@
 
 | 列 | 说明 |
 |---|---|
-| **ID** | 形如 `S-001` (structure) / `P-001` (performance) / `M-001` (maintainability) / `A-001` (api-design)，递增不复用 |
+| **ID** | 形如 `S-001` (structure) / `P-001` (performance) / `M-001` (maintainability) / `A-001` (api-design) / `SEC-001` (security)，递增不复用 |
 | **Date** | 首次发现日期 (YYYY-MM-DD) |
-| **Scope** | `structure` / `performance` / `maintainability` / `api-design` |
+| **Scope** | `structure` / `performance` / `maintainability` / `api-design` / `security` |
 | **Rubric** | 对应 skill 的 rubric 编号 (A1 / B3 / ...) |
 | **Severity** | `critical` / `high` / `medium` / `low` |
 | **Status** | `open` / `in-progress` / `done` / `wontfix` / `false-positive` |
@@ -62,6 +62,17 @@
 | M-024 | 2026-04-25 | maintainability | G4 | low | done | S | n/a | api/services/external/llm.py:92-99 | sync 路径的 `llm_call` log 无 task/chapter correlation ID；buyer_profile 并发跑多章时日志条目无法区分 | PR #77: `_call_one_sync` / `call_llm_sync` / `ctx.llm` 增加可选 `label` 参数；buyer_profile `_run_ch` 传入 `label=f"bp_ch{ch_num}"` |
 | M-025 | 2026-04-25 | maintainability | C2 | low | done | S | n/a | frontend/src/lib/auth.ts:47 | `bdgo_token` cookie 设置时无 `Secure` flag；HTTPS 部署下 JWT 可能经由 HTTP 明文传输 | PR #76: `setAuth` 中检查 `window.location.protocol === 'https:'`，按需追加 `; Secure` |
 | P-013 | 2026-04-25 | performance | F1 | low | done | S | n/a | frontend/src/app/deals/DealsClient.tsx:98 + frontend/src/app/ip/IPClient.tsx:100 | 搜索框 onChange 无 debounce，用户每次按键触发一次 API 请求；输入"Pfizer"发出 6 个竞态请求 | PR #77: DealsClient + IPClient 增加 `searchDebounce` useRef，300ms 防抖后再触发 load |
+| SEC-001 | 2026-04-25 | security | B1/D1 | high | done | S | n/a | api/routers/chat/tools/crm.py:296-308 | `count_by` 用 `PRAGMA table_info()` 做列名校验，在 Postgres 上永远返回空列表 → 列名守卫永远触发，工具在 PG 上完全失效；若守卫被绕过则 `group_by` 直接 f-string 插入 SQL，存在列名注入风险 | PR #78: `_is_pg()` 分支：PG 用 `information_schema.columns`，SQLite 保留 PRAGMA；空 cols 时返回错误而非允许任意列 |
+| SEC-002 | 2026-04-25 | security | A2/D3 | high | open | S | n/a | api/routers/auth.py:88-142 | POST /login 和 /register 无速率限制；允许暴力破解密码及 bcrypt CPU 耗尽型 DoS | Fix: 模块级简单 IP 滑动窗口计数器（10次/60s），超限返回 429；注释说明多 worker 局限性 |
+| SEC-003 | 2026-04-25 | security | A2 | medium | open | S | n/a | api/routers/auth.py:100 + api/auth.py:36 | register/login 在调用 bcrypt 前无密码长度上限；虽 bcrypt 截断 72 字节，但超长字符串的 encode() 开销在并发时仍构成放大攻击面 | Fix: Pydantic `Field(max_length=128)` 限制 RegisterRequest.password；LoginRequest 同样在 bcrypt 前检查 |
+| SEC-004 | 2026-04-25 | security | C1/D1 | medium | open | M | n/a | api/credits.py:93-104 + 123-178 | TOCTOU：`ensure_balance` 在事务1读余额，LLM 运行期间不持锁，`record_usage` 在事务2扣款；并发请求均通过检查后同时扣款，导致超额消费；`GREATEST(balance-%s,0)` 防负但不防超用 | Fix: `record_usage` 内 `SELECT balance FOR UPDATE` 序列化扣款；扣款前余额 < credits_charged 时写 CREDIT_RACE_DETECTED 警告 |
+| SEC-005 | 2026-04-25 | security | A1/B2 | medium | open | S | n/a | api/routers/upload.py:24-67 | `upload_bp` 无 `Depends(get_current_user)` → 无法记录上传者身份；`serve_bp` / `list_bp_files` 向所有已认证用户开放全部 BP 文件，无用户维度隔离 | Fix: upload_bp 注入 user 参数用于审计日志；serve/list 文档说明共享意图，或视需求加 user_id 过滤 |
+| SEC-006 | 2026-04-25 | security | A2/D3 | medium | open | S | n/a | api/routers/upload.py:43-46 | `upload_bp` 流式写入磁盘无总大小限制；攻击者可上传数 GB 文件耗尽磁盘空间 | Fix: 累计 size 超过阈值（建议 50 MB）时 raise HTTPException(413) 并删除已写入的临时文件 |
+| P-014 | 2026-04-25 | performance | B1 | medium | open | S | n/a | api/routers/sessions.py:203-208 | `GET /api/sessions/{session_id}` 无 LIMIT 拉取全部消息；长期活跃 session 可积累数千条消息，单次查询返回全量数据，内存和传输无界 | Fix: 加 `LIMIT 200 ORDER BY created_at DESC`（客户端已有前序消息缓存）或提供 `?after=` 分页参数 |
+| A-002 | 2026-04-25 | api-design | A3/C1 | low | open | S | n/a | api/routers/watchlist.py:47 | `GET /watchlist?type=invalid_type` 静默忽略无效 type 并返回全量数据，而非 400；与 POST /watchlist 对 entity_type 的严格校验不一致 | Fix: `type` 有值但不在 VALID_ENTITY_TYPES 时 raise HTTPException(400) |
+| M-026 | 2026-04-25 | maintainability | G2 | medium | open | S | n/a | api/main.py:117 + api/services/report_builder.py:430 | `reclaim_stale_tasks` 仅在启动时调用一次；启动后挂起的任务直到下次重启前永远停留 running 状态，长期运行的部署会积累僵尸报告行 | Fix: lifespan 中启动 asyncio 后台循环（每 15 分钟调用一次 reclaim_stale_tasks） |
+| M-027 | 2026-04-25 | maintainability | A4 | low | open | S | n/a | api/routers/watchlist.py:19-21 | `WatchlistAdd` 的 `entity_key` 和 `notes` 无 `max_length` 约束；LLM 工具调用可能传入任意长字符串导致 DB 列溢出或内存激增 | Fix: `entity_key = Field(..., max_length=500)`，`notes = Field(None, max_length=2000)` |
+| M-028 | 2026-04-25 | maintainability | E2 | low | open | S | n/a | frontend/src/hooks/usePaginatedTable.ts:57 | `load` useCallback 的 deps 数组加了 `eslint-disable-next-line` 注释屏蔽警告；若调用方传入不稳定的 `fetchFn`（每次渲染新建函数引用），hook 会在每次渲染时重新创建 load 并无限触发请求 | Fix: 在 hook JSDoc Usage 注释中明确要求 `fetchFn` 必须稳定（useMemo/useCallback 包裹），去掉或缩小 disable 范围 |
 
 ---
 

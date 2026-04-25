@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 
 from auth_db import transaction
-from crm_store import LIKE_ESCAPE, like_contains, query, query_one
+from crm_store import LIKE_ESCAPE, _is_pg, like_contains, query, query_one
 from services.conference import load_report_data
 from services.crm.resolve import fuzzy_company_names, resolve_company, resolve_mnc
 
@@ -288,16 +288,41 @@ _COUNT_BY_TABLES = {"公司", "资产", "临床", "交易", "IP"}
 
 
 def count_by(table, group_by):
-    # NOTE: column validation uses SQLite's PRAGMA which returns empty on
-    # Postgres — tracked as a separate bug. Behavior unchanged from pre-refactor.
+    """Count CRM records grouped by *group_by* column.
+
+    Column-name validation uses DB-appropriate introspection so that
+    the guard works on both PostgreSQL (production) and SQLite (local
+    snapshot):
+      - Postgres: ``information_schema.columns`` (PRAGMA is SQLite-only)
+      - SQLite:   ``PRAGMA table_info``
+
+    ``group_by`` is only interpolated into the final SQL *after* it has
+    been confirmed to exist in the schema — this prevents column-name
+    injection.
+    """
     if table not in _COUNT_BY_TABLES:
         return {"error": f"Invalid table: {table}"}
+
+    # Resolve valid column names using the appropriate introspection API.
     try:
-        cols = [r["name"] for r in query(f'PRAGMA table_info("{table}")')]
+        if _is_pg():
+            rows = query(
+                "SELECT column_name AS name FROM information_schema.columns "
+                "WHERE table_name = ? AND table_schema = 'public'",
+                (table,),
+            )
+        else:
+            rows = query(f'PRAGMA table_info("{table}")')
+        cols = {r["name"] for r in rows}
     except Exception:
-        cols = []
+        cols = set()
+
+    if not cols:
+        return {"error": f"Cannot determine schema for table '{table}'"}
     if group_by not in cols:
         return {"error": f"Invalid column '{group_by}' for table '{table}'"}
+
+    # Safe to interpolate: group_by is confirmed to be a real column name.
     sql = (
         f'SELECT "{group_by}" as value, COUNT(*) as count '
         f'FROM "{table}" WHERE "{group_by}" IS NOT NULL AND "{group_by}" != \'\' '
