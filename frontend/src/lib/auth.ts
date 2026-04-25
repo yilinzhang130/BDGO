@@ -43,12 +43,15 @@ export function setAuth(token: string, user: AuthUser): void {
   if (!isBrowser()) return;
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  // Mirror to cookie so Server Components can read it via next/headers cookies()
+  document.cookie = `bdgo_token=${token}; path=/; SameSite=Lax; Max-Age=86400`;
 }
 
 export function clearAuth(): void {
   if (!isBrowser()) return;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  document.cookie = "bdgo_token=; path=/; Max-Age=0";
 }
 
 export function isLoggedIn(): boolean {

@@ -1,9 +1,7 @@
-"use client";
-
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { fetchClinical, type PaginatedCRM } from "@/lib/api";
+import Link from "next/link";
+import { fetchClinicalServer } from "@/lib/api-server";
 import { phaseBadgeClass, resultBadgeClass } from "@/lib/badges";
+import { ClinicalFilters } from "./ClinicalFilters";
 
 const COLUMNS = [
   { key: "试验ID", label: "Trial ID" },
@@ -18,94 +16,49 @@ const COLUMNS = [
   { key: "数据状态", label: "Status" },
 ];
 
-export default function ClinicalPage() {
-  const router = useRouter();
-  const [data, setData] = useState<PaginatedCRM | null>(null);
-  const [q, setQ] = useState("");
-  const [phase, setPhase] = useState("");
-  const [status, setStatus] = useState("");
-  const [result, setResult] = useState("");
-  const [sort, setSort] = useState("试验ID");
-  const [order, setOrder] = useState("asc");
-  const [page, setPage] = useState(1);
+function sortHref(params: Record<string, string>, col: string) {
+  const sp = new URLSearchParams(params);
+  sp.set("sort", col);
+  sp.set("order", params.sort === col && params.order === "asc" ? "desc" : "asc");
+  sp.delete("page");
+  return `?${sp.toString()}`;
+}
 
-  const load = useCallback(() => {
-    fetchClinical({ q, phase, status, result, sort, order, page, page_size: 50 }).then(setData);
-  }, [q, phase, status, result, sort, order, page]);
+function pageHref(params: Record<string, string>, pg: number) {
+  const sp = new URLSearchParams(params);
+  sp.set("page", String(pg));
+  return `?${sp.toString()}`;
+}
 
-  useEffect(() => {
-    load();
-  }, [load]);
+export default async function ClinicalPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const params = await searchParams;
+  const {
+    q = "",
+    phase = "",
+    status = "",
+    result = "",
+    sort = "试验ID",
+    order = "asc",
+    page = "1",
+  } = params;
 
-  const handleSort = (col: string) => {
-    if (sort === col) {
-      setOrder(order === "asc" ? "desc" : "asc");
-    } else {
-      setSort(col);
-      setOrder("asc");
-    }
-    setPage(1);
-  };
+  const data = await fetchClinicalServer({
+    q, phase, status, result, sort, order, page, page_size: "50",
+  });
+
+  const pg = data.page;
 
   return (
     <div>
       <div className="page-header">
-        <h1>Clinical Trials ({data?.total ?? "..."})</h1>
+        <h1>Clinical Trials ({data.total})</h1>
       </div>
 
-      <div className="filter-bar">
-        <input
-          placeholder="Search trial / company / asset..."
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
-          style={{ width: 260 }}
-        />
-        <select
-          value={phase}
-          onChange={(e) => {
-            setPhase(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Phases</option>
-          {["Phase 1", "Phase 1/2", "Phase 2", "Phase 2/3", "Phase 3", "Phase 4"].map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Status</option>
-          {["已读出", "进行中", "入组中", "待读出", "终止", "撤回"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <select
-          value={result}
-          onChange={(e) => {
-            setResult(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Results</option>
-          {["积极", "混合", "阴性", "未达成"].map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-      </div>
+      <ClinicalFilters params={params} />
 
       <div className="card">
         <div className="data-table-wrapper">
@@ -113,60 +66,66 @@ export default function ClinicalPage() {
             <thead>
               <tr>
                 {COLUMNS.map((col) => (
-                  <th key={col.key} onClick={() => handleSort(col.key)}>
-                    {col.label}
-                    {sort === col.key ? (order === "asc" ? " \u25B2" : " \u25BC") : ""}
+                  <th key={col.key}>
+                    <Link href={sortHref(params, col.key)} scroll={false}>
+                      {col.label}
+                      {sort === col.key ? (order === "asc" ? " ▲" : " ▼") : ""}
+                    </Link>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data?.data?.map((t) => (
-                <tr
-                  key={String(t["记录ID"] ?? "")}
-                  onClick={() =>
-                    router.push(`/clinical/${encodeURIComponent(String(t["记录ID"] ?? ""))}`)
-                  }
-                >
-                  <td style={{ fontWeight: 500 }}>{t["试验ID"]}</td>
-                  <td>{t["公司名称"] || "-"}</td>
-                  <td>{t["资产名称"] || "-"}</td>
-                  <td>{String(t["适应症"] ?? "").slice(0, 30) || "-"}</td>
-                  <td>
-                    <span className={`badge ${phaseBadgeClass(String(t["临床期次"] ?? ""))}`}>
-                      {t["临床期次"] || "-"}
-                    </span>
-                  </td>
-                  <td>{t["主要终点名称"] || "-"}</td>
-                  <td>
-                    {t["主要终点结果值"] != null
-                      ? `${t["主要终点结果值"]}${t["主要终点单位"] || ""}`
-                      : "-"}
-                  </td>
-                  <td>
-                    <span className={`badge ${resultBadgeClass(String(t["结果判定"] ?? ""))}`}>
-                      {t["结果判定"] || "-"}
-                    </span>
-                  </td>
-                  <td>{t["安全性标志"] || "-"}</td>
-                  <td>{t["数据状态"] || "-"}</td>
-                </tr>
-              ))}
+              {data.data?.map((row) => {
+                const id = String(row["试验ID"] ?? "");
+                return (
+                  <tr key={id}>
+                    <td>
+                      <Link href={`/clinical/${encodeURIComponent(id)}`}>{id}</Link>
+                    </td>
+                    <td>
+                      <Link href={`/companies/${encodeURIComponent(String(row["公司名称"] ?? ""))}`}>
+                        {row["公司名称"]}
+                      </Link>
+                    </td>
+                    <td>{row["资产名称"] || "-"}</td>
+                    <td>{row["适应症"] || "-"}</td>
+                    <td>
+                      <span className={`badge ${phaseBadgeClass(String(row["临床期次"] ?? ""))}`}>
+                        {row["临床期次"] || "-"}
+                      </span>
+                    </td>
+                    <td>{row["主要终点名称"] || "-"}</td>
+                    <td>{row["主要终点结果值"] || "-"}</td>
+                    <td>
+                      {row["结果判定"] ? (
+                        <span className={`badge ${resultBadgeClass(String(row["结果判定"]))}`}>
+                          {row["结果判定"]}
+                        </span>
+                      ) : "-"}
+                    </td>
+                    <td>{row["安全性标志"] || "-"}</td>
+                    <td>{row["数据状态"] || "-"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {data && (
+        {data.total_pages > 1 && (
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              Prev
-            </button>
-            <span>
-              Page {data.page} of {data.total_pages}
-            </span>
-            <button disabled={page >= data.total_pages} onClick={() => setPage(page + 1)}>
-              Next
-            </button>
+            {pg > 1 ? (
+              <Link href={pageHref(params, pg - 1)} scroll={false}>Prev</Link>
+            ) : (
+              <span className="disabled">Prev</span>
+            )}
+            <span>Page {pg} of {data.total_pages}</span>
+            {pg < data.total_pages ? (
+              <Link href={pageHref(params, pg + 1)} scroll={false}>Next</Link>
+            ) : (
+              <span className="disabled">Next</span>
+            )}
           </div>
         )}
       </div>
