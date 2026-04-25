@@ -200,12 +200,16 @@ def get_session(session_id: str, user: dict = Depends(get_current_user)):
     with transaction() as cur:
         session = _verify_owner(cur, session_id, user["id"])
 
+        # P-014: Limit to the 200 most recent messages to keep response size
+        # bounded.  The frontend holds prior messages in its own state, so
+        # re-fetching only the tail is safe for resumed sessions.
         cur.execute(
             "SELECT id, role, content, tools_json, attachments_json, created_at "
-            "FROM messages WHERE session_id = %s ORDER BY created_at ASC",
+            "FROM messages WHERE session_id = %s "
+            "ORDER BY created_at DESC LIMIT 200",
             (session_id,),
         )
-        messages = [_serialize_row(r) for r in cur.fetchall()]
+        messages = [_serialize_row(r) for r in reversed(cur.fetchall())]
 
         cur.execute(
             "SELECT id, entity_type, title, subtitle, fields_json, href, added_at "
