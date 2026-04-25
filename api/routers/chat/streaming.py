@@ -86,7 +86,7 @@ async def stream_chat(req):
             [s.model_dump() for s in req.plan_confirm.selected_steps],
         )
 
-    usage_accum = {"input_tokens": 0, "output_tokens": 0}
+    usage_accum = {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0}
 
     if user_id:
         await asyncio.to_thread(ensure_session, session_id, user_id)
