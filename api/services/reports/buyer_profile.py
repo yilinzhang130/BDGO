@@ -497,9 +497,7 @@ class BuyerProfileService(ReportService):
         try:
             audit = validate_markdown(markdown, mode="mnc")
             schema_audit = audit_to_dict(audit)
-            ctx.log(
-                f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}"
-            )
+            ctx.log(f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}")
         except Exception:
             logger.exception("Schema validation failed for task %s", ctx.task_id)
             schema_audit = {"error": "validator_exception"}
