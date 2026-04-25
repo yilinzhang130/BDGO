@@ -52,6 +52,16 @@
 
 | ID | Date | Scope | Rubric | Severity | Status | Effort | BreaksClient | File:Line | Summary | Notes |
 |----|------|-------|--------|----------|--------|--------|--------------|-----------|---------|-------|
+| A-001 | 2026-04-25 | api-design | A1/C1 | high | done | S | yes | api/routers/reports.py:384-442 | GET /api/reports/share/{token} 和 download 端点挂在带 `_auth` 依赖的 reports router 下，unauthenticated 接收者收到 401；share 功能完全失效 | PR #74: 新增 `public_router = APIRouter()`，两个 share 端点移至 public_router；main.py 不带 _auth 单独挂载 `/api/reports` prefix |
+| P-011 | 2026-04-25 | performance | B1/C3 | medium | open | S | n/a | api/routers/conference.py:83-93 | `_sessions_etag()` 每次非 304 请求都对 CONFERENCES_DIR 下每个 session 做 os.stat()，O(N) 磁盘 I/O，随会议数增长线性劣化 | 用 `functools.lru_cache(maxsize=1)` + TTL（或 30s module-level 变量）缓存已计算的 ETag |
+| P-012 | 2026-04-25 | performance | B3/B6 | medium | open | S | n/a | api/services/reports/buyer_profile.py:362-431 | buyer_profile 在 _report_executor(max_workers=6) 内嵌套 ThreadPoolExecutor(2+4)，满载时最多 36 LLM 线程，但 llm._http_client 连接池上限 20；线程争抢连接导致并行收益归零 | 将 llm._http_client 的 max_connections/max_keepalive 提至 ≥40，或将每批 max_workers 降至连接池允许的上限 |
+| M-021 | 2026-04-25 | maintainability | C2 | medium | open | S | n/a | api/routers/chat/system_prompt.py:10-21 | 系统提示硬编码数据量（"184家"、"79条"、"44,000+"等）随 DB 增长静默漂移，LLM 向用户报告过时数据 | 删除具体数字，改为"数千家公司、数万条记录"等描述性语言；或在 startup 时动态查询注入 |
+| M-022 | 2026-04-25 | maintainability | A7 | medium | open | S | n/a | api/services/reports/buyer_profile.py:579-585 | `_enrich_and_save_to_crm` 在热路径执行 `sys.path.insert` + 延迟 `import crm_db`；两个并发的 enrichment 可能产生 path 竞争，静态分析工具也无法追踪此依赖 | 在模块顶层 `try: import crm_db except ImportError: crm_db = None`，函数内只做 `if crm_db is None: return` |
+| M-023 | 2026-04-25 | maintainability | E4 | medium | open | S | n/a | frontend/src/lib/api-server.ts:35-38 + frontend/src/app/companies/page.tsx | Server Component 抛 `throw new Error` 无对应 `error.tsx`，backend 不可用时 Next.js 直接向浏览器暴露内部堆栈 | 在 `frontend/src/app/` 下增加 `error.tsx` 全局边界，或为每个 CRM 路由段单独添加 |
+| S-014 | 2026-04-25 | structure | A1 | medium | open | M | n/a | frontend/src/app/deals/DealsClient.tsx:36-70 vs frontend/src/app/ip/IPClient.tsx:36-87 | DealsClient 和 IPClient 的 useCallback(load) + handleSort + handleQ + handlePage 逻辑逐行复制，任何 bug 修复或功能扩展都要改两处 | 提取 `usePaginatedTable(fetchFn, initialData, defaultSort, defaultOrder)` hook |
+| M-024 | 2026-04-25 | maintainability | G4 | low | open | S | n/a | api/services/external/llm.py:92-99 | sync 路径的 `llm_call` log 无 task/chapter correlation ID；buyer_profile 并发跑多章时日志条目无法区分 | `call_llm_sync` 接受可选 `label: str` 参数，记入 log；buyer_profile 传入章节编号 |
+| M-025 | 2026-04-25 | maintainability | C2 | low | open | S | n/a | frontend/src/lib/auth.ts:47 | `bdgo_token` cookie 设置时无 `Secure` flag；HTTPS 部署下 JWT 可能经由 HTTP 明文传输 | `document.cookie` 字符串中当 `location.protocol === 'https:'` 时追加 `; Secure` |
+| P-013 | 2026-04-25 | performance | F1 | low | open | S | n/a | frontend/src/app/deals/DealsClient.tsx:98 + frontend/src/app/ip/IPClient.tsx:100 | 搜索框 onChange 无 debounce，用户每次按键触发一次 API 请求；输入"Pfizer"发出 6 个竞态请求 | 与 ClinicalFilters 等 Server Component 页一致，加 300ms useRef debounce |
 
 ---
 
