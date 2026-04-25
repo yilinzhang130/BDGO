@@ -24,11 +24,17 @@ class TestBuildRequest:
         body, headers = _build_request([{"role": "user", "content": "hi"}], model, None, None)
 
         assert body["model"] == "abab7-chat"
-        assert body["system"] == SYSTEM_PROMPT
+        # system is wrapped in list-of-blocks format so cache_control attaches.
+        assert body["system"] == [
+            {"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}
+        ]
         assert body["messages"] == [{"role": "user", "content": "hi"}]
         assert body["stream"] is True
-        # None means "use defaults", which includes the TOOLS registry.
-        assert body["tools"] == TOOLS
+        # None means "use defaults" — TOOLS registry, with cache_control on the
+        # last entry. The original TOOLS list must NOT be mutated.
+        assert body["tools"][:-1] == TOOLS[:-1]
+        assert body["tools"][-1] == {**TOOLS[-1], "cache_control": {"type": "ephemeral"}}
+        assert TOOLS[-1].get("cache_control") is None, "TOOLS list must not be mutated"
         assert headers["anthropic-version"] == "2023-06-01"
         # x-api-key is intentionally NOT added here — that's per-attempt.
         assert "x-api-key" not in headers
@@ -40,7 +46,9 @@ class TestBuildRequest:
 
         model = SimpleNamespace(api_model="m", anthropic_version=None)
         body, _ = _build_request([], model, "custom system", None)
-        assert body["system"] == "custom system"
+        assert body["system"] == [
+            {"type": "text", "text": "custom system", "cache_control": {"type": "ephemeral"}}
+        ]
 
     def test_empty_tools_disables_tools_entirely(self):
         """Quick-search mode passes ``tools=[]`` to disable tool use;

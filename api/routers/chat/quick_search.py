@@ -51,7 +51,7 @@ async def stream_quick_search(req):
     session_id = req.session_id
     user_id = req.user_id
     model = resolve_model(req.model_id)
-    usage_accum = {"input_tokens": 0, "output_tokens": 0}
+    usage_accum = {"input_tokens": 0, "output_tokens": 0, "cache_read_input_tokens": 0}
 
     if user_id:
         await asyncio.to_thread(ensure_session, session_id, user_id)

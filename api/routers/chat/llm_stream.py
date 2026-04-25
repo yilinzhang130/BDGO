@@ -42,14 +42,25 @@ def _build_request(
     """
     body: dict[str, Any] = {
         "model": model.api_model,
-        "system": system_prompt or SYSTEM_PROMPT,
+        "system": [
+            {
+                "type": "text",
+                "text": system_prompt or SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
         "messages": messages,
         "max_tokens": 4096,
         "stream": True,
     }
     effective_tools = TOOLS if tools is None else tools
     if effective_tools:
-        body["tools"] = effective_tools
+        # Mark the last tool with cache_control so the whole tools block is
+        # eligible for prompt caching. Shallow-copy to avoid mutating TOOLS.
+        body["tools"] = [
+            *effective_tools[:-1],
+            {**effective_tools[-1], "cache_control": {"type": "ephemeral"}},
+        ]
 
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if model.anthropic_version:
@@ -95,6 +106,9 @@ def _accumulate_usage(data: dict, usage_accum: dict) -> None:
         u = (data.get("message", {}) or {}).get("usage") or {}
         usage_accum["input_tokens"] += int(u.get("input_tokens") or 0)
         usage_accum["output_tokens"] += int(u.get("output_tokens") or 0)
+        usage_accum["cache_read_input_tokens"] = usage_accum.get(
+            "cache_read_input_tokens", 0
+        ) + int(u.get("cache_read_input_tokens") or 0)
     elif et == "message_delta":
         u = data.get("usage") or {}
         if "output_tokens" in u:
