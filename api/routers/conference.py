@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 
 from config import CONFERENCES_DIR
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from services.conference import load_report_data
 
 logger = logging.getLogger(__name__)
@@ -71,14 +71,50 @@ def _match(value: str | None, q: str) -> bool:
     return q.lower() in (value or "").lower()
 
 
+def _session_etag(session_id: str) -> str:
+    """Derive ETag from report_data.json mtime. Stable per deploy (data is static)."""
+    try:
+        mtime = (CONFERENCES_DIR / session_id / "report_data.json").stat().st_mtime
+        return f'"{session_id}-{int(mtime)}"'
+    except OSError:
+        return f'"{session_id}-0"'
+
+
+def _sessions_etag() -> str:
+    """ETag for the sessions list — max mtime across all report_data.json files."""
+    try:
+        mtimes = [
+            p.stat().st_mtime
+            for p in CONFERENCES_DIR.iterdir()
+            if p.is_dir() and (p / "report_data.json").exists()
+        ]
+        return f'"sessions-{int(max(mtimes, default=0))}"'
+    except OSError:
+        return '"sessions-0"'
+
+
+def _cache_hit(request: Request, etag: str) -> bool:
+    """Return True if the client already has a fresh copy (If-None-Match matches)."""
+    return request.headers.get("if-none-match") == etag
+
+
+def _set_cache_headers(response: Response, etag: str) -> None:
+    response.headers["Cache-Control"] = "public, max-age=300"
+    response.headers["ETag"] = etag
+
+
 # ─────────────────────────────────────────────────────────────
 # Endpoints
 # ─────────────────────────────────────────────────────────────
 
 
 @router.get("/sessions")
-def list_sessions():
+def list_sessions(request: Request, response: Response):
     """List available conference sessions (ordered newest first)."""
+    etag = _sessions_etag()
+    if _cache_hit(request, etag):
+        return Response(status_code=304)
+
     sessions = []
     for dir_path in sorted(CONFERENCES_DIR.iterdir(), reverse=True):
         if not dir_path.is_dir():
@@ -106,12 +142,18 @@ def list_sessions():
         except Exception:
             pass
         sessions.append(meta)
+
+    _set_cache_headers(response, etag)
     return {"sessions": sessions}
 
 
 @router.get("/{session_id}/stats")
-def get_stats(session_id: str):
+def get_stats(session_id: str, request: Request, response: Response):
     """Aggregate statistics for a conference session."""
+    etag = _session_etag(session_id)
+    if _cache_hit(request, etag):
+        return Response(status_code=304)
+
     raw = _get_session_data(session_id)
     companies = raw.get("companies", [])
 
@@ -127,6 +169,7 @@ def get_stats(session_id: str):
         total_ct += c.get("CT_count", 0)
         total_lb += c.get("LB_count", 0)
 
+    _set_cache_headers(response, etag)
     return {
         **raw.get("meta", {}),
         "total_companies": len(companies),
@@ -140,6 +183,8 @@ def get_stats(session_id: str):
 @router.get("/{session_id}/companies")
 def list_companies(
     session_id: str,
+    request: Request,
+    response: Response,
     q: str = Query("", description="Search company name"),
     company_type: str = Query("", description="Filter by 客户类型"),
     country: str = Query("", description="Filter by 所处国家"),
@@ -148,6 +193,10 @@ def list_companies(
     page_size: int = Query(24, ge=1, le=100),
 ):
     """Paginated company flash card list for a conference session."""
+    etag = _session_etag(session_id)
+    if _cache_hit(request, etag):
+        return Response(status_code=304)
+
     raw = _get_session_data(session_id)
     companies = raw.get("companies", [])
 
@@ -201,6 +250,7 @@ def list_companies(
     all_types = sorted({c.get("客户类型") or "" for c in filtered if c.get("客户类型")})
     all_countries = sorted({c.get("所处国家") or "" for c in filtered if c.get("所处国家")})
 
+    _set_cache_headers(response, etag)
     return {
         "data": cards,
         "total": total,
@@ -215,8 +265,12 @@ def list_companies(
 
 
 @router.get("/{session_id}/companies/{company_name}")
-def get_company(session_id: str, company_name: str):
+def get_company(session_id: str, company_name: str, request: Request, response: Response):
     """Full company detail including all abstracts."""
+    etag = _session_etag(session_id)
+    if _cache_hit(request, etag):
+        return Response(status_code=304)
+
     raw = _get_session_data(session_id)
     companies = raw.get("companies", [])
 
@@ -228,12 +282,15 @@ def get_company(session_id: str, company_name: str):
         raise HTTPException(
             status_code=404, detail=f"Company '{company_name}' not found in {session_id}"
         )
+    _set_cache_headers(response, etag)
     return match
 
 
 @router.get("/{session_id}/abstracts")
 def list_abstracts(
     session_id: str,
+    request: Request,
+    response: Response,
     q: str = Query("", description="Search title/target/company"),
     kind: str = Query("", description="CT | LB | regular"),
     company: str = Query("", description="Filter by company name"),
@@ -243,6 +300,10 @@ def list_abstracts(
     page_size: int = Query(24, ge=1, le=100),
 ):
     """Flat list of individual abstracts (flattened from all companies), newest hottest first."""
+    etag = _session_etag(session_id)
+    if _cache_hit(request, etag):
+        return Response(status_code=304)
+
     raw = _get_session_data(session_id)
     companies = raw.get("companies", [])
 
@@ -300,6 +361,7 @@ def list_abstracts(
     all_countries = sorted({c.get("所处国家") or "" for c in companies if c.get("所处国家")})
     all_types = sorted({c.get("客户类型") or "" for c in companies if c.get("客户类型")})
 
+    _set_cache_headers(response, etag)
     return {
         "data": page_items,
         "total": total,
