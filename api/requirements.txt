@@ -11,6 +11,7 @@ alembic>=1.13.0
 PyMuPDF>=1.24.0
 python-pptx>=0.6.23
 openpyxl>=3.1.0
+PyYAML>=6.0
 
 # ── Testing ──────────────────────────────────────────────────
 pytest>=9.0.3

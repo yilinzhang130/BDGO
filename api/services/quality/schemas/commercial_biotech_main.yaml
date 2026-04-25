@@ -1,0 +1,393 @@
+# Commercial Biotech Buyer — Main Report Schema v0.3 (主 docx)
+#
+# 适用对象：商业化 Biotech 买家（Insmed / Alnylam / BioMarin / Ultragenyx /
+#           Jazz / Axsome / Neurocrine / Sarepta / Ascendis 等）
+#
+# 定义：market cap $2B-25B，biotech 起家，至少 1-2 个商业化产品，
+#       平台技术是核心身份，BD 是核心 portfolio 扩张手段，
+#       不同于 MNC（ >$50B）也不同于 biotech 标的（<$2B 或 pre-commercial）
+#
+# 核心差异 vs MNC 模式：
+#   (1) 管线窄（10-30 programs vs MNC 80-120）→ 字数目标 15-22k（MNC 22-30k）
+#   (2) TA 专注（1-3 vs MNC 4-8）→ ch3 不做 4 TA 横扫
+#   (3) Founder-CEO 权重大 → ch1.2 和 ch5 写法不同
+#   (4) 平台技术 = 核心身份 → R&D Deep-Dive R2 是重头戏
+#   (5) BD 预算小（$500M-$3B 典型上限）→ Comps 基准是其它 biotech buyer
+#   (6) stock+milestones 多于现金 upfront → ch9.1 偏好不同
+#   (7) 独立性战略判断（build-vs-sell）→ 新增 ch10 本模式特有
+#   (8) 附录 A CRM、附录 B DNA、ch6.3 divestiture、原 ch7 专利悬崖 → 删/合并
+
+report_type: commercial_biotech_buyer_main
+schema_version: "0.3"
+target_total_words:
+  min: 15000
+  max: 22000        # MNC 是 22000-30000
+
+# ══════════════════════════════════════════════
+# 前置元素
+# ══════════════════════════════════════════════
+front_matter:
+  cover:
+    required: true
+    must_contain: ['CONFIDENTIAL']
+  toc:
+    required: true
+    must_contain_one_of: ['目录', 'Contents']
+
+  report_guide:
+    required: true
+    must_contain_groups:
+      - ['目的', '旨在', '核心问题', '目标']
+      - ['使用', '读者', '用法', '路径']
+
+  exec_summary:
+    required: true
+    min_words: 1400          # 比 MNC 的 1800 略紧
+    max_words: 2200
+    label_format: '核心发现\s*[1-5]'
+    min_labels: 5
+
+  # ── 火力卡（biotech 买家版，7 字段，和 MNC 不同）
+  # MNC 的"最大单笔交易"换成"商业化产品年收入"——对 biotech 更关键
+  firepower_card:
+    required: true
+    must_contain_all:
+      - '年收入'                  # 通常低于 MNC，需明确
+      - '现金'                    # cash + equivalents
+      - 'runway|跑道|可持续'      # 对 biotech 最关键：cash runway 月数
+      - '商业化产品'              # 主打产品收入
+      - 'R&D'
+      - '市值'
+      - '信用评级|融资|无评级'    # 很多 biotech 无正式信用评级
+    nice_to_have: ['净债务', '估值倍数 EV/Revenue']
+
+  # ── Quick-Hit 页（精简版，和 MNC 的区别）
+  quick_hit_page:
+    required: true
+    min_words: 600            # MNC 是 800
+    max_words: 1200
+    required_blocks:
+      - asset_shopping_list
+      - top_directions_preview     # 改为 Top 2，非 Top 3
+      - first_contact_point
+      - recommended_deal_structure_summary
+
+    asset_shopping_list_rules:
+      min_items: 3              # MNC 要求 5，biotech 专注窄，3 够
+      per_item_required_fields:
+        - asset_or_topic
+        - signal_source
+        - signal_date
+        - signal_strength
+
+    # Top 方向数调整：biotech 买家通常只有 1-2 个 TA 发力
+    top_directions_count: 2     # 不是 3
+
+# ══════════════════════════════════════════════
+# 主体章节
+# ══════════════════════════════════════════════
+sections:
+
+  - id: ch1
+    name: 公司 DNA 与起家故事
+    heading_patterns: ['第一章', '1\.\s*公司', '起家故事']
+    required: true
+    subsections:
+      # 新：起家故事（biotech 买家必写，MNC 不写）
+      - id: '1.1'
+        name: 起家故事与首款商业化产品成功路径
+        required: true
+        max_words: 1200
+        must_contain_one_of: ['FDA', 'approval', '批准', 'launch', '上市']
+
+      - id: '1.2'
+        name: 管理层与 BD 决策链（founder-CEO 影响力）
+        required: true
+        must_contain_all: ['CEO', 'CSO']    # biotech 买家 CFO 可能仍重要但不强求
+        nice_to_have_contains: ['CFO', '创始', 'founder']
+
+      - id: '1.3'
+        name: 企业文化与交易偏好（独立性 vs 被收购倾向）
+        required: true
+        must_contain_one_of: ['独立', '被收购', 'independent', 'acquisition']
+
+  - id: ch2
+    name: 管线全景与催化剂
+    heading_patterns: ['第二章', '2\.\s*管线']
+    required: true
+    subsections:
+      - id: '2.1'
+        name: 商业化产品与 Phase 3 核心资产
+        required: true
+        max_words: 800
+      - id: '2.2'
+        name: 催化剂日历（小公司每个催化剂分量大）
+        required: true
+        must_contain_one_of: ['2026', '2027', '2028']
+
+  # Ch3：1-2 个 TA，非 4 个（与 MNC 最大的结构差异之一）
+  - id: ch3
+    name: 核心 TA 深度分析
+    heading_patterns: ['第三章', '3\.\s*核心\s*TA', '3\.\s*治疗领域']
+    required: true
+    type: iterative
+    iter_over: ta_list
+    min_items: 1                # MNC 是 3
+    max_items: 3                # biotech 买家通常 1-2，最多 3
+    target_words: 4500          # MNC 是 10000
+    per_item_required:
+      - competitor_table        # ≥3 家对标
+      - gap_analysis_prose
+      - so_what_sentence
+    produces: [gap_list]
+
+  - id: ch4
+    name: BD 历史与买家心理
+    heading_patterns: ['第四章', '4\.\s*BD']
+    required: true
+    subsections:
+      - id: '4.1'
+        name: 历史 BD 交易时间线
+        required: true
+        max_words: 500           # 通常 3-10 笔，不用 600
+      - id: '4.2'
+        name: 沉没成本动量
+        required: true
+        must_contain_one_of: ['沉没成本', 'sunk cost', '动量']
+      - id: '4.3'
+        name: 交易案例深度复盘
+        required: true
+        min_deep_dives: 1        # MNC 是 2，biotech 买家交易少，1 即可
+      - id: '4.4'
+        name: 失败与 BD 转向
+        required: true
+        min_failures: 1          # MNC 是 2
+      - id: '4.5'
+        name: Deal-Breakers
+        nice_to_have: true
+        min_items: 2             # MNC 是 3
+
+  - id: ch5
+    name: 高管战略信号
+    heading_patterns: ['第五章', '5\.\s*高管']
+    required: true
+    subsections:
+      - {id: '5.1', name: CEO, required: true, min_quotes: 1}
+      - {id: '5.2', name: CSO, required: true, min_quotes: 1}
+      - {id: '5.3', name: CFO, nice_to_have: true, min_quotes: 1}    # CFO 对小公司不如 MNC 关键
+      # biotech 买家的 Board 很重要，含创始科学家 + 大 VC
+      - {id: '5.4', name: Board（含创始科学家+VC+卖方共识）, required: true,
+         must_contain_one_of: ['Board', '董事会', 'founder', 'VC', '分析师', '共识']}
+
+  - id: ch6
+    name: 财务火力与独立性
+    heading_patterns: ['第六章', '6\.\s*财务']
+    required: true
+    subsections:
+      - id: '6.1'
+        name: Cash runway、burn rate、BD 能力判断
+        required: true
+        must_contain_one_of: ['runway', '跑道', 'burn', 'cash', '现金']
+      - id: '6.2'
+        name: 估值与融资历史
+        required: true
+      - id: '6.3'
+        name: 同类 Biotech 买家对标（≥3 家 biotech peer）
+        required: true
+        min_peers: 3
+        peer_examples: ['Alnylam', 'BioMarin', 'Ultragenyx', 'Jazz', 'Axsome', 'Neurocrine',
+                        'Sarepta', 'Ascendis', 'Insmed', 'Catalyst', 'Vertex']
+
+  - id: ch7
+    name: 平台技术护城河（替代 MNC 的专利悬崖）
+    heading_patterns: ['第七章', '7\.\s*平台']
+    required: true
+    subsections:
+      - id: '7.1'
+        name: 核心产品 LOE（如有 marketed 产品）
+        required: true
+      - id: '7.2'
+        name: 平台技术深度与专利组合（本模式重头）
+        required: true
+        description: |
+          Insmed 的 smart inhaler 平台 / Alnylam 的 RNAi / BioMarin 的 ERT 等
+          —— 这是买家的"下一代产品从哪里来"的根基
+
+  - id: ch8
+    name: 中国 BD 机会（简化版 3 维评分）
+    heading_patterns: ['第八章', '8\.\s*中国']
+    required: true
+    subsections:
+      - id: '8.1'
+        name: 3 维加权评分方法
+        required: true
+        must_contain_all: ['W1', 'W2', 'W3']        # MNC 是 W1-W5；简化到 3 维
+        # 推荐：W1 管线空白度 40% / W2 BD 历史动量 30% / W3 中国资产匹配度 30%
+      - id: '8.2'
+        name: 评分结果
+        required: true
+      - id: '8.3'
+        name: Top 2 方向详细卡片（非 Top 3）
+        required: true
+        min_directions: 1            # 至少 1，期望 2
+        max_directions: 3            # 不超过 3
+        min_assets_per_direction: 2  # MNC 是 3
+        per_direction_required_fields:
+          - direction_name
+          - weighted_score
+          - gap_source
+          - candidate_assets
+          - dna_fit_score
+          - competitive_buyers
+
+  - id: ch9
+    name: 交易结构与谈判策略
+    heading_patterns: ['第九章', '9\.\s*交易']
+    required: true
+    subsections:
+      - id: '9.1'
+        name: 偏好交易结构（stock/equity/milestones 重于现金 upfront）
+        required: true
+        must_contain_one_of: ['stock', 'equity', 'milestones', 'royalties', '里程碑', '股权']
+      - id: '9.2'
+        name: 针对方向的推荐模式
+        required: true
+      - id: '9.3'
+        name: 谈判要点（估值敏感度 + 尽调周期）
+        required: true
+      - id: '9.4'
+        name: 时间窗口
+        required: true
+      - id: '9.5'
+        name: 同类 Biotech 买家 Comps 基准（非 MNC 交易）
+        required: true
+        description: 基准来源是其它 biotech 买家的同 TA 同阶段交易
+
+  # ★ Ch10：本模式特有——独立性战略判断
+  - id: ch10
+    name: 独立性战略判断（Build vs Sell 信号 + 备胎买家）
+    heading_patterns: ['第十章', '10\.\s*独立性', 'Build\s*vs\s*Sell']
+    required: true
+    description: |
+      核心判断：这家 biotech 买家自己想做"下一个 Vertex"（保持独立），
+      还是愿被大 MNC 吃掉？这直接决定我们和他们合作的生命周期设计。
+    subsections:
+      - id: '10.1'
+        name: Build vs Sell 信号
+        required: true
+        must_contain_one_of:
+          - '独立'
+          - 'independent'
+          - '被收购'
+          - 'acquisition'
+          - 'IPO'
+          - '融资'
+      - id: '10.2'
+        name: 如果想卖资产给此公司的策略
+        required: true
+      - id: '10.3'
+        name: 备胎买家（如此公司自己被收购，哪些大 MNC 会接盘）
+        required: true
+        nice_to_have: false      # 这是关键，必填
+
+  # Research Deep-Dive（R&D 专章）
+  - id: research_deepdive
+    name: R&D 深度视角（平台故事重头戏）
+    heading_patterns: ['研发深度', 'R&D 深度', 'Research Deep']
+    required: true
+    target_words: 2500        # MNC 是 3500，biotech 买家更专注
+    subsections:
+      - id: 'R1'
+        name: R&D 组织与关键科学家
+        required: true
+      - id: 'R2'
+        name: 平台技术深度拆解（本模式重点，≥2 个平台）
+        required: true
+        min_platforms: 2        # MNC 是 3
+      - id: 'R3'
+        name: Preclinical 与 Discovery 管线
+        required: true
+      - id: 'R4'
+        name: 学术合作与 research alliance
+        required: true
+
+  - id: conclusion
+    name: 结论与行动建议
+    heading_patterns: ['结论', '行动建议']
+    required: true
+    required_blocks: [summary_judgement, action_roadmap_12mo, independence_scenario_planning]
+
+# ══════════════════════════════════════════════
+# 附录
+# ══════════════════════════════════════════════
+appendices:
+  - {id: C, name: 参考文献, required: true, must_match_citations: true}
+  - {id: D, name: 方法论备注与附件索引, required: true}
+
+# ══════════════════════════════════════════════
+# Companion xlsx
+# ══════════════════════════════════════════════
+companion_data_pack:
+  required: true
+  schema_file: mnc_data_schema.yaml
+  mode_key: commercial_biotech        # 走 mnc_data_schema.yaml 的 commercial_biotech 模式（新增）
+  description: |
+    每份主 docx 必须伴随 xlsx 附件。本模式的 min_rows 阈值比 MNC 小很多
+    （Pipeline_Roster 15 vs 60，Deal_History 5 vs 15 等）。
+
+# ══════════════════════════════════════════════
+# 写作质量规则（沿用 MNC v0.2.1 同款）
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - {pattern: '一方面.{0,40}另一方面', category: balance, severity: high}
+    - {pattern: '综上所述', category: balance, severity: high}
+    - {pattern: '总的来说', category: balance, severity: high}
+    - {pattern: '由此可见', category: balance, severity: high}
+    - {pattern: '不难看出', category: balance, severity: high}
+    - {pattern: '不仅如此', category: balance, severity: medium}
+    - {pattern: '除此之外', category: balance, severity: medium}
+    - {pattern: '值得注意的是', category: balance, severity: medium}
+    - {pattern: '需要指出的是', category: balance, severity: medium}
+    - {pattern: '全方位', category: empty_adj, severity: high}
+    - {pattern: '深层次', category: empty_adj, severity: high}
+    - {pattern: '多维度', category: empty_adj, severity: high}
+    - {pattern: '立体化', category: empty_adj, severity: high}
+    - {pattern: '前瞻性布局', category: empty_adj, severity: high}
+    - {pattern: '战略性布局', category: empty_adj, severity: high}
+    - {pattern: '深度布局', category: empty_adj, severity: high}
+    - {pattern: '颠覆性的', category: empty_adj, severity: medium}
+    - {pattern: '变革性的', category: empty_adj, severity: medium}
+    - {pattern: '突破性的', category: empty_adj, severity: medium}
+    - {pattern: '（[^（）]{2,6}抑制剂）', category: empty_parens, severity: low}
+    - {pattern: '（[^（）]{2,6}激动剂）', category: empty_parens, severity: low}
+  banned_chars:
+    - 'emoji_range'
+    - '✅|❌|⚠️|🔴|🟡|🟢'
+    - '═{5,}'
+
+citation_rules:
+  inline_format: '\[\d+\]'
+  references_section: '参考文献|参考来源|References'
+  require_sequential: true
+  require_all_used: true
+
+cross_refs:
+  - id: ch10_backup_buyers_in_ch6_peers
+    description: 第10.3备胎买家应提到的 MNC 买家应合理
+    rule: ch10.backup_buyers ⊆ ['Novartis', 'Sanofi', 'Lilly', 'Pfizer', 'AZ', 'BMS', 'MSD', 'AbbVie', 'Roche', 'J&J', 'GSK', 'Bayer', 'Takeda', 'Amgen', 'Merck KGaA', 'Astellas', 'Boehringer', 'Teva', 'Biogen', 'Alexion', 'Horizon', 'Vertex']
+    severity: medium
+
+  - id: ch8_directions_in_gap_list
+    description: 第8章 Top 方向应来自 ch3 的缺口
+    rule: ch8.top_directions ⊆ ch3.gap_list
+    severity: high
+
+  - id: ch4_sunk_cost_ta_in_plan
+    rule: ch4.ta_mentions ⊆ ch3.ta_list
+    severity: medium
+
+  - id: quick_hit_top_matches_ch8
+    description: Quick-Hit 页 Top 方向应等于 ch8
+    rule: quick_hit_page.top_directions_preview == ch8.top_directions
+    severity: high
