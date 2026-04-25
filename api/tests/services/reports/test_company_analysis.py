@@ -134,18 +134,20 @@ def test_format_deals_block_empty(svc):
 
 
 def test_suggested_commands_neutral_with_no_assets(svc):
-    """Neutral perspective + no CRM assets → just /email cold outreach."""
+    """Neutral perspective + no CRM assets → /timing + /email cold outreach."""
     inp = CompanyAnalysisInput(company_name="Peg-Bio", perspective="neutral")
     chips = svc._build_suggested_commands(inp, [])
-    assert len(chips) == 1
-    assert chips[0]["slug"] == "outreach-email"
-    assert chips[0]["command"].startswith("/email")
+    assert len(chips) == 2
+    slugs = [c["slug"] for c in chips]
+    assert "timing-advisor" in slugs
+    assert "outreach-email" in slugs
+    email = next(c for c in chips if c["slug"] == "outreach-email")
     # neutral defaults to seller for outreach
-    assert "from_perspective=seller" in chips[0]["command"]
+    assert "from_perspective=seller" in email["command"]
 
 
 def test_suggested_commands_buyer_with_full_asset(svc):
-    """Buyer + asset with all fields → /email + /evaluate chips."""
+    """Buyer + asset with all fields → /timing + /email + /evaluate chips."""
     inp = CompanyAnalysisInput(company_name="Peg-Bio", perspective="buyer")
     assets = [
         {
@@ -157,8 +159,13 @@ def test_suggested_commands_buyer_with_full_asset(svc):
     ]
     chips = svc._build_suggested_commands(inp, assets)
     slugs = [c["slug"] for c in chips]
+    assert "timing-advisor" in slugs
     assert "outreach-email" in slugs
     assert "deal-evaluator" in slugs
+
+    timing = next(c for c in chips if c["slug"] == "timing-advisor")
+    assert "perspective=buyer" in timing["command"]
+    assert 'asset_name="PEG-001"' in timing["command"]
 
     email = next(c for c in chips if c["slug"] == "outreach-email")
     assert "from_perspective=buyer" in email["command"]
@@ -171,23 +178,24 @@ def test_suggested_commands_buyer_with_full_asset(svc):
 
 
 def test_suggested_commands_buyer_with_partial_asset(svc):
-    """Buyer + asset missing fields → only /email chip (evaluate suppressed)."""
+    """Buyer + asset missing fields → /timing + /email but evaluate suppressed."""
     inp = CompanyAnalysisInput(company_name="Peg-Bio", perspective="buyer")
     assets = [{"资产名称": "PEG-001", "靶点": "KRAS G12C"}]  # missing indication, phase
     chips = svc._build_suggested_commands(inp, assets)
     slugs = [c["slug"] for c in chips]
+    assert "timing-advisor" in slugs
     assert "outreach-email" in slugs
     assert "deal-evaluator" not in slugs
 
 
 def test_suggested_commands_seller_emits_seller_email(svc):
-    """Seller → /email with from_perspective=seller (we're pitching this MNC)."""
+    """Seller → /timing + /email with from_perspective=seller."""
     inp = CompanyAnalysisInput(company_name="Eli Lilly", perspective="seller")
     chips = svc._build_suggested_commands(inp, [])
-    assert len(chips) == 1
-    cmd = chips[0]["command"]
-    assert 'to_company="Eli Lilly"' in cmd
-    assert "from_perspective=seller" in cmd
+    assert len(chips) == 2
+    email = next(c for c in chips if c["slug"] == "outreach-email")
+    assert 'to_company="Eli Lilly"' in email["command"]
+    assert "from_perspective=seller" in email["command"]
 
 
 def test_suggested_commands_email_has_asset_context_when_lead_present(svc):
@@ -195,7 +203,7 @@ def test_suggested_commands_email_has_asset_context_when_lead_present(svc):
     inp = CompanyAnalysisInput(company_name="Peg-Bio", perspective="seller")
     assets = [{"资产名称": "PEG-001", "适应症": "NSCLC"}]
     chips = svc._build_suggested_commands(inp, assets)
-    email = chips[0]
+    email = next(c for c in chips if c["slug"] == "outreach-email")
     assert 'asset_context="PEG-001 — NSCLC"' in email["command"]
 
 
@@ -204,9 +212,27 @@ def test_suggested_commands_email_omits_asset_context_when_no_indication(svc):
     inp = CompanyAnalysisInput(company_name="Peg-Bio", perspective="seller")
     assets = [{"资产名称": "PEG-001"}]
     chips = svc._build_suggested_commands(inp, assets)
-    cmd = chips[0]["command"]
+    email = next(c for c in chips if c["slug"] == "outreach-email")
+    cmd = email["command"]
     assert 'asset_context="PEG-001"' in cmd
     assert "—" not in cmd.split('asset_context="')[1].split('"')[0]
+
+
+def test_suggested_commands_timing_chip_has_asset_name_when_lead_present(svc):
+    """Timing chip carries asset_name from lead for narrower window."""
+    inp = CompanyAnalysisInput(company_name="Peg-Bio", perspective="buyer")
+    assets = [{"资产名称": "PEG-001", "适应症": "NSCLC"}]
+    chips = svc._build_suggested_commands(inp, assets)
+    timing = next(c for c in chips if c["slug"] == "timing-advisor")
+    assert 'asset_name="PEG-001"' in timing["command"]
+
+
+def test_suggested_commands_timing_chip_omits_asset_name_when_no_lead(svc):
+    """Timing chip omits asset_name when CRM returned no assets."""
+    inp = CompanyAnalysisInput(company_name="Eli Lilly", perspective="seller")
+    chips = svc._build_suggested_commands(inp, [])
+    timing = next(c for c in chips if c["slug"] == "timing-advisor")
+    assert "asset_name" not in timing["command"]
 
 
 # ── Schema ──────────────────────────────────────────────────
