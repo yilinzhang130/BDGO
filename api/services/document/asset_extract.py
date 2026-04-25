@@ -102,6 +102,41 @@ def build_teaser_command(asset: dict) -> str | None:
     return " ".join(parts)
 
 
+def build_intake_seed(asset: dict) -> str | None:
+    """Build a planner-friendly seed message that triggers BD intake plan mode.
+
+    The seed describes the asset and asks for a multi-step intake plan:
+    target/disease/IP research → asset evaluation → buyer matching →
+    timing → BD strategy synthesis. Phrased to (a) hit ``should_plan``
+    keywords and (b) give the planner LLM enough context to pick the
+    right service combination.
+
+    Returns ``None`` if asset has too little context (need company + asset).
+    """
+    company = asset.get("company_name")
+    asset_name = asset.get("asset_name")
+    if not company or not asset_name:
+        return None
+
+    fields = []
+    if asset.get("target"):
+        fields.append(f"靶点 {asset['target']}")
+    if asset.get("indication"):
+        fields.append(f"适应症 {asset['indication']}")
+    if asset.get("phase"):
+        fields.append(f"阶段 {asset['phase']}")
+    if asset.get("moa"):
+        fields.append(f"MoA {asset['moa']}")
+    fields_str = ("（" + ", ".join(fields) + "）") if fields else ""
+
+    return (
+        f"为 {company} 的 {asset_name}{fields_str} 启动 BD intake 全面分析。"
+        f"请规划一个多步执行计划，覆盖：靶点深度调研、适应症 landscape、IP/FTO 检查、"
+        f"资产吸引力评估、Top-3 买方匹配、接触时机建议，最后综合输出 BD 策略备忘。"
+        f"每步独立可取消，让我能勾选要跑的项目。"
+    )
+
+
 def _extract_text(filepath: Path) -> str:
     suffix = filepath.suffix.lower()
     if suffix in (".pdf", ".docx"):

@@ -9,7 +9,11 @@ from config import BP_DIR, safe_path_within
 from crm_store import update_row
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from services.document.asset_extract import build_teaser_command, extract_asset_metadata
+from services.document.asset_extract import (
+    build_intake_seed,
+    build_teaser_command,
+    extract_asset_metadata,
+)
 from services.external.llm import call_llm_sync
 
 logger = logging.getLogger(__name__)
@@ -103,6 +107,13 @@ async def upload_bp(
         extracted = extract_asset_metadata(dest, _llm_fn)
         if "error" not in extracted:
             result["extracted_asset"] = extracted
+            # Primary action: BD intake plan (multi-step research + synthesis).
+            # Falls back gracefully if asset context is too thin.
+            intake_seed = build_intake_seed(extracted)
+            if intake_seed:
+                result["intake_seed"] = intake_seed
+            # Secondary action: direct /teaser shortcut for users who want to
+            # skip intake and go straight to a deck.
             teaser_cmd = build_teaser_command(extracted)
             if teaser_cmd:
                 result["suggested_commands"] = [

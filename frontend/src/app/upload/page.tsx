@@ -18,6 +18,18 @@ export default function UploadPage() {
     router.push("/chat");
   };
 
+  const handleIntakeStart = (seed: string) => {
+    try {
+      // Distinct key — the chat page treats this differently from a normal
+      // /command prefill: it forces plan_mode=on for the first send so the
+      // user gets a checklist of intake steps to confirm.
+      sessionStorage.setItem("bdgo.chat.intakeSeed", seed);
+    } catch {
+      // sessionStorage may be unavailable (SSR/private mode); fall through
+    }
+    router.push("/chat");
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -59,6 +71,7 @@ export default function UploadPage() {
           onClose={() => setShowUpload(false)}
           onUploaded={(filename) => setLastUploaded(filename)}
           onSuggestedCommand={handleSuggestedCommand}
+          onIntakeStart={handleIntakeStart}
         />
       )}
     </div>

@@ -2,6 +2,7 @@ from pathlib import Path
 
 from services.document.asset_extract import (
     _parse_json_loosely,
+    build_intake_seed,
     build_teaser_command,
     extract_asset_metadata,
 )
@@ -103,3 +104,66 @@ def test_extract_metadata_happy_path(tmp_path: Path, monkeypatch):
     assert result["company_name"] == "Acme Bio"
     assert result["asset_name"] == "ABC-9"
     assert result["phase"] == "Phase 2"
+
+
+# ── build_intake_seed ───────────────────────────────────────
+
+
+def test_build_intake_seed_full_asset():
+    asset = {
+        "company_name": "Peg-Bio",
+        "asset_name": "PEG-001",
+        "target": "KRAS G12C",
+        "indication": "NSCLC",
+        "phase": "Phase 2",
+        "moa": "covalent inhibitor",
+    }
+    seed = build_intake_seed(asset)
+    assert seed is not None
+    # Must mention company + asset
+    assert "Peg-Bio" in seed
+    assert "PEG-001" in seed
+    # Must include the available context fields
+    assert "KRAS G12C" in seed
+    assert "NSCLC" in seed
+    assert "Phase 2" in seed
+    # Must trigger should_plan: contains "评估" keyword or > 150 chars
+    assert "评估" in seed or len(seed) > 150
+    # Must mention key intake steps so planner LLM picks the right tools
+    assert "靶点" in seed
+    assert "BD intake" in seed or "intake" in seed.lower()
+
+
+def test_build_intake_seed_minimal_asset():
+    """Only company + asset_name → still produces a valid seed."""
+    asset = {"company_name": "Foo Bio", "asset_name": "FOO-1"}
+    seed = build_intake_seed(asset)
+    assert seed is not None
+    assert "Foo Bio" in seed
+    assert "FOO-1" in seed
+    # No fields → no parenthesized field block
+    assert "（" not in seed and "(" not in seed.split("FOO-1")[1].split("启动")[0]
+
+
+def test_build_intake_seed_missing_company_returns_none():
+    asset = {"asset_name": "X-1", "target": "EGFR"}
+    assert build_intake_seed(asset) is None
+
+
+def test_build_intake_seed_missing_asset_returns_none():
+    asset = {"company_name": "Foo", "target": "EGFR"}
+    assert build_intake_seed(asset) is None
+
+
+def test_build_intake_seed_partial_fields_included():
+    """When only some optional fields present, only those appear."""
+    asset = {
+        "company_name": "Bar Inc",
+        "asset_name": "BAR-9",
+        "indication": "DLBCL",
+        # no target, no phase, no moa
+    }
+    seed = build_intake_seed(asset)
+    assert seed is not None
+    assert "DLBCL" in seed
+    assert "靶点" not in seed.split("启动")[0]  # no 靶点 X in the parenthesized prefix
