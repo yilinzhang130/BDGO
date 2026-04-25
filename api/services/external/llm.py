@@ -53,6 +53,7 @@ def _call_one_sync(
         headers["anthropic-version"] = model.anthropic_version
 
     resp = None
+    t0 = time.monotonic()
     try:
         for attempt in range(3):
             try:
@@ -85,6 +86,17 @@ def _call_one_sync(
         data = resp.json()
     except Exception as e:
         raise RuntimeError(f"LLM response JSON parse error: {e}") from e
+
+    usage = data.get("usage", {})
+    logger.info(
+        "llm_call model=%s key=...%s in=%d out=%d cache_read=%d latency_ms=%d status=ok",
+        model.id,
+        (model.api_key or "")[-6:],
+        int(usage.get("input_tokens") or 0),
+        int(usage.get("output_tokens") or 0),
+        int(usage.get("cache_read_input_tokens") or 0),
+        int((time.monotonic() - t0) * 1000),
+    )
 
     content_blocks = data.get("content", [])
     texts = [

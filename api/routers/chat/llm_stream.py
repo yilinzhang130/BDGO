@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import random
+import time
 from typing import Any
 
 from llm_pool import PoolSaturatedError, acquire_for, get_client
@@ -242,6 +243,8 @@ async def call_minimax_stream(
     """
     client = get_client()
     body, static_headers = _build_request(messages, model, system_prompt, tools)
+    # Snapshot usage before this call so we can compute per-call deltas
+    usage_before = dict(usage_accum)
 
     try:
         async with acquire_for(model) as (api_key, pool):
@@ -249,6 +252,7 @@ async def call_minimax_stream(
 
             for attempt in range(_MAX_529_RETRIES):
                 state = _StreamState()
+                t0 = time.monotonic()
                 async with client.stream("POST", model.api_url, json=body, headers=headers) as resp:
                     if resp.status_code == 529:
                         await resp.aread()
@@ -277,6 +281,16 @@ async def call_minimax_stream(
 
                 if pool is not None:
                     pool.mark_success(api_key)
+                logger.info(
+                    "llm_call model=%s key=...%s in=%d out=%d cache_read=%d latency_ms=%d status=ok",
+                    model.id,
+                    api_key[-6:],
+                    usage_accum.get("input_tokens", 0) - usage_before.get("input_tokens", 0),
+                    usage_accum.get("output_tokens", 0) - usage_before.get("output_tokens", 0),
+                    usage_accum.get("cache_read_input_tokens", 0)
+                    - usage_before.get("cache_read_input_tokens", 0),
+                    int((time.monotonic() - t0) * 1000),
+                )
                 yield (
                     "_end",
                     {"stop_reason": state.stop_reason, "content": state.collected_content},
