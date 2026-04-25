@@ -233,6 +233,36 @@ _BP_CH8_PROMPT = """
 """
 
 
+_GAP_FILL_PROMPT = """以下是已生成的买方画像 Markdown 草稿，以及 Schema 校验器发现的结构性缺陷列表。
+请在**不改变已通过校验的内容**的前提下，仅修补以下缺陷，输出完整的修正后 Markdown（从第一行到最后一行）。
+
+=== 待修补缺陷 ===
+{fail_list}
+
+=== 原始 Markdown ===
+{markdown}
+
+修补规则：
+- 每条缺陷注明了章节（section）和问题描述（message），只修改相关章节
+- 如果缺陷是"字数不足"，在该章节末尾补充内容，保持同一标题下
+- 如果缺陷是"小节缺失"，在父章节末尾插入该小节及占位内容（≥150字）
+- 不要添加新章节、不要删除已有内容、不要改标题格式
+- 输出整个 Markdown，不加任何解释或代码块包裹
+"""
+
+
+def _build_gap_fill_prompt(markdown: str, audit) -> str:
+    fail_lines = [
+        f"[{f.section}] {f.message}" + (f" | 证据: {f.evidence}" if f.evidence else "")
+        for f in audit.findings
+        if f.severity == "fail"
+    ]
+    return _GAP_FILL_PROMPT.format(
+        fail_list="\n".join(f"- {line}" for line in fail_lines),
+        markdown=markdown[:60_000],
+    )
+
+
 # ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
@@ -492,15 +522,56 @@ class BuyerProfileService(ReportService):
             ctx.log("Extracting structured data for CRM enrichment...")
             self._enrich_and_save_to_crm(resolved_name, markdown, ctx)
 
-        # Phase 6: Schema validation (non-blocking — failures still ship the report)
+        # Phase 6: Schema validation + L1 gap-fill retry
         schema_audit: dict = {}
+        gap_fill_attempted = False
         try:
             audit = validate_markdown(markdown, mode="mnc")
-            schema_audit = audit_to_dict(audit)
             ctx.log(f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}")
+
+            if audit.n_fail > 0:
+                ctx.log(f"L1 gap-fill: {audit.n_fail} fail(s) — retrying targeted patch...")
+                gap_fill_attempted = True
+                patched = ctx.llm(
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": _build_gap_fill_prompt(markdown, audit)}],
+                    max_tokens=6000,
+                    label="bp_gap_fill",
+                )
+                if len(patched) > 500:
+                    markdown = patched
+                    audit2 = validate_markdown(markdown, mode="mnc")
+                    ctx.log(
+                        f"Post-gap-fill audit: FAIL={audit2.n_fail} WARN={audit2.n_warn}"
+                        f" (was {audit.n_fail} fail)"
+                    )
+                    schema_audit = audit_to_dict(audit2)
+                    schema_audit["gap_fill_attempted"] = True
+                    schema_audit["gap_fill_fail_before"] = audit.n_fail
+                    schema_audit["gap_fill_fail_after"] = audit2.n_fail
+                else:
+                    ctx.log("L1 gap-fill returned empty response — keeping original")
+                    schema_audit = audit_to_dict(audit)
+                    schema_audit["gap_fill_attempted"] = True
+                    schema_audit["gap_fill_fail_before"] = audit.n_fail
+            else:
+                schema_audit = audit_to_dict(audit)
         except Exception:
             logger.exception("Schema validation failed for task %s", ctx.task_id)
-            schema_audit = {"error": "validator_exception"}
+            schema_audit = {
+                "error": "validator_exception",
+                "gap_fill_attempted": gap_fill_attempted,
+            }
+
+        # Re-save patched files if gap-fill changed the markdown
+        if gap_fill_attempted and len(markdown) > 500:
+            ctx.save_file(md_filename, markdown, format="md")
+            ctx.log("Gap-filled markdown re-saved")
+            doc2 = docx_builder.new_report_document()
+            docx_builder.add_title(doc2, title=resolved_name, subtitle="Buyer Intelligence Brief")
+            docx_builder.markdown_to_docx(markdown, doc2)
+            ctx.save_file(docx_filename, docx_builder.document_to_bytes(doc2), format="docx")
+            ctx.log("Gap-filled Word document re-saved")
 
         return ReportResult(
             markdown=markdown,
