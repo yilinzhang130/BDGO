@@ -6,6 +6,7 @@ Used by report services via ReportContext.llm(). For streaming + tool_use, see c
 
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import random
@@ -18,6 +19,16 @@ from models import DEFAULT_MODEL_ID, MODELS, OVERLOAD_MSG, ModelSpec, fallback_c
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 300.0
+
+# Shared sync HTTP client — avoids a fresh TCP+TLS handshake for every report
+# chapter. keepalive_connections=10 matches the typical MiniMax endpoint pool;
+# max_connections=20 leaves headroom for burst parallelism (dd_checklist
+# batches up to 3 concurrent calls). Timeout is set per-request so callers
+# that need a shorter fence can still override.
+_http_client = httpx.Client(
+    limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+)
+atexit.register(_http_client.close)
 
 
 def _call_one_sync(
@@ -43,28 +54,29 @@ def _call_one_sync(
 
     resp = None
     try:
-        with httpx.Client(timeout=timeout) as client:
-            for attempt in range(3):
-                try:
-                    resp = client.post(model.api_url, json=body, headers=headers)
-                except httpx.TimeoutException as e:
-                    raise RuntimeError(f"LLM request timed out after {timeout}s") from e
-                except httpx.HTTPError as e:
-                    raise RuntimeError(f"LLM HTTP error: {e}") from e
+        for attempt in range(3):
+            try:
+                resp = _http_client.post(
+                    model.api_url, json=body, headers=headers, timeout=timeout
+                )
+            except httpx.TimeoutException as e:
+                raise RuntimeError(f"LLM request timed out after {timeout}s") from e
+            except httpx.HTTPError as e:
+                raise RuntimeError(f"LLM HTTP error: {e}") from e
 
-                if resp.status_code == 529:
-                    if attempt < 2:
-                        wait = (2**attempt) * (0.5 + random.random())
-                        logger.warning(
-                            "%s 529 overload (attempt %d/3), retrying in %.1fs",
-                            model.id,
-                            attempt + 1,
-                            wait,
-                        )
-                        time.sleep(wait)
-                        continue
-                    return None  # signal overload to caller for fallback
-                break
+            if resp.status_code == 529:
+                if attempt < 2:
+                    wait = (2**attempt) * (0.5 + random.random())
+                    logger.warning(
+                        "%s 529 overload (attempt %d/3), retrying in %.1fs",
+                        model.id,
+                        attempt + 1,
+                        wait,
+                    )
+                    time.sleep(wait)
+                    continue
+                return None  # signal overload to caller for fallback
+            break
     except RuntimeError:
         raise
 
