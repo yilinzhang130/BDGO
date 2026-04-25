@@ -12,6 +12,7 @@ Pipeline:
 
 from __future__ import annotations
 
+import concurrent.futures
 import datetime
 import json
 import logging
@@ -316,121 +317,126 @@ class BuyerProfileService(ReportService):
 
         system_prompt = CHAPTER_SYSTEM_PROMPT.format(company=resolved_name)
 
-        # Phase 3: Generate chapters one by one
+        # Phase 3: Generate chapters in parallel batches.
+        #
+        # Dependency analysis: each chapter uses running_summary[-1000:], which
+        # covers roughly the last 1-2 chapter summaries. The strict chain is
+        # Ch1 → Ch2 → ... → Ch8, but we can tolerate each batch sharing a
+        # snapshot of the summary rather than seeing every predecessor's output.
+        # This reduces wall-clock time from ~120s to ~40s at the cost of each
+        # batch member not seeing its co-batch siblings' summaries.
+        #
+        # Batch layout:
+        #   Seq  : Ch1  (bootstraps context — no predecessor)
+        #   Par A: Ch2, Ch3  (parallel, both see Ch1 snapshot)
+        #   Par B: Ch4, Ch5, Ch6, Ch7  (parallel, all see Ch1+2+3 snapshot)
+        #   Seq  : Ch8  (final synthesis — needs full accumulated context)
+
         chapter_texts: dict[int, str] = {}
         running_summary = ""
 
-        # ── Chapter 1: 公司概况 & 战略定位 ──
+        def _run_ch(ch_num: int, prompt: str, max_tok: int) -> tuple[int, str]:
+            result = ctx.llm(
+                system=system_prompt,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tok,
+            )
+            ctx.log(f"第{ch_num}章完成（{len(result)}字）")
+            return ch_num, result
+
+        # ── Batch 0: Chapter 1 (sequential — bootstraps context) ──
         ctx.log("第一章：公司概况 & 战略定位...")
-        ch1_prompt = _BP_CH1_PROMPT.format(
-            crm_block=crm_block,
-            running_summary=running_summary or "(无，这是第一章)",
-        )
-        chapter_texts[1] = ctx.llm(
-            system=system_prompt,
-            messages=[{"role": "user", "content": ch1_prompt}],
-            max_tokens=1800,
+        _, chapter_texts[1] = _run_ch(
+            1,
+            _BP_CH1_PROMPT.format(
+                crm_block=crm_block,
+                running_summary="(无，这是第一章)",
+            ),
+            1800,
         )
         running_summary += f"\n\n【第一章 公司概况要点】{chapter_texts[1][:700]}"
-        ctx.log(f"第一章完成（{len(chapter_texts[1])}字）")
 
-        # ── Chapter 2: 管线分析 & 专利悬崖 ──
-        ctx.log("第二章：管线分析 & 专利悬崖...")
-        ch2_prompt = _BP_CH2_PROMPT.format(
-            crm_block=crm_block,
-            running_summary=running_summary[-1000:],
-        )
-        chapter_texts[2] = ctx.llm(
-            system=system_prompt,
-            messages=[{"role": "user", "content": ch2_prompt}],
-            max_tokens=2500,
-        )
+        # ── Batch A: Chapters 2 & 3 in parallel ──
+        ctx.log("第二、三章并行处理中...")
+        snap_a = running_summary[-1000:]
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="bp_ch"
+        ) as pool:
+            futs_a = {
+                pool.submit(
+                    _run_ch,
+                    2,
+                    _BP_CH2_PROMPT.format(crm_block=crm_block, running_summary=snap_a),
+                    2500,
+                ),
+                pool.submit(
+                    _run_ch,
+                    3,
+                    _BP_CH3_PROMPT.format(crm_block=crm_block, running_summary=snap_a),
+                    2500,
+                ),
+            }
+            for fut in concurrent.futures.as_completed(futs_a):
+                ch_num, text = fut.result()
+                chapter_texts[ch_num] = text
         running_summary += f"\n\n【第二章 管线/专利悬崖要点】{chapter_texts[2][:700]}"
-        ctx.log(f"第二章完成（{len(chapter_texts[2])}字）")
-
-        # ── Chapter 3: BD 历史 & 交易模式 ──
-        ctx.log("第三章：BD 历史 & 交易模式...")
-        ch3_prompt = _BP_CH3_PROMPT.format(
-            crm_block=crm_block,
-            running_summary=running_summary[-1000:],
-        )
-        chapter_texts[3] = ctx.llm(
-            system=system_prompt,
-            messages=[{"role": "user", "content": ch3_prompt}],
-            max_tokens=2500,
-        )
         running_summary += f"\n\n【第三章 BD交易模式要点】{chapter_texts[3][:700]}"
-        ctx.log(f"第三章完成（{len(chapter_texts[3])}字）")
 
-        # ── Chapter 4: 管线空白 & 需求分析 ──
-        ctx.log("第四章：管线空白 & 需求分析...")
-        ch4_prompt = _BP_CH4_PROMPT.format(
-            crm_block=crm_block,
-            focus_note=focus_note,
-            running_summary=running_summary[-1000:],
-        )
-        chapter_texts[4] = ctx.llm(
-            system=system_prompt,
-            messages=[{"role": "user", "content": ch4_prompt}],
-            max_tokens=2500,
-        )
+        # ── Batch B: Chapters 4-7 in parallel ──
+        ctx.log("第四-七章并行处理中...")
+        snap_b = running_summary[-1000:]
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=4, thread_name_prefix="bp_ch"
+        ) as pool:
+            futs_b = {
+                pool.submit(
+                    _run_ch,
+                    4,
+                    _BP_CH4_PROMPT.format(
+                        crm_block=crm_block,
+                        focus_note=focus_note,
+                        running_summary=snap_b,
+                    ),
+                    2500,
+                ),
+                pool.submit(
+                    _run_ch,
+                    5,
+                    _BP_CH5_PROMPT.format(crm_block=crm_block, running_summary=snap_b),
+                    2200,
+                ),
+                pool.submit(
+                    _run_ch,
+                    6,
+                    _BP_CH6_PROMPT.format(
+                        crm_block=crm_block,
+                        web_block=web_block,
+                        running_summary=snap_b,
+                    ),
+                    1800,
+                ),
+                pool.submit(
+                    _run_ch,
+                    7,
+                    _BP_CH7_PROMPT.format(crm_block=crm_block, running_summary=snap_b),
+                    1800,
+                ),
+            }
+            for fut in concurrent.futures.as_completed(futs_b):
+                ch_num, text = fut.result()
+                chapter_texts[ch_num] = text
         running_summary += f"\n\n【第四章 管线空白要点】{chapter_texts[4][:700]}"
-        ctx.log(f"第四章完成（{len(chapter_texts[4])}字）")
-
-        # ── Chapter 5: 中国 BD 机会矩阵 ──
-        ctx.log("第五章：中国 BD 机会矩阵...")
-        ch5_prompt = _BP_CH5_PROMPT.format(
-            crm_block=crm_block,
-            running_summary=running_summary[-1000:],
-        )
-        chapter_texts[5] = ctx.llm(
-            system=system_prompt,
-            messages=[{"role": "user", "content": ch5_prompt}],
-            max_tokens=2200,
-        )
         running_summary += f"\n\n【第五章 中国BD机会要点】{chapter_texts[5][:600]}"
-        ctx.log(f"第五章完成（{len(chapter_texts[5])}字）")
-
-        # ── Chapter 6: 高管画像 & 决策人 ──
-        ctx.log("第六章：高管画像 & 决策人...")
-        ch6_prompt = _BP_CH6_PROMPT.format(
-            crm_block=crm_block,
-            web_block=web_block,
-            running_summary=running_summary[-1000:],
-        )
-        chapter_texts[6] = ctx.llm(
-            system=system_prompt,
-            messages=[{"role": "user", "content": ch6_prompt}],
-            max_tokens=1800,
-        )
         running_summary += f"\n\n【第六章 高管画像要点】{chapter_texts[6][:500]}"
-        ctx.log(f"第六章完成（{len(chapter_texts[6])}字）")
-
-        # ── Chapter 7: 交易结构参考 ──
-        ctx.log("第七章：交易结构参考...")
-        ch7_prompt = _BP_CH7_PROMPT.format(
-            crm_block=crm_block,
-            running_summary=running_summary[-1000:],
-        )
-        chapter_texts[7] = ctx.llm(
-            system=system_prompt,
-            messages=[{"role": "user", "content": ch7_prompt}],
-            max_tokens=1800,
-        )
         running_summary += f"\n\n【第七章 交易结构要点】{chapter_texts[7][:500]}"
-        ctx.log(f"第七章完成（{len(chapter_texts[7])}字）")
 
-        # ── Chapter 8: BD 攻略 & 推荐行动 ──
+        # ── Batch C: Chapter 8 (sequential — final synthesis) ──
         ctx.log("第八章：BD 攻略 & 推荐行动...")
-        ch8_prompt = _BP_CH8_PROMPT.format(
-            running_summary=running_summary[-1000:],
+        _, chapter_texts[8] = _run_ch(
+            8,
+            _BP_CH8_PROMPT.format(running_summary=running_summary[-1000:]),
+            1500,
         )
-        chapter_texts[8] = ctx.llm(
-            system=system_prompt,
-            messages=[{"role": "user", "content": ch8_prompt}],
-            max_tokens=1500,
-        )
-        ctx.log(f"第八章完成（{len(chapter_texts[8])}字）")
 
         # Phase 4: Merge chapters + header
         header = (
