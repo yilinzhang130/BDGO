@@ -21,12 +21,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_TIMEOUT = 300.0
 
 # Shared sync HTTP client — avoids a fresh TCP+TLS handshake for every report
-# chapter. keepalive_connections=10 matches the typical MiniMax endpoint pool;
-# max_connections=20 leaves headroom for burst parallelism (dd_checklist
-# batches up to 3 concurrent calls). Timeout is set per-request so callers
-# that need a shorter fence can still override.
+# chapter. buyer_profile now runs up to 6 parallel chapters across 2 batches
+# (max_workers=2 + max_workers=4) and up to REPORT_MAX_WORKERS=6 concurrent
+# reports, giving a worst-case of 6×4 = 24 simultaneous LLM threads. Set
+# max_connections=40 so threads never queue for a connection and nullify the
+# parallelism benefit. Timeout is set per-request by callers.
 _http_client = httpx.Client(
-    limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+    limits=httpx.Limits(max_keepalive_connections=20, max_connections=40),
 )
 atexit.register(_http_client.close)
 

@@ -12,6 +12,7 @@ Supported sessions (auto-discovered from directory names):
 from __future__ import annotations
 
 import logging
+import time as _time
 
 from config import CONFERENCES_DIR
 from fastapi import APIRouter, HTTPException, Query, Request, Response
@@ -80,17 +81,33 @@ def _session_etag(session_id: str) -> str:
         return f'"{session_id}-0"'
 
 
+# Cache _sessions_etag for 30 s to avoid O(N) stat() on every non-304 request.
+# Conference data only changes on deploy, so a 30-second TTL is more than enough.
+_sessions_etag_cache: tuple[str, float] | None = None
+_SESSIONS_ETAG_TTL = 30.0
+
+
 def _sessions_etag() -> str:
-    """ETag for the sessions list — max mtime across all report_data.json files."""
+    """ETag for the sessions list — max mtime across all report_data.json files.
+
+    Result is cached for _SESSIONS_ETAG_TTL seconds to avoid iterating the
+    directory and calling os.stat() on every request.
+    """
+    global _sessions_etag_cache
+    now = _time.monotonic()
+    if _sessions_etag_cache is not None and now - _sessions_etag_cache[1] < _SESSIONS_ETAG_TTL:
+        return _sessions_etag_cache[0]
     try:
         mtimes = [
             p.stat().st_mtime
             for p in CONFERENCES_DIR.iterdir()
             if p.is_dir() and (p / "report_data.json").exists()
         ]
-        return f'"sessions-{int(max(mtimes, default=0))}"'
+        etag = f'"sessions-{int(max(mtimes, default=0))}"'
     except OSError:
-        return '"sessions-0"'
+        etag = '"sessions-0"'
+    _sessions_etag_cache = (etag, now)
+    return etag
 
 
 def _cache_hit(request: Request, etag: str) -> bool:
