@@ -6,32 +6,77 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+import time
 
 import auth as auth_mod
 import config
 from auth_db import transaction
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 
 _logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
+# Simple in-memory per-IP rate limiter (SEC-002)
+#
+# Limits POST /login and /register to 10 attempts per IP per 60 s.
+# NOTE: This is process-local — a multi-worker deployment (multiple uvicorn
+# processes) gets N × limit per window.  For stricter enforcement, replace
+# with a Redis-backed counter (e.g. slowapi + redis).
+# ---------------------------------------------------------------------------
+
+_RL_MAX_ATTEMPTS = 10       # max requests per IP per window
+_RL_WINDOW_SECONDS = 60.0   # sliding window length in seconds
+
+# ip → (attempt_count, window_start_monotonic)
+_rl_store: dict[str, tuple[int, float]] = {}
+_rl_lock = threading.Lock()
+
+
+def _auth_rate_limit(request: Request) -> None:
+    """Raise HTTP 429 if the requesting IP exceeds the login/register rate limit."""
+    ip = (request.client.host if request.client else None) or "unknown"
+    now = time.monotonic()
+    with _rl_lock:
+        count, window_start = _rl_store.get(ip, (0, now))
+        if now - window_start > _RL_WINDOW_SECONDS:
+            # New window — reset counter
+            _rl_store[ip] = (1, now)
+        elif count >= _RL_MAX_ATTEMPTS:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many attempts. Please try again later.",
+                headers={"Retry-After": str(int(_RL_WINDOW_SECONDS))},
+            )
+        else:
+            _rl_store[ip] = (count + 1, window_start)
+
+
+# ---------------------------------------------------------------------------
 # Request / response models
 # ---------------------------------------------------------------------------
+
+# SEC-003: Limit password length before it reaches bcrypt.
+# bcrypt only uses the first 72 bytes, but encoding an arbitrarily long
+# string (e.g. 10 MB) still adds encode() overhead under concurrency.
+# 128 characters comfortably covers any reasonable real-world password.
+_MAX_PASSWORD_LENGTH = 128
 
 
 class RegisterRequest(BaseModel):
     email: str
-    password: str
+    password: str = Field(..., max_length=_MAX_PASSWORD_LENGTH)
     name: str
     invite_code: str
 
 
 class LoginRequest(BaseModel):
     email: str
-    password: str
+    # max_length enforced here too so /login can't be used as the DoS vector
+    password: str = Field(..., max_length=_MAX_PASSWORD_LENGTH)
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -86,8 +131,9 @@ from auth import serialize_user_row as _user_dict
 
 
 @router.post("/register", response_model=AuthResponse)
-def register(body: RegisterRequest):
+def register(body: RegisterRequest, request: Request):
     """Create a new email/password account (requires a valid invite code)."""
+    _auth_rate_limit(request)
     if not _EMAIL_RE.match(body.email):
         raise HTTPException(status_code=400, detail="Invalid email format")
     if len(body.password) < 6:
@@ -143,8 +189,9 @@ def register(body: RegisterRequest):
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(body: LoginRequest):
+def login(body: LoginRequest, request: Request):
     """Authenticate with email + password."""
+    _auth_rate_limit(request)
     with transaction() as cur:
         cur.execute(
             f"SELECT hashed_password, {_USER_COLUMNS} FROM users WHERE email = %s",
