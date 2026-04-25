@@ -224,6 +224,10 @@ export default function ChatPage() {
                   onPlanConfirm={(ids) => handlePlanConfirm(m.id, ids)}
                   onPlanSkip={() => handlePlanSkip(m.id)}
                   onPlanCancel={() => handlePlanCancel(m.id)}
+                  onSuggestedCommand={(cmd) => {
+                    setInput(cmd);
+                    inputRef.current = cmd;
+                  }}
                 />
               ))}
             </div>

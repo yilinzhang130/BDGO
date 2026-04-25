@@ -36,6 +36,7 @@ interface Props {
   onPlanConfirm?: (selectedIds: string[]) => void;
   onPlanSkip?: () => void;
   onPlanCancel?: () => void;
+  onSuggestedCommand?: (command: string) => void;
 }
 
 // ── Tool display config ──────────────────────────────────────────────
@@ -148,13 +149,29 @@ const REPORT_LABELS: Record<string, string> = {
   clinical_brief: "临床指南简报",
 };
 
-function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
+interface SuggestedCommand {
+  label: string;
+  command: string;
+  slug: string;
+}
+
+interface ReportTaskCardProps extends ReportTask {
+  onSuggestedCommand?: (command: string) => void;
+}
+
+function ReportTaskCard({
+  task_id,
+  slug,
+  estimated_seconds,
+  onSuggestedCommand,
+}: ReportTaskCardProps) {
   const { token } = useAuth();
   // `currentTaskId` is what we're actually polling; it swaps to a new id on retry.
   const [currentTaskId, setCurrentTaskId] = useState(task_id);
   const [status, setStatus] = useState<"polling" | "completed" | "failed">("polling");
   const [markdown, setMarkdown] = useState<string>("");
   const [files, setFiles] = useState<ReportFile[]>([]);
+  const [suggestedCommands, setSuggestedCommands] = useState<SuggestedCommand[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string>("");
   const [errorExpanded, setErrorExpanded] = useState(false);
@@ -204,6 +221,8 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
           doneRef.current = true;
           setMarkdown(data.result?.markdown || "");
           setFiles(data.result?.files || []);
+          const sc = data.result?.meta?.suggested_commands;
+          setSuggestedCommands(Array.isArray(sc) ? sc : []);
           setStatus("completed");
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (data.status === "failed") {
@@ -431,6 +450,40 @@ function ReportTaskCard({ task_id, slug, estimated_seconds }: ReportTask) {
           )}
         </div>
       </div>
+      {suggestedCommands.length > 0 && onSuggestedCommand && (
+        <div
+          style={{
+            background: "#F0FDF4",
+            borderTop: "1px solid #BBF7D0",
+            padding: "8px 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontSize: 11, color: "#15803D", fontWeight: 600 }}>下一步 →</span>
+          {suggestedCommands.map((sc) => (
+            <button
+              key={sc.slug}
+              onClick={() => onSuggestedCommand(sc.command)}
+              title={sc.command}
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "4px 10px",
+                background: "#fff",
+                color: "#15803D",
+                border: "1px solid #16A34A",
+                borderRadius: 6,
+                cursor: "pointer",
+              }}
+            >
+              {sc.label}
+            </button>
+          ))}
+        </div>
+      )}
       {expanded && markdown && (
         <div
           style={{
@@ -541,6 +594,7 @@ export function ChatMessage({
   onPlanConfirm,
   onPlanSkip,
   onPlanCancel,
+  onSuggestedCommand,
 }: Props) {
   if (role === "user") {
     return (
@@ -587,7 +641,10 @@ export function ChatMessage({
         {hasTools && <ToolStepsPanel tools={tools!} isStreaming={!!streaming} />}
         {quickSources && quickSources.length > 0 && <QuickSourcesList sources={quickSources} />}
         {content && <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>}
-        {reportTasks && reportTasks.map((rt) => <ReportTaskCard key={rt.task_id} {...rt} />)}
+        {reportTasks &&
+          reportTasks.map((rt) => (
+            <ReportTaskCard key={rt.task_id} {...rt} onSuggestedCommand={onSuggestedCommand} />
+          ))}
         {error && <ErrorBox message={error} onRetry={onRetry} />}
         {streaming && !hasTools && !plan && <span className="chat-cursor">|</span>}
       </div>
