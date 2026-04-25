@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchDeals, fetchDealsByType, type PaginatedCRM, type DealTypeCount } from "@/lib/api";
+import { fetchDeals, type PaginatedCRM, type DealTypeCount } from "@/lib/api";
+import { usePaginatedTable } from "@/hooks/usePaginatedTable";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const COLUMNS = [
@@ -26,53 +27,15 @@ interface Props {
 
 export function DealsClient({ initialData, initialDealTypes }: Props) {
   const router = useRouter();
-  const [data, setData] = useState<PaginatedCRM>(initialData);
-  const [dealTypes, setDealTypes] = useState<DealTypeCount[]>(initialDealTypes);
-  const [q, setQ] = useState("");
-  const [type, setType] = useState("");
-  const [sort, setSort] = useState("宣布日期");
-  const [order, setOrder] = useState("desc");
-  const [page, setPage] = useState(1);
-  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dealTypes] = useState<DealTypeCount[]>(initialDealTypes);
 
-  const load = useCallback(
-    (
-      overrides?: Partial<{ q: string; type: string; sort: string; order: string; page: number }>,
-    ) => {
-      const params = { q, type, sort, order, page, ...overrides };
-      fetchDeals({ ...params, page_size: 50 }).then(setData);
-    },
-    [q, type, sort, order, page],
-  );
-
-  const handleSort = (col: string) => {
-    const newOrder = sort === col && order === "asc" ? "desc" : "asc";
-    const newSort = col;
-    setSort(newSort);
-    setOrder(newOrder);
-    setPage(1);
-    load({ sort: newSort, order: newOrder, page: 1 });
-  };
-
-  const handleQ = (val: string) => {
-    setQ(val);
-    if (searchDebounce.current) clearTimeout(searchDebounce.current);
-    searchDebounce.current = setTimeout(() => {
-      setPage(1);
-      load({ q: val, page: 1 });
-    }, 300);
-  };
-
-  const handleType = (val: string) => {
-    setType(val);
-    setPage(1);
-    load({ type: val, page: 1 });
-  };
-
-  const handlePage = (pg: number) => {
-    setPage(pg);
-    load({ page: pg });
-  };
+  const { data, sort, order, handleSort, handleFilter, handlePage } = usePaginatedTable({
+    fetchFn: fetchDeals,
+    initialData,
+    defaultSort: "宣布日期",
+    defaultOrder: "desc",
+    defaultFilters: { q: "", type: "" },
+  });
 
   return (
     <div>
@@ -98,11 +61,11 @@ export function DealsClient({ initialData, initialDealTypes }: Props) {
       <div className="filter-bar">
         <input
           placeholder="Search deal / company / asset..."
-          defaultValue={q}
-          onChange={(e) => handleQ(e.target.value)}
+          defaultValue=""
+          onChange={(e) => handleFilter("q", e.target.value)}
           style={{ width: 260 }}
         />
-        <select defaultValue={type} onChange={(e) => handleType(e.target.value)}>
+        <select defaultValue="" onChange={(e) => handleFilter("type", e.target.value)}>
           <option value="">All Types</option>
           {dealTypes.map((d) => (
             <option key={d.type} value={d.type}>
