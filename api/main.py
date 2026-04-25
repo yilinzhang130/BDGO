@@ -7,6 +7,7 @@ Auth / sessions / credits / report history live in a separate Postgres
 managed by ``auth_db.py``.
 """
 
+import asyncio
 import json
 import logging
 import traceback
@@ -97,6 +98,29 @@ from routers import credits as credits_router
 from routers import sessions as sessions_router
 
 
+_RECLAIM_INTERVAL_SECONDS = 15 * 60  # M-026: sweep every 15 minutes
+
+
+async def _periodic_reclaim() -> None:
+    """Background task: reclaim stale report tasks every 15 minutes.
+
+    M-026: reclaim_stale_tasks was previously called only at startup, so tasks
+    that hang after startup would remain stuck as ``running`` until the next
+    server restart.  This loop ensures they are cleaned up within one interval.
+    """
+    _log = logging.getLogger(__name__)
+    while True:
+        await asyncio.sleep(_RECLAIM_INTERVAL_SECONDS)
+        try:
+            from services.report_builder import reclaim_stale_tasks
+
+            reclaimed = reclaim_stale_tasks()
+            if reclaimed:
+                _log.info("Periodic reclaim: cleaned up %d stale report task(s)", reclaimed)
+        except Exception:
+            _log.exception("Periodic reclaim: reclaim_stale_tasks failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Build the LLM key pool + shared httpx client on startup, close on shutdown.
@@ -117,9 +141,19 @@ async def lifespan(app: FastAPI):
         reclaim_stale_tasks()
     except Exception:
         logging.getLogger(__name__).exception("Startup: reclaim_stale_tasks failed")
+
+    # M-026: start periodic background sweep (every 15 min) so stale tasks
+    # that hang after startup are also reclaimed during long-running deployments.
+    reclaim_task = asyncio.create_task(_periodic_reclaim(), name="periodic_reclaim")
+
     try:
         yield
     finally:
+        reclaim_task.cancel()
+        try:
+            await reclaim_task
+        except asyncio.CancelledError:
+            pass
         # Mark any tasks still running on this worker as failed before the
         # executor is torn down. The next startup's reclaim_stale_tasks would
         # handle them too, but marking them here gives users immediate feedback.

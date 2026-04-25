@@ -4,7 +4,7 @@ from auth import get_current_user
 from auth_db import transaction
 from crm_store import like_contains
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
@@ -18,8 +18,10 @@ VALID_ENTITY_TYPES = {"company", "asset", "disease", "target", "incubator"}
 
 class WatchlistAdd(BaseModel):
     entity_type: str
-    entity_key: str
-    notes: str | None = None
+    # M-027: max_length guards against an LLM tool call passing an arbitrarily
+    # long string that would overflow the DB column or spike memory.
+    entity_key: str = Field(..., max_length=500)
+    notes: str | None = Field(None, max_length=2000)
 
 
 class WatchlistCheckResponse(BaseModel):
@@ -44,7 +46,14 @@ def list_watchlist(
     conditions = ["user_id = %s"]
     params: list = [user["id"]]
 
-    if type and type in VALID_ENTITY_TYPES:
+    if type:
+        # A-002: Reject unknown type values rather than silently ignoring them.
+        # POST /watchlist raises 400 for invalid entity_type; GET should be consistent.
+        if type not in VALID_ENTITY_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid type filter. Must be one of: {', '.join(sorted(VALID_ENTITY_TYPES))}",
+            )
         conditions.append("entity_type = %s")
         params.append(type)
 
