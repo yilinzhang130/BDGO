@@ -63,6 +63,14 @@ export default function ChatPage() {
       if (storedSearch === "agent" || storedSearch === "quick") setSearchMode(storedSearch);
     } catch {}
     if (!activeId) createSession();
+    // One-shot prefill from upload page hand-off (asset → /teaser flow)
+    try {
+      const prefill = sessionStorage.getItem("bdgo.chat.prefill");
+      if (prefill) {
+        sessionStorage.removeItem("bdgo.chat.prefill");
+        setInput(prefill);
+      }
+    } catch {}
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cyclePlanMode = () => {

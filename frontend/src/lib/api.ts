@@ -351,11 +351,28 @@ export const fetchTaskStatus = (taskId: string) =>
   get<TaskStatusResponse>(`${BASE}/tasks/status/${taskId}`);
 
 // Upload with XHR so callers can receive progress events (Fetch has no upload progress)
+export interface ExtractedAsset {
+  company_name?: string;
+  asset_name?: string;
+  indication?: string;
+  target?: string;
+  phase?: string;
+  moa?: string;
+}
+
+export interface SuggestedCommand {
+  label: string;
+  command: string;
+  slug: string;
+}
+
 export interface UploadBPResponse {
   file_id: string;
   filename: string;
   size: number;
   text_preview?: string;
+  extracted_asset?: ExtractedAsset;
+  suggested_commands?: SuggestedCommand[];
 }
 
 export function uploadBP(
