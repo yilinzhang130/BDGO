@@ -144,10 +144,10 @@ def test_suggested_commands_cda_without_counterparty():
     assert svc._build_suggested_commands(inp) == []
 
 
-def test_suggested_commands_non_cda_ts_silent():
-    """Contract types with no wired handoff return empty list."""
+def test_suggested_commands_end_of_lifecycle_silent():
+    """license / co_dev / spa are end-of-lifecycle — no further chip."""
     svc = LegalReviewService()
-    for ct in ("mta", "license", "co_dev", "spa"):
+    for ct in ("license", "co_dev", "spa"):
         inp = LegalReviewInput(
             contract_type=ct,
             party_position="甲方",
@@ -155,6 +155,37 @@ def test_suggested_commands_non_cda_ts_silent():
             counterparty="Foo Pharma",
         )
         assert svc._build_suggested_commands(inp) == [], f"{ct} should not suggest"
+
+
+def test_suggested_commands_mta_emits_license():
+    """MTA review → offer License Agreement as next step."""
+    svc = LegalReviewService()
+    inp = LegalReviewInput(
+        contract_type="mta",
+        party_position="乙方",
+        contract_text="x",
+        counterparty="Eli Lilly",
+        project_name="PEG-001 (NSCLC)",
+    )
+    sc = svc._build_suggested_commands(inp)
+    assert len(sc) == 1
+    assert sc[0]["slug"] == "legal-review"
+    assert sc[0]["label"] == "Draft License Agreement"
+    cmd = sc[0]["command"]
+    assert "contract_type=license" in cmd
+    assert 'party_position="乙方"' in cmd
+    assert 'counterparty="Eli Lilly"' in cmd
+    assert 'project_name="PEG-001 (NSCLC)"' in cmd
+
+
+def test_suggested_commands_mta_without_counterparty():
+    """MTA with no counterparty still emits the license chip (fields omitted)."""
+    svc = LegalReviewService()
+    inp = LegalReviewInput(contract_type="mta", party_position="甲方", contract_text="x")
+    sc = svc._build_suggested_commands(inp)
+    assert len(sc) == 1
+    assert "contract_type=license" in sc[0]["command"]
+    assert "counterparty" not in sc[0]["command"]
 
 
 def test_suggested_commands_ts_emits_license_and_codev():
