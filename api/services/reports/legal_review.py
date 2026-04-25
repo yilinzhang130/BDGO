@@ -487,7 +487,14 @@ class LegalReviewService(ReportService):
         return text[:_MAX_CONTRACT_CHARS], True
 
     def _build_suggested_commands(self, inp: LegalReviewInput) -> list[dict]:
-        """BD lifecycle next-step chips by contract type."""
+        """BD lifecycle next-step chips by contract type.
+
+        Lifecycle flow:
+          cda  → /dd (due diligence)
+          ts   → /legal license | /legal co_dev  (definitive agreement)
+          mta  → /legal license  (MTA is often a precursor to licensing)
+          license / co_dev / spa → [] (end of lifecycle)
+        """
         if inp.contract_type == "cda" and inp.counterparty:
             return [
                 {
@@ -500,7 +507,26 @@ class LegalReviewService(ReportService):
         if inp.contract_type == "ts":
             return self._ts_next_steps(inp)
 
+        if inp.contract_type == "mta":
+            return self._mta_next_steps(inp)
+
+        # license / co_dev / spa — end of lifecycle, no further chip
         return []
+
+    def _mta_next_steps(self, inp: LegalReviewInput) -> list[dict]:
+        """After MTA review → offer the License Agreement (most common next step)."""
+        parts = ["/legal contract_type=license", f' party_position="{inp.party_position}"']
+        if inp.counterparty:
+            parts.append(f' counterparty="{inp.counterparty}"')
+        if inp.project_name:
+            parts.append(f' project_name="{inp.project_name}"')
+        return [
+            {
+                "label": "Draft License Agreement",
+                "command": "".join(parts),
+                "slug": "legal-review",
+            }
+        ]
 
     def _ts_next_steps(self, inp: LegalReviewInput) -> list[dict]:
         """After term sheet review → offer the two most common definitive agreements."""
