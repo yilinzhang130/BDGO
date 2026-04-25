@@ -33,6 +33,7 @@ export const SLASH_COMMANDS: Omit<
   { alias: "legal", slug: "legal-review" },
   { alias: "email", slug: "outreach-email" },
   { alias: "company", slug: "company-analysis" },
+  { alias: "synthesize", slug: "bd-synthesize" },
   { alias: "timing", slug: "timing-advisor" },
   { alias: "log", slug: "outreach-log" },
   { alias: "outreach", slug: "outreach-list" },
