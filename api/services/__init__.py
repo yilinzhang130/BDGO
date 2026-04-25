@@ -19,6 +19,8 @@ from services.reports.disease_landscape import DiseaseLandscapeService
 from services.reports.ip_landscape import IPLandscapeService
 from services.reports.legal_review import LegalReviewService
 from services.reports.outreach_email import OutreachEmailService
+from services.reports.outreach_list import OutreachListService
+from services.reports.outreach_log import OutreachLogService
 from services.reports.paper_analysis import PaperAnalysisService
 from services.reports.rnpv_valuation import RNPVValuationService
 from services.reports.target_radar import TargetRadarService
@@ -37,6 +39,8 @@ REPORT_SERVICES: dict[str, ReportService] = {
     IPLandscapeService.slug: IPLandscapeService(),
     LegalReviewService.slug: LegalReviewService(),
     OutreachEmailService.slug: OutreachEmailService(),
+    OutreachListService.slug: OutreachListService(),
+    OutreachLogService.slug: OutreachLogService(),
     RNPVValuationService.slug: RNPVValuationService(),
     TargetRadarService.slug: TargetRadarService(),
     TimingAdvisorService.slug: TimingAdvisorService(),

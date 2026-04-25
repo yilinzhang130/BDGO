@@ -347,12 +347,29 @@ class OutreachEmailService(ReportService):
     def _build_suggested_commands(self, inp: OutreachEmailInput) -> list[dict]:
         """Lifecycle next-step chips after an outreach email is drafted.
 
-        Map: purpose → likely next BD action.
-        Most are seller-perspective; buyer perspective often inverts.
+        Universal first chip: /log this event so it shows up in the
+        outreach pipeline. Then purpose-specific downstream chip.
         """
-        # Cold outreach → likely next is CDA once they reply. Don't over-suggest.
+        # Build the /log chip — applies to every purpose
+        log_parts = [
+            "/log",
+            f' to_company="{inp.to_company}"',
+            f" purpose={inp.purpose}",
+            " status=sent",
+            f" perspective={inp.from_perspective}",
+        ]
+        if inp.asset_context:
+            log_parts.append(f' asset_context="{inp.asset_context}"')
+        log_chip = {
+            "label": "Log as Sent",
+            "command": "".join(log_parts),
+            "slug": "outreach-log",
+        }
+
+        # Purpose-specific downstream
+        downstream: list[dict] = []
         if inp.purpose == "cold_outreach":
-            return [
+            downstream.append(
                 {
                     "label": "Draft CDA / NDA",
                     "command": (
@@ -361,15 +378,15 @@ class OutreachEmailService(ReportService):
                     ),
                     "slug": "legal-review",
                 }
-            ]
-        # CDA followup → if they sign, next is DD checklist
-        if inp.purpose == "cda_followup":
-            return [
+            )
+        elif inp.purpose == "cda_followup":
+            downstream.append(
                 {
                     "label": "Run DD Checklist",
                     "command": f'/dd company="{inp.to_company}"',
                     "slug": "dd-checklist",
                 }
-            ]
-        # Data room / meeting / follow-up have no obvious single next step
-        return []
+            )
+        # data_room / term_sheet_send / meeting_request / follow_up: no extra chip
+
+        return [log_chip] + downstream

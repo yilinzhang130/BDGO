@@ -217,6 +217,34 @@ CREATE TABLE IF NOT EXISTS inbox_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_inbox_messages_created
     ON inbox_messages(created_at DESC);
+
+-- BD outreach event log (per-user). Append-only event stream — each row is
+-- one outreach action / status update at a point in time. To "update" a
+-- thread, insert a new event with the new status, not an UPDATE. This
+-- keeps a faithful timeline + simpler logic. See services/reports/
+-- outreach_log.py and outreach_list.py for the chat-facing /log + /outreach
+-- commands.
+CREATE TABLE IF NOT EXISTS outreach_log (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id VARCHAR(12),                     -- optional link to chat session
+    to_company VARCHAR(255) NOT NULL,
+    to_contact VARCHAR(255),                    -- 'Sarah Chen, Head of External Innovation'
+    purpose VARCHAR(40) NOT NULL,               -- cold_outreach / cda_followup / data_room / ts_send / meeting / follow_up
+    channel VARCHAR(20) NOT NULL DEFAULT 'email',  -- email / linkedin / phone / in_person / other
+    status VARCHAR(30) NOT NULL DEFAULT 'sent',    -- sent / replied / meeting / cda_signed / ts_signed / passed / dead
+    asset_context VARCHAR(255),                 -- 'PEG-001 — NSCLC'
+    perspective VARCHAR(10),                    -- 'buyer' / 'seller' (whose POV)
+    subject TEXT,                               -- email subject if applicable
+    notes TEXT,                                 -- free-form notes
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_outreach_user_company
+    ON outreach_log(user_id, to_company);
+CREATE INDEX IF NOT EXISTS idx_outreach_user_status
+    ON outreach_log(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_outreach_user_created
+    ON outreach_log(user_id, created_at DESC);
 """
 
 # ---------------------------------------------------------------------------

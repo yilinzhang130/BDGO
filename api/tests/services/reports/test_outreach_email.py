@@ -141,36 +141,57 @@ def test_compose_markdown_includes_metadata_and_body():
     assert "Body here." in md
 
 
-def test_suggested_commands_cold_outreach_offers_cda():
-    """Cold outreach → next step is CDA."""
+def test_suggested_commands_cold_outreach_offers_log_and_cda():
+    """Cold outreach → /log first, then /legal cda."""
     svc = OutreachEmailService()
     inp = OutreachEmailInput(to_company="Eli Lilly", purpose="cold_outreach")
     sc = svc._build_suggested_commands(inp)
-    assert len(sc) == 1
-    assert sc[0]["slug"] == "legal-review"
-    assert "contract_type=cda" in sc[0]["command"]
-    assert 'counterparty="Eli Lilly"' in sc[0]["command"]
+    assert len(sc) == 2
+    slugs = [c["slug"] for c in sc]
+    assert slugs == ["outreach-log", "legal-review"]
+    log_chip = sc[0]
+    assert log_chip["command"].startswith("/log")
+    assert 'to_company="Eli Lilly"' in log_chip["command"]
+    assert "purpose=cold_outreach" in log_chip["command"]
+    assert "status=sent" in log_chip["command"]
+    cda_chip = sc[1]
+    assert "contract_type=cda" in cda_chip["command"]
 
 
-def test_suggested_commands_cda_followup_offers_dd():
-    """CDA followup → assume signed → next is DD."""
+def test_suggested_commands_cda_followup_offers_log_and_dd():
+    """CDA followup → /log first, then /dd."""
     svc = OutreachEmailService()
     inp = OutreachEmailInput(to_company="Eli Lilly", purpose="cda_followup")
     sc = svc._build_suggested_commands(inp)
-    assert len(sc) == 1
-    assert sc[0]["slug"] == "dd-checklist"
-    assert 'company="Eli Lilly"' in sc[0]["command"]
+    assert len(sc) == 2
+    slugs = [c["slug"] for c in sc]
+    assert slugs == ["outreach-log", "dd-checklist"]
 
 
 @pytest.mark.parametrize(
     "purpose",
     ["data_room_request", "term_sheet_send", "meeting_request", "follow_up"],
 )
-def test_suggested_commands_other_purposes_silent(purpose):
-    """Mid-lifecycle / generic purposes don't auto-suggest a single next step."""
+def test_suggested_commands_other_purposes_only_log(purpose):
+    """Mid-lifecycle / generic purposes still get a /log chip but no downstream."""
     svc = OutreachEmailService()
     inp = OutreachEmailInput(to_company="X", purpose=purpose)
-    assert svc._build_suggested_commands(inp) == []
+    sc = svc._build_suggested_commands(inp)
+    assert len(sc) == 1
+    assert sc[0]["slug"] == "outreach-log"
+    assert f"purpose={purpose}" in sc[0]["command"]
+
+
+def test_suggested_commands_log_chip_includes_asset_context_when_set():
+    svc = OutreachEmailService()
+    inp = OutreachEmailInput(
+        to_company="Eli Lilly",
+        purpose="cold_outreach",
+        asset_context="PEG-001 — NSCLC",
+    )
+    sc = svc._build_suggested_commands(inp)
+    log_chip = next(c for c in sc if c["slug"] == "outreach-log")
+    assert 'asset_context="PEG-001 — NSCLC"' in log_chip["command"]
 
 
 def test_chat_tool_input_schema_required_only_to_company():
