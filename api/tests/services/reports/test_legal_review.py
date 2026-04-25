@@ -144,17 +144,59 @@ def test_suggested_commands_cda_without_counterparty():
     assert svc._build_suggested_commands(inp) == []
 
 
-def test_suggested_commands_non_cda_silent():
-    """Other contract types are later in the lifecycle — no chip yet."""
+def test_suggested_commands_non_cda_ts_silent():
+    """Contract types with no wired handoff return empty list."""
     svc = LegalReviewService()
-    for ct in ("ts", "mta", "license", "co_dev", "spa"):
+    for ct in ("mta", "license", "co_dev", "spa"):
         inp = LegalReviewInput(
             contract_type=ct,
             party_position="甲方",
             contract_text="x",
             counterparty="Foo Pharma",
         )
-        assert svc._build_suggested_commands(inp) == [], f"non-CDA {ct} should not suggest"
+        assert svc._build_suggested_commands(inp) == [], f"{ct} should not suggest"
+
+
+def test_suggested_commands_ts_emits_license_and_codev():
+    """Stage 6: TS review → offer License Agreement + Co-Dev Agreement chips."""
+    svc = LegalReviewService()
+    inp = LegalReviewInput(
+        contract_type="ts",
+        party_position="乙方",
+        contract_text="x",
+        counterparty="Eli Lilly",
+        project_name="PEG-001 (NSCLC)",
+    )
+    sc = svc._build_suggested_commands(inp)
+    slugs = [c["slug"] for c in sc]
+    assert slugs.count("legal-review") == 2
+    cmds = [c["command"] for c in sc]
+    license_cmd = next(c for c in cmds if "contract_type=license" in c)
+    codev_cmd = next(c for c in cmds if "contract_type=co_dev" in c)
+    for cmd in (license_cmd, codev_cmd):
+        assert 'counterparty="Eli Lilly"' in cmd
+        assert 'project_name="PEG-001 (NSCLC)"' in cmd
+        assert 'party_position="乙方"' in cmd
+
+
+def test_suggested_commands_ts_without_counterparty():
+    """TS with no counterparty still emits chips (counterparty field omitted)."""
+    svc = LegalReviewService()
+    inp = LegalReviewInput(contract_type="ts", party_position="甲方", contract_text="x")
+    sc = svc._build_suggested_commands(inp)
+    assert len(sc) == 2
+    for c in sc:
+        assert "counterparty" not in c["command"]
+
+
+def test_suggested_commands_ts_labels():
+    """Chip labels are human-readable."""
+    svc = LegalReviewService()
+    inp = LegalReviewInput(contract_type="ts", party_position="乙方", contract_text="x")
+    sc = svc._build_suggested_commands(inp)
+    labels = {c["label"] for c in sc}
+    assert "Draft License Agreement" in labels
+    assert "Draft Co-Dev Agreement" in labels
 
 
 def test_chat_tool_input_schema_is_well_formed():

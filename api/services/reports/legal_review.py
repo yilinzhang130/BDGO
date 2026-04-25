@@ -487,9 +487,7 @@ class LegalReviewService(ReportService):
         return text[:_MAX_CONTRACT_CHARS], True
 
     def _build_suggested_commands(self, inp: LegalReviewInput) -> list[dict]:
-        """BD lifecycle next-step chips. Only CDA → /dd is wired today;
-        other contract types come later in the pipeline and will be added
-        as those stages get validated."""
+        """BD lifecycle next-step chips by contract type."""
         if inp.contract_type == "cda" and inp.counterparty:
             return [
                 {
@@ -498,7 +496,36 @@ class LegalReviewService(ReportService):
                     "slug": "dd-checklist",
                 }
             ]
+
+        if inp.contract_type == "ts":
+            return self._ts_next_steps(inp)
+
         return []
+
+    def _ts_next_steps(self, inp: LegalReviewInput) -> list[dict]:
+        """After term sheet review → offer the two most common definitive agreements."""
+        base = {
+            "counterparty": f' counterparty="{inp.counterparty}"' if inp.counterparty else "",
+            "project": f' project_name="{inp.project_name}"' if inp.project_name else "",
+            "position": f' party_position="{inp.party_position}"',
+        }
+
+        def _cmd(contract_type: str) -> str:
+            return (
+                f"/legal contract_type={contract_type}"
+                f"{base['position']}"
+                f"{base['counterparty']}"
+                f"{base['project']}"
+            )
+
+        return [
+            {
+                "label": "Draft License Agreement",
+                "command": _cmd("license"),
+                "slug": "legal-review",
+            },
+            {"label": "Draft Co-Dev Agreement", "command": _cmd("co_dev"), "slug": "legal-review"},
+        ]
 
     def _compose_title(self, inp: LegalReviewInput, contract_type_name: str) -> str:
         parts = []
