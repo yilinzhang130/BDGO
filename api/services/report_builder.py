@@ -77,8 +77,9 @@ class ReportContext:
       - Progress logging visible to users via status endpoint
     """
 
-    def __init__(self, task_id: str, progress_log: list[str]):
+    def __init__(self, task_id: str, progress_log: list[str], user_id: str | None = None):
         self.task_id = task_id
+        self.user_id = user_id  # owning user; None for legacy / unauthenticated paths
         self._progress_log = progress_log
         self._output_dir = REPORTS_DIR / task_id
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -483,11 +484,12 @@ def execute_task(task_id: str, service: ReportService, params: dict) -> None:
     """
     cached = _task_cache.get(task_id)
     progress_log: list[str] = cached["progress_log"] if cached else _cache_put(task_id, None, "")
+    user_id = cached["user_id"] if cached else None
 
     _update_state(task_id, status=STATUS_RUNNING, started_at=datetime.utcnow())
 
     try:
-        ctx = ReportContext(task_id, progress_log)
+        ctx = ReportContext(task_id, progress_log, user_id=user_id)
         result = service.run(params, ctx)
         if not result.files and ctx.files:
             result.files = ctx.files
