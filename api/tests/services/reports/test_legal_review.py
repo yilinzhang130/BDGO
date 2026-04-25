@@ -121,6 +121,42 @@ def test_truncate_caps_oversized_input():
     assert truncated is True
 
 
+def test_suggested_commands_cda_with_counterparty():
+    """Stage 4 of BD lifecycle: CDA + known counterparty → offer /dd."""
+    svc = LegalReviewService()
+    inp = LegalReviewInput(
+        contract_type="cda",
+        party_position="乙方",
+        contract_text="x",
+        counterparty="Eli Lilly",
+    )
+    sc = svc._build_suggested_commands(inp)
+    assert len(sc) == 1
+    assert sc[0]["slug"] == "dd-checklist"
+    assert 'company="Eli Lilly"' in sc[0]["command"]
+    assert sc[0]["command"].startswith("/dd")
+
+
+def test_suggested_commands_cda_without_counterparty():
+    """No counterparty → no useful /dd suggestion (DD needs a company)."""
+    svc = LegalReviewService()
+    inp = LegalReviewInput(contract_type="cda", party_position="乙方", contract_text="x")
+    assert svc._build_suggested_commands(inp) == []
+
+
+def test_suggested_commands_non_cda_silent():
+    """Other contract types are later in the lifecycle — no chip yet."""
+    svc = LegalReviewService()
+    for ct in ("ts", "mta", "license", "co_dev", "spa"):
+        inp = LegalReviewInput(
+            contract_type=ct,
+            party_position="甲方",
+            contract_text="x",
+            counterparty="Foo Pharma",
+        )
+        assert svc._build_suggested_commands(inp) == [], f"non-CDA {ct} should not suggest"
+
+
 def test_chat_tool_input_schema_is_well_formed():
     svc = LegalReviewService()
     schema = svc.chat_tool_input_schema
