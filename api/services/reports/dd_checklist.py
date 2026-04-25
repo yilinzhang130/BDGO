@@ -543,6 +543,8 @@ class DDChecklistService(ReportService):
         ctx.save_file(docx_name, docx_bytes, format="docx")
         ctx.log("Word 已保存")
 
+        suggested_commands = self._build_suggested_commands(inp, lead, stage)
+
         return ReportResult(
             markdown=markdown,
             meta={
@@ -555,8 +557,45 @@ class DDChecklistService(ReportService):
                 "crm_hit_assets": len(assets),
                 "web_results_count": len(web_results),
                 "inferred_fallback": bool(inferred_note),
+                "suggested_commands": suggested_commands,
             },
         )
+
+    # ── BD lifecycle: post-DD next-step chips ───────────────
+    def _build_suggested_commands(
+        self, inp: DDChecklistInput, lead: dict, stage: str
+    ) -> list[dict]:
+        """After DD completes, suggest deal valuation tools if CRM has enough asset data."""
+        asset_name = lead.get("资产名称") or inp.asset_name or ""
+        if not asset_name:
+            return []
+
+        company = inp.company
+        target = lead.get("靶点") or ""
+        indication = lead.get("适应症") or ""
+        modality = lead.get("技术平台类别") or ""
+
+        commands: list[dict] = []
+
+        if target and indication:
+            evaluate_cmd = (
+                f'/evaluate company_name="{company}" asset_name="{asset_name}"'
+                f' target="{target}" indication="{indication}" phase="{stage}"'
+            )
+            commands.append(
+                {"label": "Deal Evaluation", "command": evaluate_cmd, "slug": "deal-evaluator"}
+            )
+
+        if indication and modality:
+            rnpv_cmd = (
+                f'/rnpv company_name="{company}" asset_name="{asset_name}"'
+                f' indication="{indication}" phase="{stage}" modality="{modality}"'
+            )
+            commands.append(
+                {"label": "rNPV Valuation", "command": rnpv_cmd, "slug": "rnpv-valuation"}
+            )
+
+        return commands
 
     # ── CRM queries ─────────────────────────────────────────
     def _query_company(self, ctx: ReportContext, company: str) -> dict | None:
