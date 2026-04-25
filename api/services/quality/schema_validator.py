@@ -667,8 +667,11 @@ def validate_markdown(text: str, mode: str = "mnc") -> AuditResult:
     check_citations(full, schema, r)
     check_total_words(full, schema, r)
     check_cross_refs(sections, schema, r)
-    # Note: companion_data_pack check from harness is omitted — BDGO doesn't
-    # currently emit companion xlsx alongside the main markdown.
+    # Note: companion_data_pack check from harness is omitted here. BDGO
+    # supports xlsx output (rnpv_valuation already uses it), but
+    # BuyerProfileService v0 emits md+docx only — the v0.2.1 companion
+    # xlsx is a separate follow-up. Re-enable this check when buyer_profile
+    # starts emitting the data pack.
 
     return r
 
