@@ -451,21 +451,24 @@ class LegalReviewService(ReportService):
         ctx.save_file(docx_filename, docx_bytes, format="docx")
         ctx.log("Word document saved")
 
-        return ReportResult(
-            markdown=markdown,
-            meta={
-                "title": report_title,
-                "contract_type": inp.contract_type,
-                "contract_type_name": contract_type_name,
-                "party_position": inp.party_position,
-                "counterparty": inp.counterparty or "",
-                "project_name": inp.project_name or "",
-                "source": source_label,
-                "truncated": truncated,
-                "input_chars": len(contract_text),
-                "output_chars": len(markdown),
-            },
-        )
+        suggested_commands = self._build_suggested_commands(inp)
+
+        meta: dict = {
+            "title": report_title,
+            "contract_type": inp.contract_type,
+            "contract_type_name": contract_type_name,
+            "party_position": inp.party_position,
+            "counterparty": inp.counterparty or "",
+            "project_name": inp.project_name or "",
+            "source": source_label,
+            "truncated": truncated,
+            "input_chars": len(contract_text),
+            "output_chars": len(markdown),
+        }
+        if suggested_commands:
+            meta["suggested_commands"] = suggested_commands
+
+        return ReportResult(markdown=markdown, meta=meta)
 
     # ── helpers ─────────────────────────────────────────────
 
@@ -482,6 +485,20 @@ class LegalReviewService(ReportService):
         if len(text) <= _MAX_CONTRACT_CHARS:
             return text, False
         return text[:_MAX_CONTRACT_CHARS], True
+
+    def _build_suggested_commands(self, inp: LegalReviewInput) -> list[dict]:
+        """BD lifecycle next-step chips. Only CDA → /dd is wired today;
+        other contract types come later in the pipeline and will be added
+        as those stages get validated."""
+        if inp.contract_type == "cda" and inp.counterparty:
+            return [
+                {
+                    "label": "Run DD Checklist",
+                    "command": f'/dd company="{inp.counterparty}"',
+                    "slug": "dd-checklist",
+                }
+            ]
+        return []
 
     def _compose_title(self, inp: LegalReviewInput, contract_type_name: str) -> str:
         parts = []
