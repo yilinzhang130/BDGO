@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from services.quality import audit_to_dict, validate_markdown
 from services.quality.schema_validator import (
     AuditResult,
