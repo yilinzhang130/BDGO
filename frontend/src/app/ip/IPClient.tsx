@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchIP, deleteRecord, type PaginatedCRM } from "@/lib/api";
+import { usePaginatedTable } from "@/hooks/usePaginatedTable";
 import { statusBadgeClass } from "@/lib/badges";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
@@ -24,67 +25,21 @@ interface Props {
 
 export function IPClient({ initialData }: Props) {
   const router = useRouter();
-  const [data, setData] = useState<PaginatedCRM>(initialData);
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
-  const [jurisdiction, setJurisdiction] = useState("");
-  const [sort, setSort] = useState("到期日");
-  const [order, setOrder] = useState("asc");
-  const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  const load = useCallback(
-    (
-      overrides?: Partial<{
-        q: string;
-        status: string;
-        jurisdiction: string;
-        sort: string;
-        order: string;
-        page: number;
-      }>,
-    ) => {
-      const params = { q, status, jurisdiction, sort, order, page, ...overrides };
-      fetchIP({ ...params, page_size: 50 }).then(setData);
-    },
-    [q, status, jurisdiction, sort, order, page],
-  );
-
-  const handleSort = (col: string) => {
-    const newOrder = sort === col && order === "asc" ? "desc" : "asc";
-    setSort(col);
-    setOrder(newOrder);
-    setPage(1);
-    load({ sort: col, order: newOrder, page: 1 });
-  };
-
-  const handleQ = (val: string) => {
-    setQ(val);
-    setPage(1);
-    load({ q: val, page: 1 });
-  };
-
-  const handleStatus = (val: string) => {
-    setStatus(val);
-    setPage(1);
-    load({ status: val, page: 1 });
-  };
-
-  const handleJurisdiction = (val: string) => {
-    setJurisdiction(val);
-    setPage(1);
-    load({ jurisdiction: val, page: 1 });
-  };
-
-  const handlePage = (pg: number) => {
-    setPage(pg);
-    load({ page: pg });
-  };
+  const { data, sort, order, handleSort, handleFilter, handlePage } = usePaginatedTable({
+    fetchFn: fetchIP,
+    initialData,
+    defaultSort: "到期日",
+    defaultOrder: "asc",
+    defaultFilters: { q: "", status: "", jurisdiction: "" },
+  });
 
   const handleDelete = async (patentNo: string) => {
     await deleteRecord("IP", patentNo);
     setDeleting(null);
-    load();
+    // Re-fetch current page by triggering a no-op filter update
+    handleFilter("q", "");
   };
 
   return (
@@ -96,16 +51,16 @@ export function IPClient({ initialData }: Props) {
       <div className="filter-bar">
         <input
           placeholder="Search patent / company / asset..."
-          defaultValue={q}
-          onChange={(e) => handleQ(e.target.value)}
+          defaultValue=""
+          onChange={(e) => handleFilter("q", e.target.value)}
           style={{ width: 260 }}
         />
-        <select defaultValue={status} onChange={(e) => handleStatus(e.target.value)}>
+        <select defaultValue="" onChange={(e) => handleFilter("status", e.target.value)}>
           <option value="">All Status</option>
           <option value="有效">Active (有效)</option>
           <option value="已过期">Expired (已过期)</option>
         </select>
-        <select defaultValue={jurisdiction} onChange={(e) => handleJurisdiction(e.target.value)}>
+        <select defaultValue="" onChange={(e) => handleFilter("jurisdiction", e.target.value)}>
           <option value="">All Jurisdictions</option>
           {["US", "Europe", "China", "Japan", "Korea", "Global"].map((j) => (
             <option key={j} value={j}>

@@ -38,6 +38,7 @@ def _call_one_sync(
     messages: list[dict],
     max_tokens: int,
     timeout: float,
+    label: str = "",
 ) -> str | None:
     """Single provider attempt. Returns text on success, None on 529 overload, raises on other errors."""
     body = {
@@ -90,13 +91,14 @@ def _call_one_sync(
 
     usage = data.get("usage", {})
     logger.info(
-        "llm_call model=%s key=...%s in=%d out=%d cache_read=%d latency_ms=%d status=ok",
+        "llm_call model=%s key=...%s in=%d out=%d cache_read=%d latency_ms=%d status=ok%s",
         model.id,
         (model.api_key or "")[-6:],
         int(usage.get("input_tokens") or 0),
         int(usage.get("output_tokens") or 0),
         int(usage.get("cache_read_input_tokens") or 0),
         int((time.monotonic() - t0) * 1000),
+        f" label={label}" if label else "",
     )
 
     content_blocks = data.get("content", [])
@@ -117,6 +119,7 @@ def call_llm_sync(
     max_tokens: int = 4096,
     model_id: str = DEFAULT_MODEL_ID,
     timeout: float = DEFAULT_TIMEOUT,
+    label: str = "",
 ) -> str:
     """Call LLM non-streaming, return final assistant text.
 
@@ -136,7 +139,7 @@ def call_llm_sync(
     models_to_try = [primary] + fallback_chain(primary.id)
 
     for model in models_to_try:
-        result = _call_one_sync(model, system, messages, max_tokens, timeout)
+        result = _call_one_sync(model, system, messages, max_tokens, timeout, label=label)
         if result is None:
             logger.warning("Model %s overloaded, trying fallback", model.id)
             continue

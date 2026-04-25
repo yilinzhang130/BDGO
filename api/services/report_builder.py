@@ -98,11 +98,18 @@ class ReportContext:
         system: str,
         messages: list[dict],
         max_tokens: int = 4096,
+        label: str = "",
     ) -> str:
-        """Call LLM and return final assistant text (non-streaming)."""
+        """Call LLM and return final assistant text (non-streaming).
+
+        Args:
+            label: optional correlation tag included in the llm_call log line,
+                e.g. "ch3" for buyer_profile chapter 3. Aids debugging of
+                parallel chapter runs where logs would otherwise be indistinguishable.
+        """
         from services.external.llm import call_llm_sync
 
-        return call_llm_sync(system=system, messages=messages, max_tokens=max_tokens)
+        return call_llm_sync(system=system, messages=messages, max_tokens=max_tokens, label=label)
 
     # ── QC ──────────────────────────────────────────────────
     def qc(self, markdown: str) -> QCResult:  # noqa: F821
