@@ -41,6 +41,12 @@ export const SLASH_COMMANDS: Omit<
   { alias: "teaser", slug: "deal-teaser", example: "某 BCMA CAR-T 临床I期 寻求海外授权" },
   { alias: "legal", slug: "legal-review", example: "Term Sheet v3 重点看里程碑与终止条款" },
   { alias: "email", slug: "outreach-email", example: "向默沙东 BD 介绍我们的 KRAS G12D 资产" },
+  {
+    alias: "batch-email",
+    slug: "batch-outreach",
+    example:
+      'companies=["AstraZeneca","Pfizer","Merck","Novartis","BMS"] asset_context="KRAS G12D 抑制剂 Phase 2 NSCLC"',
+  },
   { alias: "company", slug: "company-analysis", example: "Biogen" },
   { alias: "synthesize", slug: "bd-synthesize", example: "Q2 自免 BD 策略 重点 IRF5 / TYK2" },
   { alias: "timing", slug: "timing-advisor", example: "某 Claudin18.2 ADC 何时启动海外 BD" },

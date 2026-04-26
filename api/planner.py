@@ -82,7 +82,8 @@ CRM 与搜索（基础工具）：
   - generate_deal_teaser        BD 推介 PPT + 摘要
   - generate_data_room_checklist  数据室文件清单（按 modality / stage / audience 裁剪）
   - synthesize_bd_memo          综合多份 task 输出 → BD 策略备忘
-  - draft_outreach_email        Cold outreach 邮件草稿（双向）
+  - draft_outreach_email        Cold outreach 邮件草稿（单封，双向）
+  - batch_outreach_email        批量 outreach 邮件（一次调用给 N 家 MNC，最多 10 家，接 /buyers 使用）
   - advise_outreach_timing      接触时机建议（CRM 催化剂 + 行业会议）
   - log_outreach_event          记录 outreach 事件
   - import_outreach_reply       粘贴邮件回信 → 抽 status → 自动归档
