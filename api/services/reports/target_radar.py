@@ -21,6 +21,7 @@ from pydantic import BaseModel
 
 from services.document import docx_builder
 from services.external import search
+from services.quality import audit_to_dict, validate_markdown
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -169,6 +170,43 @@ REPORT_PROMPT = """以下是靶点 **{target}** 的 CRM 数据 + 网络检索结
 
 
 # ─────────────────────────────────────────────────────────────
+# L0/L1 quality helpers
+# ─────────────────────────────────────────────────────────────
+
+_GAP_FILL_PROMPT = """以下是已生成的靶点竞争雷达 markdown 草稿，以及 Schema 校验器发现的结构性缺陷列表。
+请在**不改变已通过校验内容**的前提下，仅修补以下缺陷，输出**完整的修正后 markdown**。
+
+=== 待修补缺陷 ===
+{fail_list}
+
+=== 原始 markdown ===
+{markdown}
+
+修补规则：
+- "section_missing" → 按 7 节顺序（Executive Summary / 竞争密度 / 管线格局 / 临床证据 /
+  科学热度 / MNC 买方匹配 / Bottom Line & Recommendation）插入缺失节
+- 竞争密度节必须含竞争程度标记（🏖️/🌊/🔥/💀 之一）
+- 管线格局节必须含 Phase 分布（Phase 1/2/3 或 Approved）
+- MNC 买方匹配节必须含买方列表或表格
+- Bottom Line 节必须含综合评分（/20）
+- 数据驱动 — 若数据缺失明确写 "⚠️ 待补充"，不要编造
+- 输出整个 markdown，不加任何解释或代码块包裹
+"""
+
+
+def _build_target_gap_fill_prompt(markdown: str, audit) -> str:
+    fail_lines = [
+        f"[{f.section}] {f.message}" + (f" | 证据: {f.evidence}" if f.evidence else "")
+        for f in audit.findings
+        if f.severity == "fail"
+    ]
+    return _GAP_FILL_PROMPT.format(
+        fail_list="\n".join(f"- {line}" for line in fail_lines),
+        markdown=markdown[:60_000],
+    )
+
+
+# ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
 
@@ -284,6 +322,8 @@ class TargetRadarService(ReportService):
         ctx.save_file(docx_fn, docx_bytes, format="docx")
         ctx.log("Word document saved")
 
+        schema_audit, markdown = self._validate_and_repair(markdown, ctx)
+
         return ReportResult(
             markdown=markdown,
             meta={
@@ -294,8 +334,53 @@ class TargetRadarService(ReportService):
                 "competition_level": stats.get("competition_level", "?"),
                 "web_results": len(web_results),
                 "chapters": 7,
+                "schema_audit": schema_audit,
             },
         )
+
+    # ── L0 + L1 quality pass ────────────────────────────────
+
+    def _validate_and_repair(self, markdown: str, ctx: ReportContext) -> tuple[dict, str]:
+        """Schema audit; if FAIL>0, one targeted gap-fill LLM pass. Never raises."""
+        try:
+            audit = validate_markdown(markdown, mode="target_radar")
+            ctx.log(f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}")
+            if audit.n_fail == 0:
+                return audit_to_dict(audit), markdown
+
+            ctx.log(f"L1 gap-fill: {audit.n_fail} fail(s) — targeted patch…")
+            patched = ctx.llm(
+                system=SYSTEM_PROMPT,
+                messages=[
+                    {"role": "user", "content": _build_target_gap_fill_prompt(markdown, audit)}
+                ],
+                max_tokens=7000,
+                label="target_gap_fill",
+            )
+            if len(patched) > 500:
+                audit2 = validate_markdown(patched, mode="target_radar")
+                ctx.log(
+                    f"Post-gap-fill audit: FAIL={audit2.n_fail} "
+                    f"WARN={audit2.n_warn} (was {audit.n_fail} fail)"
+                )
+                if audit2.n_fail < audit.n_fail:
+                    schema_audit = audit_to_dict(audit2)
+                    schema_audit["gap_fill_attempted"] = True
+                    schema_audit["gap_fill_fail_before"] = audit.n_fail
+                    schema_audit["gap_fill_fail_after"] = audit2.n_fail
+                    return schema_audit, patched
+
+                ctx.log("L1 gap-fill didn't reduce FAILs — keeping original")
+            else:
+                ctx.log("L1 gap-fill produced too-short output — keeping original")
+
+            schema_audit = audit_to_dict(audit)
+            schema_audit["gap_fill_attempted"] = True
+            schema_audit["gap_fill_fail_before"] = audit.n_fail
+            return schema_audit, markdown
+        except Exception:
+            logger.exception("Schema validation failed for task %s", ctx.task_id)
+            return {"error": "validator_exception"}, markdown
 
     # ── CRM queries ─────────────────────────────────────────
     def _query_assets(

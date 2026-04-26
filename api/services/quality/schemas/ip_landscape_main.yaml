@@ -1,0 +1,77 @@
+# IP Landscape — Schema v0.1
+#
+# 校验 /ip 服务输出的 7-chapter IP/FTO 分析报告。
+# 关键校验点：
+#   1. 7 章全部存在（执行摘要 / 专利组合 / 到期日历 / 核心阻断专利 /
+#      竞争对手格局 / 空白区域 / BD战略建议）
+#   2. 执行摘要含 FTO 风险等级（🔴/🟡/🟢 或 high/medium/low）
+#   3. 核心阻断专利章含专利号或"无可见"声明
+#   4. BD 建议章存在
+#   5. 禁止 meta leakage
+
+report_type: ip_landscape
+schema_version: "0.1"
+
+target_total_words:
+  min: 1000
+  max: 12000
+
+sections:
+  - id: exec_summary
+    name: 第一章 执行摘要 & 风险概览
+    heading_patterns:
+      - '第一章|执行摘要|Executive\s*Summary|1[\.、\s].*执行摘要|1[\.、\s].*风险概览'
+    required: true
+    must_contain_one_of:
+      - '🔴|🟡|🟢|高风险|中等风险|低风险|high.*risk|medium.*risk|low.*risk|FTO|freedom.to.operate'
+
+  - id: patent_portfolio
+    name: 第二章 专利组合全貌
+    heading_patterns:
+      - '第二章|专利组合|Patent\s*Portfolio|2[\.、\s].*专利'
+    required: true
+    must_contain_one_of:
+      - '\|.*\|.*\||专利|patent|US\d|CN\d|EP\d|\d{4}/\d+'
+
+  - id: expiry_calendar
+    name: 第三章 专利到期日历
+    heading_patterns:
+      - '第三章|到期日历|Expiry|到期|3[\.、\s].*到期|3[\.、\s].*日历'
+    required: true
+    must_contain_one_of:
+      - '20\d\d|到期|expir|年'
+
+  - id: blocking_patents
+    name: 第四章 核心阻断专利
+    heading_patterns:
+      - '第四章|核心阻断|Blocking\s*Patent|4[\.、\s].*阻断|4[\.、\s].*核心'
+    required: true
+    must_contain_one_of:
+      - 'US\d|CN\d|EP\d|\d{4}/\d+|无可见|无公开|no\s*blocking|专利号'
+
+  - id: competitor_landscape
+    name: 第五章 竞争对手专利格局
+    heading_patterns:
+      - '第五章|竞争对手.*专利|Competitor.*Patent|5[\.、\s].*竞争|5[\.、\s].*专利'
+    required: true
+
+  - id: whitespace
+    name: 第六章 空白区域分析
+    heading_patterns:
+      - '第六章|空白区域|Whitespace|6[\.、\s].*空白'
+    required: true
+
+  - id: bd_strategy
+    name: 第七章 BD 战略建议
+    heading_patterns:
+      - '第七章|BD\s*战略|BD\s*Strategy|BD\s*建议|7[\.、\s].*BD|7[\.、\s].*战略'
+    required: true
+
+quality_rules:
+  banned_patterns:
+    - pattern: '不要编造|请不要|AI无法|语言模型'
+      category: meta_leakage
+      severity: high
+    - pattern: '行业领先|industry-leading'
+      category: marketing_hyperbole
+      severity: medium

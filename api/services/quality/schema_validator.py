@@ -46,6 +46,9 @@ _SCHEMA_BY_MODE: dict[str, str] = {
     "timing_advisor": "timing_advisor_main.yaml",
     "deal_evaluator": "deal_evaluator_main.yaml",
     "dd_checklist": "dd_checklist_main.yaml",
+    "target_radar": "target_radar_main.yaml",
+    "disease_landscape": "disease_landscape_main.yaml",
+    "ip_landscape": "ip_landscape_main.yaml",
 }
 
 
