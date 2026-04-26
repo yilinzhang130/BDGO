@@ -245,3 +245,41 @@ def test_chat_tool_input_schema(svc):
     assert set(schema["properties"]["perspective"]["enum"]) == {"buyer", "seller", "neutral"}
     assert "focus" in schema["properties"]
     assert "include_web_search" in schema["properties"]
+
+
+# ── L0/L1 quality pass (gap-fill prompt builder) ───────────
+
+
+def test_gap_fill_prompt_filters_warns_and_includes_markdown():
+    from services.reports.company_analysis import _build_gap_fill_prompt
+
+    class FakeFinding:
+        severity = "fail"
+        section = "team"
+        message = "缺 leadership 角色"
+        evidence = ""
+
+    class FakeWarn:
+        severity = "warn"
+        section = "writing/marketing_hyperbole"
+        message = "industry-leading"
+        evidence = ""
+
+    class FakeAudit:
+        findings = [FakeFinding(), FakeWarn()]
+
+    prompt = _build_gap_fill_prompt("# Company\n\ncontent", FakeAudit())
+    assert "[team] 缺 leadership 角色" in prompt
+    assert "industry-leading" not in prompt
+    assert "# Company" in prompt
+
+
+def test_gap_fill_prompt_truncates_long_markdown():
+    from services.reports.company_analysis import _build_gap_fill_prompt
+
+    class FakeAudit:
+        findings = []
+
+    huge_md = "x" * 70_000
+    prompt = _build_gap_fill_prompt(huge_md, FakeAudit())
+    assert prompt.count("x") <= 60_000

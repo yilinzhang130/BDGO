@@ -1,0 +1,102 @@
+# Company Analysis — Schema v0.1
+#
+# 校验 /company 服务输出的 8-section 公司分析报告。
+# 关键校验点：
+#   1. 8 节全部存在（一页摘要 / 公司基本面 / 管线 / BD 历史 / 团队 /
+#      战略缺口 / 风险提示 / 建议下一步）
+#   2. 风险提示节至少 2 条（提示词要求"≥ 2 条"）
+#   3. BD 历史节有引用（近 24 月交易或 ⚠️ 标记缺失）
+#   4. 不出现"⚠️ 待补充"超过 5 处（说明 CRM + Web 数据太稀，分析价值低）
+#
+# 不校验 perspective — 同一份 schema 适用 buyer/seller/neutral 三种视角
+# （提示词已通过 perspective_label 区分），结构性要求都一样。
+
+report_type: company_analysis
+schema_version: "0.1"
+
+# 8 节 markdown 通常 1500-5000 字。Min 设 600 主要用来兜底"完全空"的输出；
+# 主要质量信号是结构完整性 + 各节关键内容（见 sections 配置）。
+target_total_words:
+  min: 600
+  max: 8000
+
+sections:
+  - id: one_page_summary
+    name: 一页摘要 (One-page Summary)
+    heading_patterns:
+      - '一、一页摘要|^\s*1[\.、].*摘要|One-?page\s*Summary'
+    required: true
+
+  - id: company_fundamentals
+    name: 公司基本面 (Fundamentals)
+    heading_patterns:
+      - '二、公司基本面|^\s*2[\.、].*基本面|Fundamentals'
+    required: true
+    # 必须含财务/规模/上市状态相关词
+    must_contain_one_of:
+      - '成立|founded'
+      - '总部|headquarter|HQ'
+      - '市值|valuation|market\s*cap|cash'
+      - '雇员|employees|headcount'
+
+  - id: pipeline_assets
+    name: 管线 / 核心资产 (Pipeline)
+    heading_patterns:
+      - '三、管线|^\s*3[\.、].*管线|^\s*3[\.、].*核心资产|Pipeline'
+    required: true
+
+  - id: bd_history
+    name: BD 历史 (BD History)
+    heading_patterns:
+      - '四、BD\s*历史|^\s*4[\.、].*BD\s*历史|BD\s*History'
+    required: true
+    # 必须有交易引用 — 真正的交易（含金额/年份）OR 明确标注无可见交易
+    must_contain_one_of:
+      - '\$\d|\d{4}\s*年|\d{4}-\d{2}|in-license|out-license|partnership|acquisition|收购|许可|合作|无公开\s*BD|无可见'
+
+  - id: team
+    name: 团队 (Team)
+    heading_patterns:
+      - '五、团队|^\s*5[\.、].*团队|Team'
+    required: true
+    # 至少含一个 leadership 角色
+    must_contain_one_of:
+      - 'CEO|CSO|CMO|CFO|Head\s*of\s*BD|首席|总裁|Founder'
+
+  - id: strategic_gap
+    name: 战略缺口 / 优先级 (Strategic Gap)
+    heading_patterns:
+      - '六、战略缺口|^\s*6[\.、].*战略|Strategic\s*Gap|优先级'
+    required: true
+
+  - id: risk_callouts
+    name: 风险提示 (Risks)
+    heading_patterns:
+      - '七、风险|^\s*7[\.、].*风险|Risks'
+    required: true
+    # 至少 2 条编号风险（系统提示要求 ≥2 条）
+    must_contain_all:
+      - '1[\.、]|风险\s*1|Risk\s*1|^-\s|\*\s'
+      - '2[\.、]|风险\s*2|Risk\s*2'
+
+  - id: next_steps
+    name: 建议下一步 (Next Steps)
+    heading_patterns:
+      - '八、建议下一步|^\s*8[\.、].*下一步|^\s*8[\.、].*建议|Next\s*Steps'
+    required: true
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则 — 禁用 marketing / hyperbole + 软词
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    # /company 系统提示明确禁用这些营销词
+    - pattern: '行业领先|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '巨大潜力|前景广阔'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: 'fantastic|绝佳|完美的'
+      category: marketing_hyperbole
+      severity: medium
