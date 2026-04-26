@@ -90,12 +90,66 @@ interface Props {
   activeIndex: number;
   onSelect: (cmd: SlashCommand) => void;
   onHover: (index: number) => void;
+  // When report-services fetch fails, the popup still renders (commands
+  // come from the static SLASH_COMMANDS list) but display_name + description
+  // fall back to the bare slug. Surface the failure so users know clicks
+  // won't trigger generation until services load.
+  servicesError?: string | null;
+  servicesLoading?: boolean;
+  onRetryServices?: () => void;
 }
 
-export function SlashCommandPopup({ commands, activeIndex, onSelect, onHover }: Props) {
+export function SlashCommandPopup({
+  commands,
+  activeIndex,
+  onSelect,
+  onHover,
+  servicesError,
+  servicesLoading,
+  onRetryServices,
+}: Props) {
+  const errorBanner = servicesError ? (
+    <div
+      style={{
+        padding: "8px 12px",
+        background: "#FEF2F2",
+        borderBottom: "1px solid var(--border-light)",
+        fontSize: 11,
+        color: "#B91C1C",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      <span style={{ flex: 1 }}>
+        ⚠️ 报告服务列表加载失败 — 命令名/描述不全，点击可能无法触发生成。
+      </span>
+      {onRetryServices && (
+        <button
+          type="button"
+          onClick={onRetryServices}
+          disabled={servicesLoading}
+          style={{
+            background: "#fff",
+            border: "1px solid #FCA5A5",
+            borderRadius: 4,
+            padding: "2px 8px",
+            color: "#B91C1C",
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: servicesLoading ? "wait" : "pointer",
+          }}
+        >
+          {servicesLoading ? "加载中…" : "重试"}
+        </button>
+      )}
+    </div>
+  ) : null;
+
   if (commands.length === 0) {
     return (
       <div style={popupStyle}>
+        {errorBanner}
         <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text-muted)" }}>
           No matching command
         </div>
@@ -105,6 +159,7 @@ export function SlashCommandPopup({ commands, activeIndex, onSelect, onHover }: 
 
   return (
     <div style={popupStyle} role="listbox">
+      {errorBanner}
       <div
         style={{
           padding: "6px 12px",

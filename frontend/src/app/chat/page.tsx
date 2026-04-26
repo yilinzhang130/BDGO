@@ -53,6 +53,9 @@ export default function ChatPage() {
     setSlashActiveIndex,
     slashParsing,
     handleSlashSelect,
+    servicesLoading,
+    servicesLoadError,
+    retryLoadServices,
   } = useSlashCommand(() => inputRef.current, setInput);
 
   useEffect(() => {
@@ -307,6 +310,9 @@ export default function ChatPage() {
           slashActiveIndex={slashActiveIndex}
           onSlashActiveIndexChange={setSlashActiveIndex}
           onSlashSelect={handleSlashSelect}
+          slashServicesError={servicesLoadError}
+          slashServicesLoading={servicesLoading}
+          onRetrySlashServices={retryLoadServices}
         />
       </section>
 
