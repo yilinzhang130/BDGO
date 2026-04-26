@@ -1,0 +1,169 @@
+# Draft MTA — Schema v0.1
+#
+# 校验 /draft-mta 服务输出的 12-section MTA markdown.
+# Key checks:
+#   1. 12 sections all present
+#   2. Critical BINDING sections (Confidentiality / Material Return / Term &
+#      Termination / Governing Law) carry [BINDING] marker
+#   3. Research Use section explicitly limits scope (避免 "for any purpose")
+#   4. Publications section mentions a review window (天/days/weeks)
+#   5. Material Return section mentions destruction or return mechanism
+#   6. ≥3 commercial-risk callouts
+#   7. Pre-signing checklist mentions 律师/counsel/IP team
+#   8. RED-FLAG language banned at WARN level: "for any purpose" /
+#      "fully paid-up, worldwide, royalty-free, sublicensable" full set /
+#      stealth-license phrases
+
+report_type: mta_draft
+schema_version: "0.1"
+
+target_total_words:
+  min: 1500
+  max: 7000
+
+sections:
+  - id: parties
+    name: 当事方 (Parties)
+    heading_patterns:
+      - '一、|^\s*1[\.、]\s*'
+      - 'Parties|当事方'
+    required: true
+    must_contain_one_of:
+      - 'Provider|提供方'
+      - 'Recipient|接收方'
+
+  - id: material_definition
+    name: 标的材料定义 (Material Definition)
+    heading_patterns:
+      - '二、|^\s*2[\.、]\s*'
+      - 'Material\s*Definition|标的材料|材料定义'
+    required: true
+
+  - id: research_use
+    name: 研究用途 (Research Use)
+    heading_patterns:
+      - '三、|^\s*3[\.、]\s*'
+      - 'Research\s*Use|研究用途|Field\s*of\s*Use'
+    required: true
+
+  - id: disclosure_knowhow
+    name: 信息披露 (Disclosure / Know-How)
+    heading_patterns:
+      - '四、|^\s*4[\.、]\s*'
+      - 'Disclosure|Know-?How|信息披露|披露'
+    required: true
+
+  - id: derivatives
+    name: 衍生物与修饰物 (Derivatives & Modifications)
+    heading_patterns:
+      - '五、|^\s*5[\.、]\s*'
+      - 'Derivatives|Modifications|衍生物|修饰物'
+    required: true
+    # Must specify ownership rule (provider / recipient / joint / negotiated /
+    # 各自 / 商定)
+    must_contain_one_of:
+      - 'Provider|Recipient|Joint|joint|provider|recipient|商定|各自|negotiated'
+
+  - id: ip_ownership
+    name: IP 归属 (IP Ownership)
+    heading_patterns:
+      - '六、|^\s*6[\.、]\s*'
+      - 'IP\s*Ownership|IP\s*归属|知识产权'
+    required: true
+    must_contain_one_of:
+      - 'Background|Foreground|背景|前景|现有|新增'
+
+  - id: publications
+    name: 发表 (Publications)
+    heading_patterns:
+      - '七、|^\s*7[\.、]\s*'
+      - 'Publications?|发表'
+    required: true
+    # Must mention a review window
+    must_contain_one_of:
+      - '\d+\s*(?:days|天|day|month|月|weeks?|周)|review\s*window|审阅'
+
+  - id: confidentiality
+    name: 保密 (Confidentiality)
+    heading_patterns:
+      - '八、|^\s*8[\.、]\s*'
+      - 'Confidentiality|保密'
+    required: true
+    must_contain_all:
+      - 'BINDING|具约束力'
+
+  - id: material_return
+    name: 材料返还/销毁 (Material Return / Destruction)
+    heading_patterns:
+      - '九、|^\s*9[\.、]\s*'
+      - 'Material\s*Return|Destruction|返还|销毁'
+    required: true
+    must_contain_all:
+      - 'BINDING|具约束力'
+    must_contain_one_of:
+      - 'return|destroy|destruction|返还|销毁|certificate|证明'
+
+  - id: term_termination
+    name: 期限与终止 (Term & Termination)
+    heading_patterns:
+      - '十、|^\s*10[\.、]\s*'
+      - 'Term\s*&?\s*Termination|期限|终止'
+    required: true
+    must_contain_all:
+      - 'BINDING|具约束力'
+
+  - id: reps_warranties
+    name: 陈述保证与责任限制 (Reps & Warranties + Limitations)
+    heading_patterns:
+      - '十一、|^\s*11[\.、]\s*'
+      - 'Reps\s*&?\s*Warranties|陈述与?保证|Limitations'
+    required: true
+
+  - id: governing_law
+    name: 适用法律与争议解决 (Governing Law)
+    heading_patterns:
+      - '十二、|^\s*12[\.、]\s*'
+      - 'Governing\s*Law|适用法律|Dispute\s*Resolution|争议解决'
+    required: true
+    must_contain_all:
+      - 'BINDING|具约束力'
+
+  # ══════════════════════════════════════════════
+  # 风险提示 + Checklist
+  # ══════════════════════════════════════════════
+  - id: commercial_risks
+    name: 商业风险提示
+    heading_patterns:
+      - '商业风险|Commercial\s*Risks?|风险提示'
+    required: true
+    must_contain_all:
+      - '1[\.、]|风险\s*1|Risk\s*1'
+      - '2[\.、]|风险\s*2|Risk\s*2'
+      - '3[\.、]|风险\s*3|Risk\s*3'
+
+  - id: pre_signing_checklist
+    name: 签署前 Checklist
+    heading_patterns:
+      - '签署前|Pre-Signing|Sign-off|Checklist'
+    required: true
+    must_contain_one_of:
+      - '律师|counsel|legal|IP\s*team|IP\s*团队'
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则 — MTA 红旗短语
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    # MTA-as-stealth-license red flag #1: "for any purpose" use rights
+    - pattern: 'for\s+any\s+purpose|为任何目的'
+      category: mta_red_flag_any_purpose
+      severity: medium
+    # MTA-as-stealth-license red flag #2: full IP grant quartet in one place
+    # (any 3 of these together is a yellow flag)
+    - pattern: 'fully\s+paid-?up.*worldwide.*royalty-?free|royalty-?free.*sublicensable.*worldwide'
+      category: mta_red_flag_ip_grant
+      severity: medium
+    # Marketing hyperbole — MTAs should be neutral technical agreements
+    - pattern: '完美的|fantastic|industry-leading|绝佳'
+      category: marketing_hyperbole
+      severity: medium
