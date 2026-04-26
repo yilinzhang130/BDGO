@@ -46,6 +46,7 @@ export function useSlashCommand(getInput: () => string, setInput: (v: string) =>
           slug: base.slug,
           displayName: svc?.display_name || base.slug,
           description: svc?.description || "",
+          example: base.example,
           estimatedSeconds: svc?.estimated_seconds,
         };
       }),
@@ -153,7 +154,7 @@ export function useSlashCommand(getInput: () => string, setInput: (v: string) =>
           .join("，");
         const partialHint = partial ? `\n\n已识别：${partial}` : "";
         pushAssistantMessage(
-          `生成 **${svc.display_name}** 还缺少：**${missing}**。${partialHint}\n\n请补全后重发，例如：\`/${cmd.alias} KRAS G12D 耐药机制综述 最近3年 15篇\``,
+          `生成 **${svc.display_name}** 还缺少：**${missing}**。${partialHint}\n\n请补全后重发，例如：\`/${cmd.alias} ${cmd.example}\``,
         );
       } catch (e) {
         const msg = e instanceof Error ? e.message : "未知错误";
@@ -189,7 +190,7 @@ export function useSlashCommand(getInput: () => string, setInput: (v: string) =>
         }
         setInput("");
         pushAssistantMessage(
-          `**${svc.display_name}** — ${svc.description || "生成报告"}\n\n在 \`/${cmd.alias}\` 后用一句话描述需要什么，例如：\`/${cmd.alias} KRAS G12D 耐药机制综述 最近3年 15篇\``,
+          `**${svc.display_name}** — ${svc.description || "生成报告"}\n\n在 \`/${cmd.alias}\` 后用一句话描述需要什么，例如：\`/${cmd.alias} ${cmd.example}\``,
         );
         return;
       }

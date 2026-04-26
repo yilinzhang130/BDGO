@@ -10,36 +10,40 @@ export interface SlashCommand {
   slug: string; // canonical report service slug
   displayName: string; // e.g. "MNC Buyer Profile"
   description: string;
+  example: string; // sample query shown in the help bubble + missing-args hint
   estimatedSeconds?: number;
 }
 
 // Canonical alias → slug map. Kept in frontend because the short names are
 // UX decisions, not part of the backend contract.
+// `example` is alias-specific: the help bubble and missing-args hint show it
+// verbatim, so it must reflect the kind of input THIS service actually wants
+// (a paper query for /paper, an MNC name for /mnc, an asset for /dd, …).
 export const SLASH_COMMANDS: Omit<
   SlashCommand,
   "displayName" | "description" | "estimatedSeconds"
 >[] = [
-  { alias: "paper", slug: "paper-analysis" },
-  { alias: "mnc", slug: "buyer-profile" },
-  { alias: "dd", slug: "dd-checklist" },
-  { alias: "commercial", slug: "commercial-assessment" },
-  { alias: "disease", slug: "disease-landscape" },
-  { alias: "target", slug: "target-radar" },
-  { alias: "ip", slug: "ip-landscape" },
-  { alias: "guidelines", slug: "clinical-guidelines" },
-  { alias: "evaluate", slug: "deal-evaluator" },
-  { alias: "rnpv", slug: "rnpv-valuation" },
-  { alias: "teaser", slug: "deal-teaser" },
-  { alias: "legal", slug: "legal-review" },
-  { alias: "email", slug: "outreach-email" },
-  { alias: "company", slug: "company-analysis" },
-  { alias: "synthesize", slug: "bd-synthesize" },
-  { alias: "timing", slug: "timing-advisor" },
-  { alias: "log", slug: "outreach-log" },
-  { alias: "outreach", slug: "outreach-list" },
-  { alias: "import-reply", slug: "import-reply" },
-  { alias: "dataroom", slug: "data-room" },
-  { alias: "draft-ts", slug: "draft-ts" },
+  { alias: "paper", slug: "paper-analysis", example: "KRAS G12C 耐药机制 综述 最近3年 15篇" },
+  { alias: "mnc", slug: "buyer-profile", example: "AstraZeneca 肿瘤管线" },
+  { alias: "dd", slug: "dd-checklist", example: "某 KRAS G12C 抑制剂 III期 BIC 买方视角" },
+  { alias: "commercial", slug: "commercial-assessment", example: "三阴乳腺癌 ADC 中国市场" },
+  { alias: "disease", slug: "disease-landscape", example: "特发性肺纤维化 全球竞争格局" },
+  { alias: "target", slug: "target-radar", example: "IRF5 自免 全球在研" },
+  { alias: "ip", slug: "ip-landscape", example: "GLP-1 口服小分子 FTO" },
+  { alias: "guidelines", slug: "clinical-guidelines", example: "NSCLC 一线 NCCN 2025" },
+  { alias: "evaluate", slug: "deal-evaluator", example: "某 Claudin18.2 ADC 临床II期 买方吸引力" },
+  { alias: "rnpv", slug: "rnpv-valuation", example: "某 KRAS G12C 抑制剂 NSCLC 二线 上市概率35%" },
+  { alias: "teaser", slug: "deal-teaser", example: "某 BCMA CAR-T 临床I期 寻求海外授权" },
+  { alias: "legal", slug: "legal-review", example: "Term Sheet v3 重点看里程碑与终止条款" },
+  { alias: "email", slug: "outreach-email", example: "向默沙东 BD 介绍我们的 KRAS G12D 资产" },
+  { alias: "company", slug: "company-analysis", example: "Biogen" },
+  { alias: "synthesize", slug: "bd-synthesize", example: "Q2 自免 BD 策略 重点 IRF5 / TYK2" },
+  { alias: "timing", slug: "timing-advisor", example: "某 Claudin18.2 ADC 何时启动海外 BD" },
+  { alias: "log", slug: "outreach-log", example: "2026-04-25 与诺华 BD 通话 讨论 IRF5 资产" },
+  { alias: "outreach", slug: "outreach-list", example: "IRF5 自免 找潜在买方 Top 10" },
+  { alias: "import-reply", slug: "import-reply", example: "（粘贴对方邮件正文，自动归档为 outreach 记录）" },
+  { alias: "dataroom", slug: "data-room", example: "某 BCMA CAR-T 临床II期 海外授权 数据室清单" },
+  { alias: "draft-ts", slug: "draft-ts", example: "某 KRAS G12D 全球独家许可 首付2000万 里程碑3亿" },
 ];
 
 export function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
