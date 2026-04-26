@@ -8,6 +8,7 @@ import { type ReportTask, type PlanProposal, type PlanStatus } from "@/lib/sessi
 import { downloadWithAuth } from "@/lib/download";
 import { errorMessage } from "@/lib/format";
 import { PlanCard } from "./PlanCard";
+import { OutreachMiniTable, type PipelineRow, type ThreadEvent } from "./report/OutreachMiniTable";
 
 interface ToolEvent {
   type: "tool_call" | "tool_result";
@@ -172,6 +173,10 @@ function ReportTaskCard({
   const [markdown, setMarkdown] = useState<string>("");
   const [files, setFiles] = useState<ReportFile[]>([]);
   const [suggestedCommands, setSuggestedCommands] = useState<SuggestedCommand[]>([]);
+  // /outreach mini-table data — only set when the backend emitted
+  // outreach_pipeline_rows / outreach_thread_events in meta.
+  const [outreachPipelineRows, setOutreachPipelineRows] = useState<PipelineRow[] | null>(null);
+  const [outreachThreadEvents, setOutreachThreadEvents] = useState<ThreadEvent[] | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string>("");
   const [errorExpanded, setErrorExpanded] = useState(false);
@@ -223,6 +228,15 @@ function ReportTaskCard({
           setFiles(data.result?.files || []);
           const sc = data.result?.meta?.suggested_commands;
           setSuggestedCommands(Array.isArray(sc) ? sc : []);
+          // /outreach mini-table data — rendered above the markdown preview
+          // when present (PR D, chat-first per product decision)
+          const meta = data.result?.meta;
+          if (meta && typeof meta === "object") {
+            const pr = (meta as Record<string, unknown>)["outreach_pipeline_rows"];
+            const te = (meta as Record<string, unknown>)["outreach_thread_events"];
+            setOutreachPipelineRows(Array.isArray(pr) ? (pr as PipelineRow[]) : null);
+            setOutreachThreadEvents(Array.isArray(te) ? (te as ThreadEvent[]) : null);
+          }
           setStatus("completed");
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (data.status === "failed") {
@@ -482,6 +496,15 @@ function ReportTaskCard({
               {sc.label}
             </button>
           ))}
+        </div>
+      )}
+      {(outreachPipelineRows || outreachThreadEvents) && (
+        <div style={{ padding: "10px 14px 0" }}>
+          <OutreachMiniTable
+            pipelineRows={outreachPipelineRows ?? undefined}
+            threadEvents={outreachThreadEvents ?? undefined}
+            onSuggestedCommand={onSuggestedCommand}
+          />
         </div>
       )}
       {expanded && markdown && (

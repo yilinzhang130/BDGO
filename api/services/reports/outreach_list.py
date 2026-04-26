@@ -131,14 +131,45 @@ class OutreachListService(ReportService):
         # Apply post-filters that don't apply at SQL grouping level
         # (we already aggregated; status filter doesn't apply here)
         markdown = self._format_pipeline_md(rows, inp)
+        # ★ Structured pipeline rows for the chat-embedded mini-table.
+        # Frontend ReportTaskCard renders these as an interactive table
+        # (click company → drill into thread). Markdown stays as the
+        # text fallback for non-table-aware clients.
+        pipeline_rows = self._pipeline_rows_for_meta(rows)
         return ReportResult(
             markdown=markdown,
             meta={
                 "title": "Outreach Pipeline",
                 "view": "pipeline",
                 "row_count": len(rows),
+                "outreach_pipeline_rows": pipeline_rows,
             },
         )
+
+    def _pipeline_rows_for_meta(self, rows: list[dict]) -> list[dict]:
+        """Convert raw status-count rows into one entry per company,
+        sorted by last_touched desc (newest first), suitable for the
+        mini-table's onMount sort."""
+        by_company: dict[str, dict] = {}
+        for r in rows:
+            c = r["to_company"]
+            if c not in by_company:
+                by_company[c] = {
+                    "company": c,
+                    "statuses": {},
+                    "last_touched": r["last_touched"],
+                    "total_events": 0,
+                }
+            by_company[c]["statuses"][r["status"]] = r["n"]
+            by_company[c]["total_events"] += r["n"]
+            if r["last_touched"] > by_company[c]["last_touched"]:
+                by_company[c]["last_touched"] = r["last_touched"]
+        ordered = sorted(by_company.values(), key=lambda x: x["last_touched"], reverse=True)
+        # Serialize datetime → ISO string for JSON-safe meta
+        for entry in ordered:
+            lt = entry["last_touched"]
+            entry["last_touched"] = lt.isoformat() if lt else ""
+        return ordered
 
     def _format_pipeline_md(self, rows: list[dict], inp: OutreachListInput) -> str:
         if not rows:
@@ -196,6 +227,8 @@ class OutreachListService(ReportService):
             limit=inp.limit,
         )
         markdown = self._format_thread_md(events, inp)
+        # ★ Structured thread events for the chat-embedded mini-table.
+        thread_events = self._thread_events_for_meta(events)
         return ReportResult(
             markdown=markdown,
             meta={
@@ -204,8 +237,29 @@ class OutreachListService(ReportService):
                 "company": inp.company,
                 "row_count": len(events),
                 "suggested_commands": self._thread_chips(inp),
+                "outreach_thread_events": thread_events,
             },
         )
+
+    def _thread_events_for_meta(self, events: list[dict]) -> list[dict]:
+        """Project the raw event rows to a JSON-safe + UI-friendly shape."""
+        out: list[dict] = []
+        for e in events:
+            ts = e.get("created_at")
+            out.append(
+                {
+                    "event_id": e.get("id") or "",
+                    "ts": ts.isoformat() if ts else "",
+                    "status": e.get("status") or "",
+                    "purpose": e.get("purpose") or "",
+                    "channel": e.get("channel") or "",
+                    "to_contact": e.get("to_contact") or "",
+                    "subject": (e.get("subject") or "")[:200],
+                    "notes": (e.get("notes") or "")[:400],
+                    "asset_context": e.get("asset_context") or "",
+                }
+            )
+        return out
 
     def _format_thread_md(self, events: list[dict], inp: OutreachListInput) -> str:
         if not events:
