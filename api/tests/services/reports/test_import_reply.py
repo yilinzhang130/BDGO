@@ -221,12 +221,26 @@ def test_chip_cda_signed_offers_dd(svc):
     assert 'company="Pfizer"' in dd["command"]
 
 
-def test_chip_ts_signed_offers_license(svc):
+def test_chip_ts_signed_routes_to_draft_license_seller_default(svc):
+    """ts_signed default → /draft-license. Previously /legal contract_type=license
+    which is review mode and demands contract_text user doesn't have yet."""
     chips = svc._build_suggested_commands(company="Pfizer", status="ts_signed")
     assert len(chips) == 2
-    license_chip = next(c for c in chips if c["slug"] == "legal-review")
-    assert "contract_type=license" in license_chip["command"]
-    assert 'counterparty="Pfizer"' in license_chip["command"]
+    license_chip = next(c for c in chips if c["slug"] == "draft-license")
+    cmd = license_chip["command"]
+    assert cmd.startswith("/draft-license")
+    assert "our_role=licensor" in cmd
+    assert 'licensee="Pfizer"' in cmd
+
+
+def test_chip_ts_signed_buyer_perspective_inverts_role(svc):
+    chips = svc._build_suggested_commands(
+        company="BeiGene", status="ts_signed", perspective="buyer"
+    )
+    license_chip = next(c for c in chips if c["slug"] == "draft-license")
+    cmd = license_chip["command"]
+    assert "our_role=licensee" in cmd
+    assert 'licensor="BeiGene"' in cmd
 
 
 def test_chip_meeting_offers_dd_prep(svc):

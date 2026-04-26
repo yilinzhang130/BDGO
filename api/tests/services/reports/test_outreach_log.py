@@ -113,7 +113,13 @@ def test_chip_cda_signed_offers_dd(svc):
     assert 'company="Pfizer"' in chips[0]["command"]
 
 
-def test_chip_ts_signed_offers_license(svc):
+def test_chip_ts_signed_routes_to_draft_license_seller_default(svc):
+    """ts_signed default (no perspective) → /draft-license with our_role=licensor.
+
+    Previously fired /legal contract_type=license — but /legal is review
+    mode and requires contract_text the user doesn't have yet. Now routes
+    to /draft-license so the BD can actually start the next step.
+    """
     inp = OutreachLogInput(
         to_company="Pfizer",
         status="ts_signed",
@@ -122,11 +128,26 @@ def test_chip_ts_signed_offers_license(svc):
     )
     chips = svc._build_suggested_commands(inp)
     assert len(chips) == 1
-    assert chips[0]["slug"] == "legal-review"
+    assert chips[0]["slug"] == "draft-license"
     cmd = chips[0]["command"]
-    assert "contract_type=license" in cmd
-    assert 'counterparty="Pfizer"' in cmd
-    assert 'project_name="PEG-001 (NSCLC)"' in cmd
+    assert cmd.startswith("/draft-license")
+    assert "our_role=licensor" in cmd
+    assert 'licensee="Pfizer"' in cmd
+    assert 'asset_name="PEG-001 (NSCLC)"' in cmd
+
+
+def test_chip_ts_signed_buyer_perspective_inverts_role(svc):
+    """When we're the buyer (licensee), counterparty is licensor."""
+    inp = OutreachLogInput(
+        to_company="BeiGene",
+        status="ts_signed",
+        purpose="term_sheet_send",
+        perspective="buyer",
+    )
+    chips = svc._build_suggested_commands(inp)
+    cmd = chips[0]["command"]
+    assert "our_role=licensee" in cmd
+    assert 'licensor="BeiGene"' in cmd
 
 
 def test_chip_sent_offers_view_thread(svc):
