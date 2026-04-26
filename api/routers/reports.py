@@ -393,7 +393,7 @@ def create_share_link(req: ShareRequest, request: Request, user: dict = Depends(
 
 class NotifyRequest(BaseModel):
     task_id: str
-    recipient_id: str   # UUID of the teammate
+    recipient_id: str  # UUID of the teammate
     note: str | None = None
 
 

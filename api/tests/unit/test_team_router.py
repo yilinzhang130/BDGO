@@ -43,7 +43,13 @@ def _mock_tx(rows_list=None, fetchone_list=None):
 
 def test_members_returns_list(client, ext_headers):
     fake_rows = [
-        {"id": "uuid-2", "name": "Alice", "email": "alice@corp.com", "avatar_url": None, "title": None}
+        {
+            "id": "uuid-2",
+            "name": "Alice",
+            "email": "alice@corp.com",
+            "avatar_url": None,
+            "title": None,
+        }
     ]
     mock_tx, _ = _mock_tx(rows_list=fake_rows)
     with patch("routers.team.transaction", mock_tx):
@@ -72,10 +78,15 @@ def test_members_excludes_self(client, ext_headers):
 def test_list_notifications(client, ext_headers):
     rows = [
         {
-            "id": 1, "type": "report_share", "title": "Bob shared a report",
-            "body": "Pfizer analysis", "link_url": "/share/abc",
-            "read_at": None, "created_at": "2026-04-26T10:00:00",
-            "sender_name": "Bob", "sender_avatar": None,
+            "id": 1,
+            "type": "report_share",
+            "title": "Bob shared a report",
+            "body": "Pfizer analysis",
+            "link_url": "/share/abc",
+            "read_at": None,
+            "created_at": "2026-04-26T10:00:00",
+            "sender_name": "Bob",
+            "sender_avatar": None,
         }
     ]
     mock_tx, mock_cur = _mock_tx(
@@ -214,10 +225,16 @@ def test_share_watchlist_success(client, ext_headers):
 def test_get_shared_with_me(client, ext_headers):
     rows = [
         {
-            "share_id": 1, "item_id": 10, "entity_type": "company",
-            "entity_key": "Roche", "notes": None, "owner_id": "uid-3",
-            "owner_name": "Carol", "owner_email": "carol@corp.com",
-            "permission": "view", "shared_at": "2026-04-26T09:00:00",
+            "share_id": 1,
+            "item_id": 10,
+            "entity_type": "company",
+            "entity_key": "Roche",
+            "notes": None,
+            "owner_id": "uid-3",
+            "owner_name": "Carol",
+            "owner_email": "carol@corp.com",
+            "permission": "view",
+            "shared_at": "2026-04-26T09:00:00",
         }
     ]
     mock_tx, _ = _mock_tx(rows_list=rows)

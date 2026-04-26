@@ -181,9 +181,9 @@ def check_watchlist(
 
 
 class ShareRequest(BaseModel):
-    user_id: str       # UUID of the teammate to share with
-    permission: str = "view"   # 'view' | 'edit'
-    note: str | None = None    # optional message to send as notification
+    user_id: str  # UUID of the teammate to share with
+    permission: str = "view"  # 'view' | 'edit'
+    note: str | None = None  # optional message to send as notification
 
 
 class SharedItemOut(BaseModel):
@@ -226,7 +226,9 @@ def share_watchlist_item(
             raise HTTPException(404, "Watchlist item not found or not yours")
 
         # Verify recipient exists
-        cur.execute("SELECT id, name FROM users WHERE id = %s AND is_active = TRUE", (body.user_id,))
+        cur.execute(
+            "SELECT id, name FROM users WHERE id = %s AND is_active = TRUE", (body.user_id,)
+        )
         recipient = cur.fetchone()
         if not recipient:
             raise HTTPException(404, "Recipient user not found")
