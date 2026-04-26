@@ -18,6 +18,7 @@ from services.reports.dd_checklist import DDChecklistService
 from services.reports.deal_evaluator import DealEvaluatorService
 from services.reports.deal_teaser import DealTeaserService
 from services.reports.disease_landscape import DiseaseLandscapeService
+from services.reports.draft_ts import DraftTSService
 from services.reports.import_reply import ImportReplyService
 from services.reports.ip_landscape import IPLandscapeService
 from services.reports.legal_review import LegalReviewService
@@ -41,6 +42,7 @@ REPORT_SERVICES: dict[str, ReportService] = {
     DealEvaluatorService.slug: DealEvaluatorService(),
     DealTeaserService.slug: DealTeaserService(),
     DiseaseLandscapeService.slug: DiseaseLandscapeService(),
+    DraftTSService.slug: DraftTSService(),
     ImportReplyService.slug: ImportReplyService(),
     IPLandscapeService.slug: IPLandscapeService(),
     LegalReviewService.slug: LegalReviewService(),
