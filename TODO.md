@@ -22,11 +22,11 @@
 2. **Frontend test coverage** — backend has 781 passing tests; frontend has zero unit tests for critical hooks (`useSlashCommand`, `useReportPolling`)
 
 ### 🟡 P1 — First 2 Weeks
-3. **`/timing` ↔ conference-ingest MCP** — currently `/timing` only reads CRM catalysts; wire the MCP server so upcoming-conference data feeds into outreach-window suggestions
-4. **Outreach pipeline UI** — `/outreach` returns a markdown thread today; add a chat-embedded mini-table view (no separate dashboard route — chat-first per product decision)
-5. **Watchlist** — user-favorited companies/assets/targets with status badges
-6. **Report history persistence** — completed tasks live in Postgres but the chat UI still relies on localStorage for ordering; add a real `/history` endpoint
-7. **Anthropic Claude API as alternate LLM** — current MiniMax works, but Anthropic via OpenRouter or direct gives higher fidelity for /draft-X long-form output
+3. ✅ **`/timing` ↔ conference-ingest MCP** — shipped in #128: reads `conferences_calendar.yml` (same YAML the MCP serves); falls back to hardcoded annual events when file absent. Produces abstract-release BD windows.
+4. ✅ **Outreach pipeline UI** — `OutreachMiniTable` component wired in `ChatMessage.tsx`; backed by `meta.outreach_pipeline_rows` / `meta.outreach_thread_events` from `OutreachListService`.
+5. ✅ **Watchlist** — `/watchlist` page + `WatchlistButton` + full CRUD backend in `routers/watchlist.py`. Status badges, type filter, pagination.
+6. ✅ **Report history persistence** — `reports.ts` is server-backed via `/api/reports/history`; `addCompletedReport` triggers a re-fetch; `removeCompletedReport` calls `DELETE /history/{task_id}`.
+7. **Anthropic Claude API as alternate LLM** — model spec wired (`claude-sonnet-4-5`, `auth_style=x-api-key`); all streaming infra already Anthropic-native. **Action needed**: set `CLAUDE_API_KEY` env var on VM to unlock. Model shows as `available: false` in picker until key is present.
 
 ### 🟢 P2 — Month 2
 8. **Pricing / quota** — credit system + usage metering already in DB schema; needs Stripe wiring + dashboard
@@ -55,6 +55,15 @@ The April 2026 sprint took main from 6 services → 25 services + closed the BD 
 | #119, #121, #122, #125 | Closed-loop chip routing — `source_task_id` handoff + 4 broken `/legal review` chips fixed + AST audit |
 | #114, #116, #120 | Doc + dev tooling: SKILL_MIRROR sync, MIRROR-OF headers, `scripts/dev.sh` |
 | #123, #124 | UX: kv-pair pre-parser bypasses LLM for chip clicks; missing-fields hint shows kv template |
+| #128 | `/timing` wired to conference-ingest calendar YAML — abstract-release BD windows |
+| #134 | Frontend test coverage: `useSlashCommand` hook-level unit tests |
+| #135 — #136 | L0/L1 for `/evaluate` + `/dd`; `/buyers` reverse buyer-matching |
+| #138 | L0/L1 for `/target` + `/disease` + `/ip`; S2-08 auto-log on `/email` |
+| #139 | `/meeting` brief service (S3-03) |
+| #140 | `/batch-email` — batch outreach to N buyers in one call (S2-09) |
+| #141 | `/faq` — DD FAQ pre-generation, 6 meeting stages (S3-04) |
+| #142 | X-18 plan template system — 5 built-ins + user-saved templates |
+| #143 | S1-03 asset metadata 6 → 10 fields (modality, ip_timeline, funding, team) |
 
 ## Architecture Notes for Next Session
 

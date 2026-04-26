@@ -87,18 +87,22 @@ _MODELS: list[ModelSpec] = [
         output_weight=3.2,
         context_note="64k tokens",
     ),
-    # Placeholder: enable when CLAUDE_API_KEY is provided.
+    # Enabled when CLAUDE_API_KEY is set in the environment.
+    # Uses the Anthropic Messages API directly (native streaming).
+    # Preferred for long-form /draft-X output where output fidelity
+    # matters more than cost. auth_style=x-api-key (Anthropic default).
     ModelSpec(
         id="claude-sonnet",
-        display_name="Claude Sonnet 4",
+        display_name="Claude Sonnet 4.5",
         provider="anthropic",
         api_url="https://api.anthropic.com/v1/messages",
         api_key=CLAUDE_API_KEY,
-        api_model="claude-sonnet-4",
+        api_model="claude-sonnet-4-5",
         anthropic_version="2023-06-01",
         input_weight=5.0,
         output_weight=25.0,
         context_note="200k tokens",
+        auth_style="x-api-key",
     ),
 ]
 
