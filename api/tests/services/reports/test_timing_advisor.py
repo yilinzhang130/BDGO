@@ -246,3 +246,45 @@ def test_chat_tool_input_schema(svc):
     assert schema["properties"]["look_ahead_months"]["default"] == 12
     assert schema["properties"]["look_ahead_months"]["minimum"] == 1
     assert schema["properties"]["look_ahead_months"]["maximum"] == 24
+
+
+# ── L0/L1 quality pass (gap-fill prompt builder) ───────────
+
+
+def test_gap_fill_prompt_filters_warns_and_includes_markdown():
+    from services.reports.timing_advisor import _build_gap_fill_prompt
+
+    class FakeFinding:
+        severity = "fail"
+        section = "recommended_windows"
+        message = "缺日期范围"
+        evidence = ""
+
+    class FakeWarn:
+        severity = "warn"
+        # Unique marker — the static prompt template references
+        # "建议尽快联系" as a counter-example so we can't use that as
+        # the WARN message itself.
+        section = "writing/vague_advice"
+        message = "ZZ_UNIQUE_WARN_MARKER"
+        evidence = ""
+
+    class FakeAudit:
+        findings = [FakeFinding(), FakeWarn()]
+
+    prompt = _build_gap_fill_prompt("# Timing\n\ncontent", FakeAudit())
+    assert "[recommended_windows] 缺日期范围" in prompt
+    # WARN finding must not be injected into the fail_list
+    assert "ZZ_UNIQUE_WARN_MARKER" not in prompt
+    assert "# Timing" in prompt
+
+
+def test_gap_fill_prompt_truncates_long_markdown():
+    from services.reports.timing_advisor import _build_gap_fill_prompt
+
+    class FakeAudit:
+        findings = []
+
+    huge_md = "x" * 70_000
+    prompt = _build_gap_fill_prompt(huge_md, FakeAudit())
+    assert prompt.count("x") <= 60_000
