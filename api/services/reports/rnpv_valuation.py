@@ -1,3 +1,6 @@
+# MIRROR OF: ~/.openclaw/skills/rnpv-valuation/SKILL.md (synced 2026-04-24)
+# Sync prompts FROM SKILL.md, not the other way. See docs/SKILL_MIRROR.md.
+
 """rNPV Valuation — DCF-style Excel model for biotech pipeline assets.
 
 Pipeline:

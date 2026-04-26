@@ -1,3 +1,6 @@
+# MIRROR OF: ~/.openclaw/skills/bd-dd-checklist/SKILL.md (synced 2026-04-24)
+# Sync prompts FROM SKILL.md, not the other way. See docs/SKILL_MIRROR.md.
+
 """
 DD Checklist — BD Due Diligence 问题清单生成器.
 

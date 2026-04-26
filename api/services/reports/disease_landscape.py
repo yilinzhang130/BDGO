@@ -1,3 +1,6 @@
+# MIRROR OF: ~/.openclaw/skills/disease-landscape/SKILL.md (synced 2026-04-15)
+# Sync prompts FROM SKILL.md, not the other way. See docs/SKILL_MIRROR.md.
+
 """
 Disease Landscape — third worked example of a ReportService.
 

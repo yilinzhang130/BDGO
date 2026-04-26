@@ -1,3 +1,6 @@
+# MIRROR OF: ~/.openclaw/skills/mnc-buyer-profile/SKILL.md (v0.2.1, 2026-04-24)
+# Sync prompts FROM SKILL.md, not the other way. See docs/SKILL_MIRROR.md.
+
 """
 MNC Buyer Profile — second worked example of a ReportService.
 
