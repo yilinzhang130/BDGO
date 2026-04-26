@@ -27,6 +27,7 @@ from services.reports.draft_ts import DraftTSService
 from services.reports.import_reply import ImportReplyService
 from services.reports.ip_landscape import IPLandscapeService
 from services.reports.legal_review import LegalReviewService
+from services.reports.meeting_brief import MeetingBriefService
 from services.reports.outreach_email import OutreachEmailService
 from services.reports.outreach_list import OutreachListService
 from services.reports.outreach_log import OutreachLogService
@@ -56,6 +57,7 @@ REPORT_SERVICES: dict[str, ReportService] = {
     ImportReplyService.slug: ImportReplyService(),
     IPLandscapeService.slug: IPLandscapeService(),
     LegalReviewService.slug: LegalReviewService(),
+    MeetingBriefService.slug: MeetingBriefService(),
     OutreachEmailService.slug: OutreachEmailService(),
     OutreachListService.slug: OutreachListService(),
     OutreachLogService.slug: OutreachLogService(),

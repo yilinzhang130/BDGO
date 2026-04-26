@@ -87,6 +87,7 @@ CRM 与搜索（基础工具）：
   - log_outreach_event          记录 outreach 事件
   - import_outreach_reply       粘贴邮件回信 → 抽 status → 自动归档
   - list_outreach               查 outreach pipeline / thread
+  - generate_meeting_brief      会前简报（对方画像 / 我方目标 / 谈话要点 / 预见问题 / closing ask）
 
 合同起草工具（结构化参数 → markdown + .docx skeleton；输出含"非法律意见"免责）：
   - draft_term_sheet            起草 Term Sheet / LOI（13 节）
