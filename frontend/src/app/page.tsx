@@ -80,10 +80,14 @@ export default function LandingPage() {
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
-    const saved = (typeof window !== "undefined" && localStorage.getItem("bdgo-theme")) as Theme | null;
+    const saved = (typeof window !== "undefined" &&
+      localStorage.getItem("bdgo-theme")) as Theme | null;
     if (saved === "light" || saved === "dark") {
       setTheme(saved);
-    } else if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+    } else if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches
+    ) {
       setTheme("dark");
     }
   }, []);
@@ -143,7 +147,15 @@ export default function LandingPage() {
 // Theme toggle (floating, top-right)
 // ---------------------------------------------------------------------------
 
-function ThemeToggle({ theme, onChange, T }: { theme: Theme; onChange: (t: Theme) => void; T: Tokens }) {
+function ThemeToggle({
+  theme,
+  onChange,
+  T,
+}: {
+  theme: Theme;
+  onChange: (t: Theme) => void;
+  T: Tokens;
+}) {
   const seg = (active: boolean): React.CSSProperties => ({
     padding: "5px 12px",
     borderRadius: 999,
@@ -173,10 +185,18 @@ function ThemeToggle({ theme, onChange, T }: { theme: Theme; onChange: (t: Theme
         border: `1px solid ${T.border}`,
       }}
     >
-      <button onClick={() => onChange("light")} style={seg(theme === "light")} aria-label="Light theme">
+      <button
+        onClick={() => onChange("light")}
+        style={seg(theme === "light")}
+        aria-label="Light theme"
+      >
         ☀ Light
       </button>
-      <button onClick={() => onChange("dark")} style={seg(theme === "dark")} aria-label="Dark theme">
+      <button
+        onClick={() => onChange("dark")}
+        style={seg(theme === "dark")}
+        aria-label="Dark theme"
+      >
         ☾ Dark
       </button>
     </div>
@@ -192,7 +212,15 @@ function BDGoLogo({ size = 24, T }: { size?: number; T: Tokens }) {
     <svg width={size} height={size} viewBox="0 0 36 36" fill="none" style={{ flexShrink: 0 }}>
       <rect width="36" height="36" rx="9" fill={T.brand} />
       <circle cx="11" cy="18" r="3.5" fill="#fff" />
-      <line x1="15" y1="18" x2="22.5" y2="18" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
+      <line
+        x1="15"
+        y1="18"
+        x2="22.5"
+        y2="18"
+        stroke="#fff"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
       <path d="M22 13 L29 18 L22 23 Z" fill="#fff" />
     </svg>
   );
@@ -267,7 +295,10 @@ function Nav({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
+        <Link
+          href="/"
+          style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}
+        >
           <BDGoLogo size={24} T={T} />
           <span
             style={{
@@ -299,28 +330,36 @@ function Nav({
         </Link>
 
         <nav style={{ display: "flex", gap: 24, alignItems: "center" }}>
-          <div onMouseEnter={() => onEnter("products")} onMouseLeave={onLeave} style={{ position: "relative" }}>
-            <span style={link}>
-              产品 {caret}
-            </span>
+          <div
+            onMouseEnter={() => onEnter("products")}
+            onMouseLeave={onLeave}
+            style={{ position: "relative" }}
+          >
+            <span style={link}>产品 {caret}</span>
             {open === "products" && <Mega T={T} kind="products" />}
           </div>
-          <div onMouseEnter={() => onEnter("solutions")} onMouseLeave={onLeave} style={{ position: "relative" }}>
-            <span style={link}>
-              方案 {caret}
-            </span>
+          <div
+            onMouseEnter={() => onEnter("solutions")}
+            onMouseLeave={onLeave}
+            style={{ position: "relative" }}
+          >
+            <span style={link}>方案 {caret}</span>
             {open === "solutions" && <Mega T={T} kind="solutions" />}
           </div>
-          <div onMouseEnter={() => onEnter("pricing")} onMouseLeave={onLeave} style={{ position: "relative" }}>
-            <span style={link}>
-              定价 {caret}
-            </span>
+          <div
+            onMouseEnter={() => onEnter("pricing")}
+            onMouseLeave={onLeave}
+            style={{ position: "relative" }}
+          >
+            <span style={link}>定价 {caret}</span>
             {open === "pricing" && <Mega T={T} kind="pricing" />}
           </div>
-          <div onMouseEnter={() => onEnter("resources")} onMouseLeave={onLeave} style={{ position: "relative" }}>
-            <span style={link}>
-              资源 {caret}
-            </span>
+          <div
+            onMouseEnter={() => onEnter("resources")}
+            onMouseLeave={onLeave}
+            style={{ position: "relative" }}
+          >
+            <span style={link}>资源 {caret}</span>
             {open === "resources" && <Mega T={T} kind="resources" />}
           </div>
           <Link href="#ai4s" style={link}>
@@ -437,9 +476,27 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
 
   if (kind === "products") {
     const items: { tag: string; color: string; title: string; desc: string; href: string }[] = [
-      { tag: "BD GO", color: T.brand, title: "对话式 BD 工作台", desc: "自然语言抓情报、做尽调、写竞品分析。", href: "/chat" },
-      { tag: "DEF", color: T.accent2, title: "痛点 · 立项引擎", desc: "疾病 × 终点 × 前沿三维交叉，找未满足窗口。", href: "/features" },
-      { tag: "AIDD", color: T.accent3, title: "AI Drug Discovery", desc: "结构 + ADMET + IP 一条流水线跑完。", href: "/features" },
+      {
+        tag: "BD GO",
+        color: T.brand,
+        title: "对话式 BD 工作台",
+        desc: "自然语言抓情报、做尽调、写竞品分析。",
+        href: "/chat",
+      },
+      {
+        tag: "DEF",
+        color: T.accent2,
+        title: "痛点 · 立项引擎",
+        desc: "疾病 × 终点 × 前沿三维交叉，找未满足窗口。",
+        href: "/features",
+      },
+      {
+        tag: "AIDD",
+        color: T.accent3,
+        title: "AI Drug Discovery",
+        desc: "结构 + ADMET + IP 一条流水线跑完。",
+        href: "/features",
+      },
     ];
     return (
       <div style={wrap}>
@@ -478,7 +535,9 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
                 {it.tag}
               </span>
               <div>
-                <div style={{ fontFamily: fontSerif, fontSize: 18, color: T.fg, lineHeight: 1.2 }}>{it.title}</div>
+                <div style={{ fontFamily: fontSerif, fontSize: 18, color: T.fg, lineHeight: 1.2 }}>
+                  {it.title}
+                </div>
                 <div style={{ fontSize: 12, color: T.fg2, marginTop: 2 }}>{it.desc}</div>
               </div>
               <span style={{ color: T.fg3, fontSize: 14 }}>→</span>
@@ -509,9 +568,17 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
           <Link
             key={t}
             href="/use-cases"
-            style={{ display: "block", padding: "8px 10px", borderRadius: 6, textDecoration: "none", margin: "0 -10px" }}
+            style={{
+              display: "block",
+              padding: "8px 10px",
+              borderRadius: 6,
+              textDecoration: "none",
+              margin: "0 -10px",
+            }}
           >
-            <div style={{ fontFamily: fontSerif, fontSize: 17, color: T.fg, lineHeight: 1.2 }}>{t}</div>
+            <div style={{ fontFamily: fontSerif, fontSize: 17, color: T.fg, lineHeight: 1.2 }}>
+              {t}
+            </div>
             <div style={{ fontSize: 11.5, color: T.fg2, marginTop: 1 }}>{d}</div>
           </Link>
         ))}
@@ -553,7 +620,9 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
           >
             <div style={{ fontFamily: fontSerif, fontSize: 18, color: T.fg }}>{n}</div>
             <div>
-              <div style={{ fontFamily: fontMono, fontSize: 12.5, color: c, fontWeight: 700 }}>{p}</div>
+              <div style={{ fontFamily: fontMono, fontSize: 12.5, color: c, fontWeight: 700 }}>
+                {p}
+              </div>
               <div style={{ fontSize: 11.5, color: T.fg2, marginTop: 2 }}>{d}</div>
             </div>
             <span style={{ color: T.fg3, fontSize: 14 }}>→</span>
@@ -649,10 +718,26 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
             <Link
               key={t}
               href="/blog"
-              style={{ display: "block", padding: "7px 10px", borderRadius: 6, textDecoration: "none", margin: "0 -10px" }}
+              style={{
+                display: "block",
+                padding: "7px 10px",
+                borderRadius: 6,
+                textDecoration: "none",
+                margin: "0 -10px",
+              }}
             >
-              <div style={{ fontSize: 13.5, color: T.fg, lineHeight: 1.3, fontWeight: 500 }}>{t}</div>
-              <div style={{ fontSize: 11, color: T.fg3, marginTop: 1, fontFamily: fontMono, letterSpacing: ".04em" }}>
+              <div style={{ fontSize: 13.5, color: T.fg, lineHeight: 1.3, fontWeight: 500 }}>
+                {t}
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: T.fg3,
+                  marginTop: 1,
+                  fontFamily: fontMono,
+                  letterSpacing: ".04em",
+                }}
+              >
                 {d}
               </div>
             </Link>
@@ -669,7 +754,13 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
 
 function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string }) {
   return (
-    <section style={{ padding: "72px 64px 96px", borderBottom: `1px solid ${T.rule}`, position: "relative" }}>
+    <section
+      style={{
+        padding: "72px 64px 96px",
+        borderBottom: `1px solid ${T.rule}`,
+        position: "relative",
+      }}
+    >
       <div
         style={{
           display: "grid",
@@ -710,8 +801,18 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
             BD GO · DEF · AIDD&nbsp;<span style={{ color: T.fg3 }}>v0.9 内测</span>
           </div>
 
-          <h1 style={{ fontFamily: fontSerif, fontWeight: 400, margin: 0, color: T.fg, letterSpacing: "-0.02em" }}>
-            <span style={{ display: "block", fontSize: 44, lineHeight: 1.05, color: T.fg2 }}>一句话，问出</span>
+          <h1
+            style={{
+              fontFamily: fontSerif,
+              fontWeight: 400,
+              margin: 0,
+              color: T.fg,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            <span style={{ display: "block", fontSize: 44, lineHeight: 1.05, color: T.fg2 }}>
+              一句话，问出
+            </span>
             <span
               style={{
                 display: "block",
@@ -729,7 +830,9 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
             >
               立项决策
             </span>
-            <span style={{ display: "block", fontSize: 32, lineHeight: 1, marginTop: 10, color: T.fg3 }}>
+            <span
+              style={{ display: "block", fontSize: 32, lineHeight: 1, marginTop: 10, color: T.fg3 }}
+            >
               —— 一份完整的立项报告。
             </span>
           </h1>
@@ -746,7 +849,9 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
               fontWeight: 400,
             }}
           >
-            对话驱动的 BD 与 AI4S 协作平台。BD GO 抓情报，DEF 拆痛点，AIDD 把分子、靶点、临床数据自动跑成一份立项报告。业内首个把 BD、生信、AI 制药串起来的中文工作流。
+            对话驱动的 BD 与 AI4S 协作平台。BD GO 抓情报，DEF 拆痛点，AIDD
+            把分子、靶点、临床数据自动跑成一份立项报告。业内首个把 BD、生信、AI
+            制药串起来的中文工作流。
           </p>
 
           <div style={{ display: "flex", gap: 12, marginTop: 44, alignItems: "center" }}>
@@ -768,7 +873,14 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
               }}
             >
               进入 BD GO 工作台
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M5 12h14M13 5l7 7-7 7" />
               </svg>
             </Link>
@@ -843,7 +955,9 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
                 >
                   {l}
                 </div>
-                <div style={{ fontSize: 11.5, color: T.fg3, marginTop: 4, fontFamily: fontSans }}>{s}</div>
+                <div style={{ fontSize: 11.5, color: T.fg3, marginTop: 4, fontFamily: fontSans }}>
+                  {s}
+                </div>
               </div>
             ))}
           </div>
@@ -861,10 +975,38 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
 
 function AgentTrace({ T, dark }: { T: Tokens; dark: boolean }) {
   const steps = [
-    { t: "00:01", agent: "bdgo.search", color: T.brand, msg: "AACR 2026 中国公司 CT 摘要", meta: "13 公司 · 24 摘要 · 来源已锁定", done: true },
-    { t: "00:14", agent: "def.extract_pains", color: "#A78BFA", msg: "从摘要中拆解未满足需求", meta: "提取出 8 个候选靶点 · 3 个差异化窗口", done: true },
-    { t: "00:38", agent: "aidd.score_targets", color: "#34D399", msg: "对候选靶点跑结构 + ADMET + IP", meta: "ROR1 评分 8.4 · CD79B 评分 6.2 · GPRC5D 7.9", done: true },
-    { t: "01:47", agent: "report.compose", color: "#F59E0B", msg: "生成立项 Portfolio v1", meta: "11 个文件 · 完整可追溯 · 已发送至飞书", done: false },
+    {
+      t: "00:01",
+      agent: "bdgo.search",
+      color: T.brand,
+      msg: "AACR 2026 中国公司 CT 摘要",
+      meta: "13 公司 · 24 摘要 · 来源已锁定",
+      done: true,
+    },
+    {
+      t: "00:14",
+      agent: "def.extract_pains",
+      color: "#A78BFA",
+      msg: "从摘要中拆解未满足需求",
+      meta: "提取出 8 个候选靶点 · 3 个差异化窗口",
+      done: true,
+    },
+    {
+      t: "00:38",
+      agent: "aidd.score_targets",
+      color: "#34D399",
+      msg: "对候选靶点跑结构 + ADMET + IP",
+      meta: "ROR1 评分 8.4 · CD79B 评分 6.2 · GPRC5D 7.9",
+      done: true,
+    },
+    {
+      t: "01:47",
+      agent: "report.compose",
+      color: "#F59E0B",
+      msg: "生成立项 Portfolio v1",
+      meta: "11 个文件 · 完整可追溯 · 已发送至飞书",
+      done: false,
+    },
   ];
 
   return (
@@ -894,7 +1036,15 @@ function AgentTrace({ T, dark }: { T: Tokens; dark: boolean }) {
         <span style={{ width: 11, height: 11, borderRadius: 999, background: "#FF5F57" }} />
         <span style={{ width: 11, height: 11, borderRadius: 999, background: "#FEBC2E" }} />
         <span style={{ width: 11, height: 11, borderRadius: 999, background: "#28C840" }} />
-        <div style={{ flex: 1, textAlign: "center", color: "#94A3B8", fontSize: 11, letterSpacing: ".05em" }}>
+        <div
+          style={{
+            flex: 1,
+            textAlign: "center",
+            color: "#94A3B8",
+            fontSize: 11,
+            letterSpacing: ".05em",
+          }}
+        >
           BD GO &nbsp;·&nbsp; session_2026_04_26
         </div>
         <div
@@ -923,7 +1073,15 @@ function AgentTrace({ T, dark }: { T: Tokens; dark: boolean }) {
           color: "#DBEAFE",
         }}
       >
-        <div style={{ fontSize: 10, color: "#93C5FD", marginBottom: 6, letterSpacing: ".08em", fontWeight: 700 }}>
+        <div
+          style={{
+            fontSize: 10,
+            color: "#93C5FD",
+            marginBottom: 6,
+            letterSpacing: ".08em",
+            fontWeight: 700,
+          }}
+        >
           USER · 14:23
         </div>
         AACR 2026 上中国公司有什么值得关注的 CT 摘要？帮我评估一下 ROR1 的立项机会。
@@ -932,7 +1090,15 @@ function AgentTrace({ T, dark }: { T: Tokens; dark: boolean }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {steps.map((s, i) => (
           <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-            <div style={{ fontSize: 10, color: "#64748B", letterSpacing: ".04em", minWidth: 38, paddingTop: 4 }}>
+            <div
+              style={{
+                fontSize: 10,
+                color: "#64748B",
+                letterSpacing: ".04em",
+                minWidth: 38,
+                paddingTop: 4,
+              }}
+            >
               {s.t}
             </div>
             <div
@@ -994,7 +1160,15 @@ function AgentTrace({ T, dark }: { T: Tokens; dark: boolean }) {
           borderRadius: 10,
         }}
       >
-        <div style={{ fontSize: 10, color: "#64748B", marginBottom: 8, letterSpacing: ".08em", fontWeight: 700 }}>
+        <div
+          style={{
+            fontSize: 10,
+            color: "#64748B",
+            marginBottom: 8,
+            letterSpacing: ".08em",
+            fontWeight: 700,
+          }}
+        >
           PORTFOLIO PREVIEW
         </div>
         <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
@@ -1043,11 +1217,37 @@ function Story({ T }: { T: Tokens }) {
             gap: 64,
           }}
         >
-          <h2 style={{ fontFamily: fontSerif, fontWeight: 400, margin: 0, color: T.fg, maxWidth: 880 }}>
-            <span style={{ display: "block", fontSize: 28, lineHeight: 1.2, color: T.fg3, fontStyle: "italic", marginBottom: 8 }}>
+          <h2
+            style={{
+              fontFamily: fontSerif,
+              fontWeight: 400,
+              margin: 0,
+              color: T.fg,
+              maxWidth: 880,
+            }}
+          >
+            <span
+              style={{
+                display: "block",
+                fontSize: 28,
+                lineHeight: 1.2,
+                color: T.fg3,
+                fontStyle: "italic",
+                marginBottom: 8,
+              }}
+            >
               三条产品线，
             </span>
-            <span style={{ display: "block", fontSize: 112, lineHeight: 0.95, letterSpacing: "-0.035em" }}>串成一条</span>
+            <span
+              style={{
+                display: "block",
+                fontSize: 112,
+                lineHeight: 0.95,
+                letterSpacing: "-0.035em",
+              }}
+            >
+              串成一条
+            </span>
             <span
               style={{
                 display: "block",
@@ -1061,7 +1261,9 @@ function Story({ T }: { T: Tokens }) {
               立项流水线。
             </span>
           </h2>
-          <div style={{ fontSize: 14, color: T.fg2, lineHeight: 1.7, maxWidth: 420, paddingTop: 12 }}>
+          <div
+            style={{ fontSize: 14, color: T.fg2, lineHeight: 1.7, maxWidth: 420, paddingTop: 12 }}
+          >
             传统 BD 团队在 PPT、Excel、PubMed、CT.gov、PDB 之间手动来回；
             我们让三个产品互相喂数据，让你只看结论。
           </div>
@@ -1100,7 +1302,11 @@ function Story({ T }: { T: Tokens }) {
             tagColor={T.accent2}
             title="痛点拆解 · 定方向"
             body="把 BD 拉来的情报喂给 DEF 痛点引擎，自动拆解未满足临床需求、治疗窗口、机制空白、可成药性。"
-            bullets={["未满足需求矩阵（适应症 × 机制）", "可成药靶点优先级排序", "差异化机会画像（vs. 竞品）"]}
+            bullets={[
+              "未满足需求矩阵（适应症 × 机制）",
+              "可成药靶点优先级排序",
+              "差异化机会画像（vs. 竞品）",
+            ]}
             output="痛点报告 + 候选靶点 ×N"
             divider
           />
@@ -1134,7 +1340,9 @@ function Story({ T }: { T: Tokens }) {
           }}
         >
           <span style={{ color: T.fg3 }}>flow</span>
-          <span style={{ color: T.brand, fontWeight: 600 }}>bdgo.search(&quot;AACR 2026&quot;)</span>
+          <span style={{ color: T.brand, fontWeight: 600 }}>
+            bdgo.search(&quot;AACR 2026&quot;)
+          </span>
           <Arrow T={T} />
           <span style={{ color: T.accent2, fontWeight: 600 }}>def.extract_pains(report)</span>
           <Arrow T={T} />
@@ -1279,7 +1487,13 @@ function Act({
 function Arrow({ T }: { T: Tokens }) {
   return (
     <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
-      <path d="M1 5h12M9 1l4 4-4 4" stroke={T.fg3} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M1 5h12M9 1l4 4-4 4"
+        stroke={T.fg3}
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -1298,7 +1512,14 @@ function AIDDHighlight({ T, dark }: { T: Tokens; dark: boolean }) {
       }}
     >
       <div style={{ maxWidth: 1820, margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 96, alignItems: "start" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1.2fr",
+            gap: 96,
+            alignItems: "start",
+          }}
+        >
           <div>
             <div
               style={{
@@ -1320,7 +1541,14 @@ function AIDDHighlight({ T, dark }: { T: Tokens; dark: boolean }) {
               <span style={{ width: 5, height: 5, borderRadius: 999, background: "#34D399" }} />
               AIDD · AI4S 引擎
             </div>
-            <h2 style={{ fontFamily: fontSerif, fontWeight: 400, margin: 0, color: dark ? T.fg : "#F8FAFC" }}>
+            <h2
+              style={{
+                fontFamily: fontSerif,
+                fontWeight: 400,
+                margin: 0,
+                color: dark ? T.fg : "#F8FAFC",
+              }}
+            >
               <span
                 style={{
                   display: "block",
@@ -1357,10 +1585,8 @@ function AIDDHighlight({ T, dark }: { T: Tokens; dark: boolean }) {
                 maxWidth: 480,
               }}
             >
-              AIDD 把每个候选靶点当成一条 AI4S 流水线跑：
-              抓 UniProt / PDB / CT.gov / Patent，
-              跑 ESMFold、ESM2、可开发性、ADMET，
-              最后吐出一份 11 个文件的完整立项包。
+              AIDD 把每个候选靶点当成一条 AI4S 流水线跑： 抓 UniProt / PDB / CT.gov / Patent， 跑
+              ESMFold、ESM2、可开发性、ADMET， 最后吐出一份 11 个文件的完整立项包。
             </p>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 32 }}>
@@ -1590,11 +1816,26 @@ function DEFSection({ T, dark }: { T: Tokens; dark: boolean }) {
         >
           DEF · 痛点引擎
         </div>
-        <h2 style={{ fontFamily: fontSerif, fontWeight: 400, margin: 0, color: T.fg, maxWidth: 1200 }}>
-          <span style={{ display: "block", fontSize: 26, lineHeight: 1.2, color: T.fg3, fontStyle: "italic", marginBottom: 12 }}>
+        <h2
+          style={{ fontFamily: fontSerif, fontWeight: 400, margin: 0, color: T.fg, maxWidth: 1200 }}
+        >
+          <span
+            style={{
+              display: "block",
+              fontSize: 26,
+              lineHeight: 1.2,
+              color: T.fg3,
+              fontStyle: "italic",
+              marginBottom: 12,
+            }}
+          >
             DEF 把 BD 拉到的&ldquo;杂音&rdquo;
           </span>
-          <span style={{ display: "block", fontSize: 96, lineHeight: 0.95, letterSpacing: "-0.035em" }}>自动结构化成</span>
+          <span
+            style={{ display: "block", fontSize: 96, lineHeight: 0.95, letterSpacing: "-0.035em" }}
+          >
+            自动结构化成
+          </span>
           <span
             style={{
               display: "block",
@@ -1609,10 +1850,13 @@ function DEFSection({ T, dark }: { T: Tokens; dark: boolean }) {
           </span>
         </h2>
         <p style={{ fontSize: 16, color: T.fg2, lineHeight: 1.6, marginTop: 24, maxWidth: 720 }}>
-          Disease · Endpoint · Frontier —— 把疾病、终点、技术前沿三者交叉切片，找出还没被对手占住的窗口。
+          Disease · Endpoint · Frontier ——
+          把疾病、终点、技术前沿三者交叉切片，找出还没被对手占住的窗口。
         </p>
 
-        <div style={{ marginTop: 64, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+        <div
+          style={{ marginTop: 64, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}
+        >
           <PainCard
             T={T}
             tag="DISEASE"
@@ -1871,7 +2115,9 @@ function ProductCard({
         transition: "transform .2s, box-shadow .2s",
       }}
     >
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: color }} />
+      <div
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: color }}
+      />
       <div
         style={{
           display: "inline-flex",
@@ -1914,7 +2160,10 @@ function ProductCard({
         }}
       >
         {features.map((f) => (
-          <div key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.fg2 }}>
+          <div
+            key={f}
+            style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.fg2 }}
+          >
             <svg
               width="12"
               height="12"
@@ -1942,12 +2191,55 @@ function ProductCard({
 
 function AI4SLab({ T, dark }: { T: Tokens; dark: boolean }) {
   const projects = [
-    { kind: "PIPELINE", kindColor: T.brand, title: "TCR-T 适应症反查", sub: "从 HLA-peptide 库反查适应症机会", tags: ["NetMHCpan", "TCGA"], status: "Beta" },
-    { kind: "BENCHMARK", kindColor: T.accent2, title: "ADC payload 可成药性榜", sub: "23 个 payload 在 6 个维度的 head-to-head", tags: ["RDKit", "ADMET"], status: "Live" },
-    { kind: "DATASET", kindColor: T.accent1, title: "中国 IND 全量数据集", sub: "2018-2026 · 8,400 条 · 周更", tags: ["NMPA", "CDE"], status: "Live" },
-    { kind: "MODEL", kindColor: T.accent3, title: "BD-LM · BD 领域语言模型", sub: "在交易 / 管线 / 财报上 finetune", tags: ["7B", "Qwen2"], status: "Preprint" },
-    { kind: "PIPELINE", kindColor: T.brand, title: "GPCR × ADC 前沿扫描", sub: "把 GPCR 全家与 ADC payload 配对评估", tags: ["AlphaFold", "RDKit"], status: "WIP" },
-    { kind: "TEMPLATE", kindColor: "#D97706", title: "[ 你的项目 ]", sub: "[ 一句话描述这个 pipeline 在做什么 ]", tags: ["[tag]", "[tag]"], status: "WIP", placeholder: true },
+    {
+      kind: "PIPELINE",
+      kindColor: T.brand,
+      title: "TCR-T 适应症反查",
+      sub: "从 HLA-peptide 库反查适应症机会",
+      tags: ["NetMHCpan", "TCGA"],
+      status: "Beta",
+    },
+    {
+      kind: "BENCHMARK",
+      kindColor: T.accent2,
+      title: "ADC payload 可成药性榜",
+      sub: "23 个 payload 在 6 个维度的 head-to-head",
+      tags: ["RDKit", "ADMET"],
+      status: "Live",
+    },
+    {
+      kind: "DATASET",
+      kindColor: T.accent1,
+      title: "中国 IND 全量数据集",
+      sub: "2018-2026 · 8,400 条 · 周更",
+      tags: ["NMPA", "CDE"],
+      status: "Live",
+    },
+    {
+      kind: "MODEL",
+      kindColor: T.accent3,
+      title: "BD-LM · BD 领域语言模型",
+      sub: "在交易 / 管线 / 财报上 finetune",
+      tags: ["7B", "Qwen2"],
+      status: "Preprint",
+    },
+    {
+      kind: "PIPELINE",
+      kindColor: T.brand,
+      title: "GPCR × ADC 前沿扫描",
+      sub: "把 GPCR 全家与 ADC payload 配对评估",
+      tags: ["AlphaFold", "RDKit"],
+      status: "WIP",
+    },
+    {
+      kind: "TEMPLATE",
+      kindColor: "#D97706",
+      title: "[ 你的项目 ]",
+      sub: "[ 一句话描述这个 pipeline 在做什么 ]",
+      tags: ["[tag]", "[tag]"],
+      status: "WIP",
+      placeholder: true,
+    },
   ];
 
   return (
@@ -1956,7 +2248,15 @@ function AI4SLab({ T, dark }: { T: Tokens; dark: boolean }) {
       style={{ padding: "120px 64px", background: T.bg, borderTop: `1px solid ${T.rule}` }}
     >
       <div style={{ maxWidth: 1820, margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 96, alignItems: "end", marginBottom: 80 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.1fr 1fr",
+            gap: 96,
+            alignItems: "end",
+            marginBottom: 80,
+          }}
+        >
           <div>
             <div
               style={{
@@ -1991,13 +2291,14 @@ function AI4SLab({ T, dark }: { T: Tokens; dark: boolean }) {
             >
               把生信、AI 制药与药物经济学
               <br />
-              <span style={{ fontStyle: "italic", color: T.accent1 }}>做成可复用的研究流水线</span>。
+              <span style={{ fontStyle: "italic", color: T.accent1 }}>做成可复用的研究流水线</span>
+              。
             </h2>
           </div>
           <div>
             <p style={{ fontSize: 16, lineHeight: 1.7, color: T.fg2, margin: 0, maxWidth: 520 }}>
-              AI4S 实验室是 BD Go 的研究端开放平台。我们把内部跑通的 AI4S 工作流、benchmark 和 reproducible
-              notebook 公开出来，给生信工程师、临床研究员、AI 制药团队当起点。
+              AI4S 实验室是 BD Go 的研究端开放平台。我们把内部跑通的 AI4S 工作流、benchmark 和
+              reproducible notebook 公开出来，给生信工程师、临床研究员、AI 制药团队当起点。
             </p>
             <div style={{ marginTop: 28, display: "flex", gap: 12, flexWrap: "wrap" }}>
               <Link
@@ -2105,11 +2406,28 @@ function AI4SLab({ T, dark }: { T: Tokens; dark: boolean }) {
             >
               ROR1 抗体立项 · 全流程 reproducible
             </h3>
-            <div style={{ fontSize: 16, color: T.fg2, marginTop: 12, fontStyle: "italic", fontFamily: fontSerif }}>
+            <div
+              style={{
+                fontSize: 16,
+                color: T.fg2,
+                marginTop: 12,
+                fontStyle: "italic",
+                fontFamily: fontSerif,
+              }}
+            >
               ESMFold + ESM2 + 可开发性 + IP 一键跑完
             </div>
-            <p style={{ fontSize: 14.5, lineHeight: 1.65, color: T.fg2, marginTop: 24, maxWidth: 520 }}>
-              把一个候选抗原从 UniProt 拉到立项打分的完整 pipeline。11 个产物文件，全部可追溯。Notebook 打开即跑。
+            <p
+              style={{
+                fontSize: 14.5,
+                lineHeight: 1.65,
+                color: T.fg2,
+                marginTop: 24,
+                maxWidth: 520,
+              }}
+            >
+              把一个候选抗原从 UniProt 拉到立项打分的完整 pipeline。11
+              个产物文件，全部可追溯。Notebook 打开即跑。
             </p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 24 }}>
               {["ESMFold", "ESM2", "PDB", "UniProt", "可开发性", "ADMET"].map((c) => (
@@ -2276,7 +2594,14 @@ function AI4SLab({ T, dark }: { T: Tokens; dark: boolean }) {
                 >
                   {p.kind}
                 </span>
-                <span style={{ fontFamily: fontMono, fontSize: 10, color: T.fg3, letterSpacing: ".06em" }}>
+                <span
+                  style={{
+                    fontFamily: fontMono,
+                    fontSize: 10,
+                    color: T.fg3,
+                    letterSpacing: ".06em",
+                  }}
+                >
                   ● {p.status}
                 </span>
               </div>
@@ -2349,8 +2674,25 @@ function FooterCTA({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: st
       >
         · Get started ·
       </div>
-      <h2 style={{ fontFamily: fontSerif, fontWeight: 400, margin: 0, color: T.fg, maxWidth: 1400, marginInline: "auto" }}>
-        <span style={{ display: "block", fontSize: 56, lineHeight: 1.05, letterSpacing: "-0.02em", color: T.fg2 }}>
+      <h2
+        style={{
+          fontFamily: fontSerif,
+          fontWeight: 400,
+          margin: 0,
+          color: T.fg,
+          maxWidth: 1400,
+          marginInline: "auto",
+        }}
+      >
+        <span
+          style={{
+            display: "block",
+            fontSize: 56,
+            lineHeight: 1.05,
+            letterSpacing: "-0.02em",
+            color: T.fg2,
+          }}
+        >
           下一份立项报告，
         </span>
         <span
@@ -2371,7 +2713,15 @@ function FooterCTA({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: st
           从一句话开始。
         </span>
       </h2>
-      <div style={{ display: "flex", gap: 14, justifyContent: "center", marginTop: 56, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 14,
+          justifyContent: "center",
+          marginTop: 56,
+          flexWrap: "wrap",
+        }}
+      >
         <Link
           href={ctaHref}
           style={{
@@ -2388,7 +2738,14 @@ function FooterCTA({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: st
           }}
         >
           进入 BD GO
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M5 12h14M13 5l7 7-7 7" />
           </svg>
         </Link>
@@ -2434,7 +2791,16 @@ function FooterMeta({ T }: { T: Tokens }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
             <BDGoLogo size={24} T={T} />
-            <span style={{ fontFamily: fontSans, fontWeight: 600, fontSize: 14, letterSpacing: ".08em", color: T.fg, textTransform: "uppercase" }}>
+            <span
+              style={{
+                fontFamily: fontSans,
+                fontWeight: 600,
+                fontSize: 14,
+                letterSpacing: ".08em",
+                color: T.fg,
+                textTransform: "uppercase",
+              }}
+            >
               BD GO
             </span>
           </div>
