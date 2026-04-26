@@ -157,57 +157,91 @@ def test_suggested_commands_end_of_lifecycle_silent():
         assert svc._build_suggested_commands(inp) == [], f"{ct} should not suggest"
 
 
-def test_suggested_commands_mta_emits_license():
-    """MTA review → offer License Agreement as next step."""
+def test_suggested_commands_mta_routes_to_draft_license():
+    """MTA review → /draft-license (NOT /legal contract_type=license review).
+
+    Previously fired /legal review which is broken: the License Agreement
+    doesn't exist yet — that's exactly what this chip is supposed to
+    initiate. Fixed alongside same closed-loop bug in /log /import-reply
+    /evaluate /rnpv (#119, #121, #122). Audit added in this PR catches
+    future regressions.
+    """
     svc = LegalReviewService()
     inp = LegalReviewInput(
         contract_type="mta",
-        party_position="乙方",
+        party_position="乙方",  # we're the provider in MTA → licensor in License
         contract_text="x",
         counterparty="Eli Lilly",
         project_name="PEG-001 (NSCLC)",
     )
     sc = svc._build_suggested_commands(inp)
     assert len(sc) == 1
-    assert sc[0]["slug"] == "legal-review"
+    assert sc[0]["slug"] == "draft-license"
     assert sc[0]["label"] == "Draft License Agreement"
     cmd = sc[0]["command"]
-    assert "contract_type=license" in cmd
-    assert 'party_position="乙方"' in cmd
-    assert 'counterparty="Eli Lilly"' in cmd
-    assert 'project_name="PEG-001 (NSCLC)"' in cmd
+    assert cmd.startswith("/draft-license")
+    assert "our_role=licensor" in cmd  # 乙方 → licensor in License
+    assert 'licensee="Eli Lilly"' in cmd
+    assert 'asset_name="PEG-001 (NSCLC)"' in cmd
+
+
+def test_suggested_commands_mta_jiafang_inverts_role():
+    """If we were the recipient (甲方) in MTA, we're the licensee in License."""
+    svc = LegalReviewService()
+    inp = LegalReviewInput(
+        contract_type="mta",
+        party_position="甲方",
+        contract_text="x",
+        counterparty="Stanford",
+    )
+    sc = svc._build_suggested_commands(inp)
+    cmd = sc[0]["command"]
+    assert "our_role=licensee" in cmd
+    assert 'licensor="Stanford"' in cmd
 
 
 def test_suggested_commands_mta_without_counterparty():
-    """MTA with no counterparty still emits the license chip (fields omitted)."""
+    """MTA with no counterparty still emits the chip (counterparty field omitted)."""
     svc = LegalReviewService()
     inp = LegalReviewInput(contract_type="mta", party_position="甲方", contract_text="x")
     sc = svc._build_suggested_commands(inp)
     assert len(sc) == 1
-    assert "contract_type=license" in sc[0]["command"]
-    assert "counterparty" not in sc[0]["command"]
+    assert sc[0]["slug"] == "draft-license"
+    assert "our_role=licensee" in sc[0]["command"]
+    # Without counterparty, no licensor= or licensee= prefilled (other than ours)
+    assert 'licensor="' not in sc[0]["command"]
 
 
-def test_suggested_commands_ts_emits_license_and_codev():
-    """Stage 6: TS review → offer License Agreement + Co-Dev Agreement chips."""
+def test_suggested_commands_ts_routes_to_draft_license_and_draft_codev():
+    """Stage 6: TS review → offer two definitive-agreement drafting chips.
+
+    Both chips route to /draft-X services, NOT /legal review. The
+    audit (test_chip_routing_audit) prevents any regression that
+    re-routes a "Draft X" labeled chip back to legal-review.
+    """
     svc = LegalReviewService()
     inp = LegalReviewInput(
         contract_type="ts",
-        party_position="乙方",
+        party_position="乙方",  # we granted (licensor)
         contract_text="x",
         counterparty="Eli Lilly",
         project_name="PEG-001 (NSCLC)",
     )
     sc = svc._build_suggested_commands(inp)
     slugs = [c["slug"] for c in sc]
-    assert slugs.count("legal-review") == 2
-    cmds = [c["command"] for c in sc]
-    license_cmd = next(c for c in cmds if "contract_type=license" in c)
-    codev_cmd = next(c for c in cmds if "contract_type=co_dev" in c)
-    for cmd in (license_cmd, codev_cmd):
-        assert 'counterparty="Eli Lilly"' in cmd
-        assert 'project_name="PEG-001 (NSCLC)"' in cmd
-        assert 'party_position="乙方"' in cmd
+    assert slugs == ["draft-license", "draft-codev"]
+
+    license_chip = next(c for c in sc if c["slug"] == "draft-license")
+    assert license_chip["command"].startswith("/draft-license")
+    assert "our_role=licensor" in license_chip["command"]
+    assert 'licensee="Eli Lilly"' in license_chip["command"]
+    assert 'asset_name="PEG-001 (NSCLC)"' in license_chip["command"]
+
+    codev_chip = next(c for c in sc if c["slug"] == "draft-codev")
+    assert codev_chip["command"].startswith("/draft-codev")
+    assert "our_role=party_b" in codev_chip["command"]  # 乙方 → party_b
+    assert 'party_a="Eli Lilly"' in codev_chip["command"]
+    assert 'program_name="PEG-001 (NSCLC)"' in codev_chip["command"]
 
 
 def test_suggested_commands_ts_without_counterparty():
