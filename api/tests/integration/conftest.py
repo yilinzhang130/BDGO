@@ -64,8 +64,23 @@ def integration_client():
     conftest, which stubs ``get_current_user`` via
     ``app.dependency_overrides`` so routers are exercised without a
     live DB.
+
+    Rate-limit reset: ``routers.auth._rl_store`` is a process-local
+    sliding-window counter (10 attempts / 60 s / IP). Every integration
+    test calls _register_user from the same TestClient IP, so without
+    a per-test reset the 5th sessions test trips a documented 429
+    flake on CI (see #X-67). We clear the store at fixture entry —
+    cheap, surgical, and doesn't touch production code.
     """
     _require_test_db()
+
+    # Reset auth rate-limit store before each integration test so
+    # cumulative register/login attempts across tests don't trip the
+    # 10-per-minute per-IP cap (TestClient always uses one IP).
+    from routers import auth as auth_router
+
+    with auth_router._rl_lock:
+        auth_router._rl_store.clear()
 
     # Touch the pool once — triggers _SCHEMA_SQL on a fresh DB.
     import auth_db
