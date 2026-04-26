@@ -1,8 +1,8 @@
 # Skill Mirror — BDGO 报告服务 vs 本地 OpenClaw 技能
 
-BDGO 的 **21 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**线上 Python 实现**。本地 SKILL.md 是 prompt 的"原稿"，迭代快；BDGO Python 文件是"工厂"，把 prompt 嵌入完整的报告生产流水线（CRM 查询 → web 增强 → LLM → docx 渲染）。
+BDGO 的 **25 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**线上 Python 实现**。本地 SKILL.md 是 prompt 的"原稿"，迭代快；BDGO Python 文件是"工厂"，把 prompt 嵌入完整的报告生产流水线（CRM 查询 → web 增强 → LLM → docx 渲染）。
 
-剩下 **12 个**线上独有服务直接长在 BDGO 里，没有本地镜像（生命周期工具、写作工具等）。
+剩下 **16 个**线上独有服务直接长在 BDGO 里，没有本地镜像（生命周期工具、写作工具、合同起草工具等）。
 
 本文档是这两套系统之间的**唯一真源**。当用户说"升级 X 技能"时，先读这里。
 
@@ -47,7 +47,7 @@ BDGO 的 **21 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 
 如果要给这 3 个建立镜像，先在 `~/.openclaw/skills/` 下建 `SKILL.md`、把现有 Python prompt 拆出去、然后加进上面的镜像表。
 
-#### BD Lifecycle 工具（9 个，2026-04-26 新增）
+#### BD Lifecycle 工具（8 个，2026-04-26 新增）
 这一批是**生命周期编排 + 写作工具**，本质上不是分析报告，所以不需要本地 SKILL.md 镜像。
 
 | 斜杠 alias | slug | Python 文件 | 用途 |
@@ -59,8 +59,20 @@ BDGO 的 **21 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 | `/outreach` | `outreach-list` | [outreach_list.py](../api/services/reports/outreach_list.py) | 查 outreach pipeline / thread |
 | `/import-reply` | `import-reply` | [import_reply.py](../api/services/reports/import_reply.py) | 粘贴邮件回信 → LLM 抽 status → 自动 /log |
 | `/dataroom` | `data-room` | [data_room.py](../api/services/reports/data_room.py) | 数据室文件清单（8 类 × modality × stage × audience） |
-| `/draft-ts` | `draft-ts` | [draft_ts.py](../api/services/reports/draft_ts.py) | 起草 Term Sheet（13 节，binding/non-binding 标记） |
 | `/synthesize` | `bd-synthesize` | [bd_synthesize.py](../api/services/reports/bd_synthesize.py) | 综合多份 task 的 markdown → BD 策略备忘 |
+
+#### `/draft-X` 合同起草家族（5 个，2026-04-26 完整上线）
+**结构化参数 → markdown + .docx skeleton**。所有服务共享 L0/L1 schema 验证 + gap-fill retry + 商业风险提示节 + 签署前 Checklist。每个服务在生成完毕后通过 `meta.suggested_commands` 推 `/legal contract_type=<X>` 做独立 BD-风险二次审查。
+
+| 斜杠 alias | slug | Python 文件 | 节数 | 风险节 floor | 关键 BD 特征 |
+|---|---|---|---|---|---|
+| `/draft-ts` | `draft-ts` | [draft_ts.py](../api/services/reports/draft_ts.py) | 13 | ≥3 | binding/non-binding 标记 + No-Shop + Break-up Fee |
+| `/draft-mta` | `draft-mta` | [draft_mta.py](../api/services/reports/draft_mta.py) | 12 | ≥3 | Material/derivative 范围 + Stealth-license 红旗扫描 |
+| `/draft-license` | `draft-license` | [draft_license.py](../api/services/reports/draft_license.py) | 13 | ≥5 | Definitions ≥6 核心术语 + Diligence milestones + Effects of Termination 存续条款 |
+| `/draft-codev` | `draft-codev` | [draft_codev.py](../api/services/reports/draft_codev.py) | 12 | ≥5 | 对称（Party A/B） + JSC 投票/僵局 + 成本分摊 + 共同 IP + buyout/FMV |
+| `/draft-spa` | `draft-spa` | [draft_spa.py](../api/services/reports/draft_spa.py) | 13 | ≥6 | R&W 分 Fundamentals/General + Indemnification 三件套（cap+basket+survival） + HSR/CFIUS/SAMR + Working Capital Adjustment |
+
+> ⚠️ **/draft-X 的输出都是 SKELETON**：实际合同（特别是 SPA 100+ 页 / License 50+ 页）必须由律师起草。BDGO 输出含 `Not legal advice / 非法律意见` 显著免责声明，并在 chip 中默认衔接 `/legal` 做 BD-风险二次审查。
 
 ---
 
@@ -115,7 +127,7 @@ BDGO 的 **21 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│  Stage 5-6 — TS / Definitive                                     │
+│  Stage 5-6 — TS / Definitive / Acquisition                       │
 │                                                                  │
 │  /evaluate or /rnpv                                              │
 │    └→ chip /legal contract_type=ts (review existing TS)          │
@@ -123,6 +135,20 @@ BDGO 的 **21 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 │  /draft-ts our_role=licensor financial_terms=...                 │
 │    ├→ chip /legal contract_type=ts (review own draft)            │
 │    └→ chip /dd perspective=seller (if licensor)                  │
+│                                                                  │
+│  /draft-mta provider/recipient material=...                      │
+│    └→ chip /legal contract_type=mta                              │
+│         + /draft-ts (if provider role)                           │
+│                                                                  │
+│  /draft-license licensor/licensee asset=...                      │
+│    ├→ chip /legal contract_type=license                          │
+│    └→ chip /dd perspective=seller (if licensor)                  │
+│                                                                  │
+│  /draft-codev party_a/party_b cost_split=50_50 jsc=...           │
+│    └→ chip /legal contract_type=co_dev                           │
+│                                                                  │
+│  /draft-spa buyer/seller deal_structure=stock_purchase ...       │
+│    └→ chip /legal contract_type=spa                              │
 │                                                                  │
 │  /legal contract_type=ts review                                  │
 │    └→ chip /legal contract_type=license                          │
@@ -137,7 +163,7 @@ BDGO 的 **21 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 
 1. **Chips 通用机制**：后端任何 service 都通过 `ReportResult.meta.suggested_commands: list[{label, command, slug}]` emit 下一步。前端 `ReportTaskCard` 自动渲染（不用每次改前端）。
 2. **状态驱动而非硬编码**：`/log` 和 `/import-reply` 的 chips 根据 `status` 字段动态选择（cda_signed→/dd, ts_signed→/legal license, etc.），而不是固定一条链。
-3. **双向服务用 perspective**：`/company`、`/dd`、`/email`、`/draft-ts`、`/timing` 都接受 `perspective` / `our_role` 参数，同样的 service 服务买卖两端。
+3. **双向服务用 perspective**：`/company`、`/dd`、`/email`、`/draft-ts`、`/draft-mta`、`/draft-license`、`/draft-codev`、`/draft-spa`、`/timing` 都接受 `perspective` / `our_role` 参数，同样的 service 服务买卖两端。
 4. **Plan mode 用于多步编排**：BP 上传后 → planner 生成 N-step checklist 让用户勾选，比硬编码 orchestrator 更灵活（X-17）。
 
 ---
