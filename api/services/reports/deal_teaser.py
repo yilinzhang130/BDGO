@@ -1,3 +1,6 @@
+# MIRROR OF: ~/.openclaw/skills/deal-teaser-generator/SKILL.md (synced 2026-04-15)
+# Sync prompts FROM SKILL.md, not the other way. See docs/SKILL_MIRROR.md.
+
 """Deal Teaser — 8-slide BD teaser PPT + 1-2 page Executive Summary Word doc.
 
 Pipeline:

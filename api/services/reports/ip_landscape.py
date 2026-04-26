@@ -1,3 +1,6 @@
+# MIRROR OF: ~/.openclaw/skills/patent-landscape/SKILL.md (synced 2026-04-24)
+# Sync prompts FROM SKILL.md, not the other way. See docs/SKILL_MIRROR.md.
+
 """
 IP Landscape — fourth report service.
 

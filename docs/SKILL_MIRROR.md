@@ -198,4 +198,4 @@ BDGO 的 **25 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 - 本地 SKILL.md 顶部有版本号（如 `v0.2.1`），但线上没有 `synced_from_version` 字段
 - 这两点叠加导致"升级 X 技能"是个**项目 specific 的术语**，不读这份文档就不知道是什么意思
 
-下一步可以加每个 Python 文件顶部的 `# MIRROR OF: ... synced from v0.2.1` 注释头，让代码本身自描述（详见 README todo）。
+每个 mirrored Python 文件顶部都有 `# MIRROR OF: ~/.openclaw/skills/<name>/SKILL.md (...)` 注释头（X-58, 2026-04-26），让代码本身自描述。改 prompt 前先读 header 指向的 SKILL.md，避免本地/线上漂移。

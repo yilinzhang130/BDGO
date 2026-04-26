@@ -1,3 +1,6 @@
+# MIRROR OF: ~/.openclaw/skills/bd-legal-review/SKILL.md (synced 2026-04-25)
+# Sync prompts FROM SKILL.md, not the other way. See docs/SKILL_MIRROR.md.
+
 """
 BD Legal Review — port of the local ``bd-legal-review`` skill.
 

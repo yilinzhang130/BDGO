@@ -1,3 +1,6 @@
+# MIRROR OF: ~/.openclaw/skills/biotech-deal-asset-evaluator/SKILL.md (synced 2026-04-24)
+# Sync prompts FROM SKILL.md, not the other way. See docs/SKILL_MIRROR.md.
+
 """Deal Evaluator — investment-bank four-quadrant pressure test of a biotech asset.
 
 Given an asset's target / MoA / stage / modality / indication + any known
