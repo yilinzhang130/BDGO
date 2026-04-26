@@ -291,3 +291,53 @@ def test_chat_tool_input_schema(svc):
     assert schema["properties"]["no_shop_days"]["default"] == 60
     assert "financial_terms" in schema["properties"]
     assert schema["properties"]["financial_terms"]["type"] == "object"
+
+
+# ── L0/L1 quality pass (gap-fill prompt builder) ───────────
+
+
+def test_gap_fill_prompt_includes_fail_list_and_markdown():
+    from services.reports.draft_ts import _build_gap_fill_prompt
+
+    class FakeFinding:
+        severity = "fail"
+        section = "diligence"
+        message = "章节缺失"
+        evidence = ""
+
+    class FakeFinding2:
+        severity = "fail"
+        section = "confidentiality"
+        message = "应含 BINDING"
+        evidence = "missing binding tag"
+
+    class FakeFinding3:
+        severity = "warn"  # warns get filtered out
+        section = "governing_law"
+        message = "字数不足"
+        evidence = ""
+
+    class FakeAudit:
+        findings = [FakeFinding(), FakeFinding2(), FakeFinding3()]
+
+    prompt = _build_gap_fill_prompt("# Sample TS\n\ncontent", FakeAudit())
+    # FAIL findings present
+    assert "[diligence] 章节缺失" in prompt
+    assert "[confidentiality] 应含 BINDING | 证据: missing binding tag" in prompt
+    # WARN findings filtered out
+    assert "字数不足" not in prompt
+    # Original markdown embedded
+    assert "# Sample TS" in prompt
+    assert "content" in prompt
+
+
+def test_gap_fill_prompt_truncates_long_markdown():
+    from services.reports.draft_ts import _build_gap_fill_prompt
+
+    class FakeAudit:
+        findings = []
+
+    huge_md = "x" * 70_000
+    prompt = _build_gap_fill_prompt(huge_md, FakeAudit())
+    # 60k char cap on the markdown insertion
+    assert prompt.count("x") <= 60_000

@@ -35,6 +35,7 @@ _SCHEMAS_DIR = Path(__file__).parent / "schemas"
 _SCHEMA_BY_MODE: dict[str, str] = {
     "mnc": "mnc_main.yaml",
     "commercial_biotech": "commercial_biotech_main.yaml",
+    "draft_ts": "draft_ts_main.yaml",
 }
 
 
@@ -359,6 +360,38 @@ def check_sections(sections: dict[str, Section], schema: dict, r: AuditResult):
                 )
             continue
         sec = sections[sid]
+
+        # Section-level keyword checks. Existing schemas all set these
+        # only on subsections; newer schemas (draft-ts, dataroom, etc.)
+        # use plain section-level rules to keep their YAML compact.
+        for kw in sec_def.get("must_contain_all", []):
+            if not re.search(kw, sec.text, re.IGNORECASE):
+                r.add(
+                    "fail",
+                    "section_content",
+                    sid,
+                    f'章节"{sec_def["name"]}"应含关键词 "{kw}"，未检测到',
+                )
+        if sec_def.get("must_contain_one_of"):
+            if not any(
+                re.search(k, sec.text, re.IGNORECASE) for k in sec_def["must_contain_one_of"]
+            ):
+                r.add(
+                    "fail",
+                    "section_content",
+                    sid,
+                    f'章节"{sec_def["name"]}"应至少含以下之一: {sec_def["must_contain_one_of"]}',
+                )
+        if sec_def.get("min_words"):
+            wc = len(re.findall(r"\S", sec.text))
+            if wc < sec_def["min_words"]:
+                r.add(
+                    "warn",
+                    "section_content",
+                    sid,
+                    f'章节"{sec_def["name"]}" 字符数={wc}，目标 ≥{sec_def["min_words"]}',
+                )
+
         for sub in sec_def.get("subsections", []):
             sub_id = sub["id"]
             sub_name = sub["name"]
@@ -579,6 +612,10 @@ def check_banned_phrases(full: str, schema: dict, r: AuditResult):
 
 def check_citations(full: str, schema: dict, r: AuditResult):
     rules = schema.get("citation_rules", {})
+    # Opt-in: schemas that don't declare citation_rules skip this check
+    # entirely (e.g. /draft-ts is a standalone legal doc with no references).
+    if not rules:
+        return
     used = [int(m.group(1)) for m in re.finditer(r"\[(\d+)\]", full)]
     used_set = set(used)
     ref_header_pat = rules.get("references_section", "参考来源")
