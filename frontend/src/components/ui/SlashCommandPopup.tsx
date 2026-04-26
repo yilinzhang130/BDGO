@@ -25,6 +25,11 @@ export const SLASH_COMMANDS: Omit<
 >[] = [
   { alias: "paper", slug: "paper-analysis", example: "KRAS G12C 耐药机制 综述 最近3年 15篇" },
   { alias: "mnc", slug: "buyer-profile", example: "AstraZeneca 肿瘤管线" },
+  {
+    alias: "buyers",
+    slug: "buyer-matching",
+    example: 'target="KRAS G12C" indication="NSCLC 一线" phase="Phase 2" top_n=5',
+  },
   { alias: "dd", slug: "dd-checklist", example: "某 KRAS G12C 抑制剂 III期 BIC 买方视角" },
   { alias: "commercial", slug: "commercial-assessment", example: "三阴乳腺癌 ADC 中国市场" },
   { alias: "disease", slug: "disease-landscape", example: "特发性肺纤维化 全球竞争格局" },
