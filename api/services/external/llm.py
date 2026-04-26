@@ -180,22 +180,125 @@ def _extract_json_object(text: str) -> dict | None:
     return None
 
 
+# key=value pair extractor. Three forms recognised: key="quoted with spaces",
+# key='single quoted', and bare key=unquoted_token. Only keys present in
+# ``schema_props`` survive — protects against the LLM-only path's
+# hallucinated-field problem and against accidental injection from stray
+# text that happens to contain ``=`` signs.
+_KV_PATTERN = re.compile(
+    r"""
+    \b(?P<key>[a-zA-Z_][a-zA-Z0-9_]*)   # identifier-style key
+    =
+    (?:
+        "(?P<dq>[^"]*)"                  # double-quoted value
+      | '(?P<sq>[^']*)'                  # single-quoted value
+      | (?P<bare>[^\s"']+)               # bare token: stop at whitespace or quote
+    )
+    """,
+    re.VERBOSE,
+)
+
+
+def _coerce_kv_value(raw: str, spec: dict):
+    """Coerce a string match to the type declared in JSON Schema.
+
+    Falls back to the raw string for unknown / unparseable types — the
+    caller's Pydantic model will raise a clear validation error rather
+    than us silently mangling intent.
+    """
+    t = spec.get("type", "string")
+    if t == "boolean":
+        low = raw.lower()
+        if low in ("true", "yes", "1"):
+            return True
+        if low in ("false", "no", "0"):
+            return False
+        return raw
+    if t == "integer":
+        try:
+            return int(raw)
+        except ValueError:
+            return raw
+    if t == "number":
+        try:
+            return float(raw)
+        except ValueError:
+            return raw
+    return raw
+
+
+def extract_kv_pairs(text: str, schema_props: dict) -> tuple[dict, str]:
+    """Pre-LLM deterministic parser for chip-style `key=value` slash commands.
+
+    Chip handoffs (e.g. `/legal contract_type=spa source_task_id=abc123
+    counterparty="Pfizer"`) emit explicit key=value pairs — sending those
+    through an LLM is wasted latency + a hallucination risk. This helper
+    extracts them deterministically, leaving any non-matching text as
+    residual for the LLM to handle when the user mixed chip and free text.
+
+    Returns:
+        (kv_params, residual_text) — kv_params holds schema-valid fields,
+        residual_text is everything not consumed by a kv match (suitable
+        for the LLM fallback to extract free-text fields from).
+    """
+    if not text:
+        return {}, ""
+
+    parsed: dict = {}
+    consumed_spans: list[tuple[int, int]] = []
+    for m in _KV_PATTERN.finditer(text):
+        key = m.group("key")
+        if key not in schema_props:
+            continue  # skip stray identifiers — defends against typos / injection
+        raw_value = m.group("dq")
+        if raw_value is None:
+            raw_value = m.group("sq")
+        if raw_value is None:
+            raw_value = m.group("bare") or ""
+        parsed[key] = _coerce_kv_value(raw_value, schema_props[key])
+        consumed_spans.append(m.span())
+
+    # Build residual by removing all matched spans (in reverse so indices stay valid)
+    residual_chars = list(text)
+    for start, end in sorted(consumed_spans, reverse=True):
+        del residual_chars[start:end]
+    residual = "".join(residual_chars).strip()
+
+    return parsed, residual
+
+
 def extract_params_from_text(
     freeform_text: str,
     schema: dict,
     service_name: str,
     timeout: float = 30.0,
 ) -> dict:
-    """Use the LLM to map freeform user text onto a JSON-schema-shaped param object.
+    """Map freeform user text onto a JSON-schema-shaped param object.
 
-    Returns the parsed object (may be partial — caller validates against the
-    service's Pydantic model). Returns {} if the LLM can't produce anything usable.
+    Strategy:
+      1. Deterministic key=value pre-parse for chip-style structured args
+         (no LLM call when the input is fully structured).
+      2. If residual text remains, fall back to the LLM extractor for the
+         free-text portion. LLM-extracted fields don't override anything
+         the deterministic parser already locked in.
+
+    Returns the merged dict (may be partial — caller validates against
+    the service's Pydantic model). Returns {} if both paths fail.
     """
     if not freeform_text.strip():
         return {}
 
     props = schema.get("properties", {})
     required = schema.get("required", [])
+
+    # 1. Deterministic kv pre-parse — handles chip-emitted commands without
+    #    an LLM round-trip
+    kv_params, residual = extract_kv_pairs(freeform_text, props)
+    if kv_params and not residual:
+        # Pure chip command — done; skip the LLM call entirely
+        return kv_params
+
+    # 2. LLM fallback for residual free-text portion
     field_desc_lines = []
     for name, spec in props.items():
         marker = "(REQUIRED)" if name in required else "(optional)"
@@ -210,16 +313,21 @@ def extract_params_from_text(
         "cannot determine. Do not invent values. Do not wrap in markdown fences.\n\n"
         "Available fields:\n" + "\n".join(field_desc_lines)
     )
-    messages = [{"role": "user", "content": freeform_text.strip()}]
+    # Send only the residual to the LLM (kv-matched parts already locked in)
+    llm_input = (residual or freeform_text).strip()
+    messages = [{"role": "user", "content": llm_input}]
 
     try:
         raw = call_llm_sync(system=system, messages=messages, max_tokens=512, timeout=timeout)
     except Exception as e:
         logger.warning("extract_params_from_text: LLM call failed: %s", e)
-        return {}
+        # Even if LLM fails, return whatever the deterministic parser found
+        return kv_params
 
     obj = _extract_json_object(raw)
     if not isinstance(obj, dict):
-        return {}
-    # Only keep keys that are actually part of the schema — filter out hallucinated fields
-    return {k: v for k, v in obj.items() if k in props}
+        return kv_params
+    # Only keep keys in schema (filter hallucinated fields). kv_params wins on
+    # collision — they came from explicit user/chip intent.
+    llm_params = {k: v for k, v in obj.items() if k in props}
+    return {**llm_params, **kv_params}
