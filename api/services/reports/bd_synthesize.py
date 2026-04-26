@@ -44,6 +44,7 @@ from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel, Field
 
 from services.document import docx_builder
+from services.quality import audit_to_dict, validate_markdown
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -174,6 +175,38 @@ USER_PROMPT_TEMPLATE = """## 综合分析任务
 """
 
 
+_GAP_FILL_PROMPT = """以下是已生成的 BD 策略备忘 markdown 草稿，以及 Schema 校验器发现的结构性缺陷列表。
+请在**不改变已通过校验内容**的前提下，仅修补以下缺陷，输出**完整的修正后 markdown**。
+
+=== 待修补缺陷 ===
+{fail_list}
+
+=== 原始 markdown ===
+{markdown}
+
+修补规则：
+- "section_missing" → 按 7 节顺序（资产定位 / BD 评分 / Deal 结构 / Top-3 买方 / 风险 / 时间 / 下一步）插入缺失节
+- Top-3 买方节必须含 Rank 1, 2, 3 三行（即使是占位符也要列出）；建议表格格式
+- 关键风险节必须 ≥3 编号风险，每条带来源等级（L1/L2/L3/L4）
+- 下一步 Action 节必须 ≥3 个具体行动（不要泛泛"持续关注"）
+- 不要新增未列出的章节，不要删除已有内容
+- 数据驱动 — 引用源报告的具体数字 / 章节，不要 hallucinate
+- 输出整个 markdown，不加任何解释或代码块包裹
+"""
+
+
+def _build_gap_fill_prompt(markdown: str, audit) -> str:
+    fail_lines = [
+        f"[{f.section}] {f.message}" + (f" | 证据: {f.evidence}" if f.evidence else "")
+        for f in audit.findings
+        if f.severity == "fail"
+    ]
+    return _GAP_FILL_PROMPT.format(
+        fail_list="\n".join(f"- {line}" for line in fail_lines),
+        markdown=markdown[:60_000],
+    )
+
+
 # ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
@@ -257,7 +290,13 @@ class BDSynthesizeService(ReportService):
         if not markdown or len(markdown) < 500:
             raise RuntimeError("LLM produced an empty or too-short synthesis.")
 
-        # Phase 4 — Save outputs
+        # Phase 4 — L0/L1 schema validation + targeted gap-fill
+        # Synthesis is the deciding output of an /intake plan: missing
+        # sections (especially Top-3 buyers or risks) directly degrade
+        # downstream BD decisions. Run one repair pass before saving.
+        schema_audit, markdown = self._validate_and_repair(markdown, ctx)
+
+        # Phase 5 — Save outputs (post-repair)
         slug = safe_slug(asset_label) or "synthesis"
         md_filename = f"bd_memo_{slug}_{today}.md"
         ctx.save_file(md_filename, markdown, format="md")
@@ -284,9 +323,56 @@ class BDSynthesizeService(ReportService):
                 "company": inp.company,
                 "n_sources": len(sources),
                 "source_slugs": [s["slug"] for s in sources],
+                "schema_audit": schema_audit,
                 "suggested_commands": suggested_commands,
             },
         )
+
+    # ── L0 + L1 quality pass ────────────────────────────────
+
+    def _validate_and_repair(self, markdown: str, ctx: ReportContext) -> tuple[dict, str]:
+        """Schema audit; if FAIL>0, one targeted gap-fill LLM pass.
+
+        Mirrors /draft-ts and /dataroom pattern. Never raises — validation
+        failure must not block delivery.
+        """
+        try:
+            audit = validate_markdown(markdown, mode="bd_synthesize")
+            ctx.log(f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}")
+            if audit.n_fail == 0:
+                return audit_to_dict(audit), markdown
+
+            ctx.log(f"L1 gap-fill: {audit.n_fail} fail(s) — targeted patch…")
+            patched = ctx.llm(
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": _build_gap_fill_prompt(markdown, audit)}],
+                max_tokens=4000,
+                label="synthesize_gap_fill",
+            )
+            if len(patched) > 500:
+                audit2 = validate_markdown(patched, mode="bd_synthesize")
+                ctx.log(
+                    f"Post-gap-fill audit: FAIL={audit2.n_fail} "
+                    f"WARN={audit2.n_warn} (was {audit.n_fail} fail)"
+                )
+                if audit2.n_fail < audit.n_fail:
+                    schema_audit = audit_to_dict(audit2)
+                    schema_audit["gap_fill_attempted"] = True
+                    schema_audit["gap_fill_fail_before"] = audit.n_fail
+                    schema_audit["gap_fill_fail_after"] = audit2.n_fail
+                    return schema_audit, patched
+
+                ctx.log("L1 gap-fill didn't reduce FAILs — keeping original")
+            else:
+                ctx.log("L1 gap-fill produced too-short output — keeping original")
+
+            schema_audit = audit_to_dict(audit)
+            schema_audit["gap_fill_attempted"] = True
+            schema_audit["gap_fill_fail_before"] = audit.n_fail
+            return schema_audit, markdown
+        except Exception:
+            logger.exception("Schema validation failed for task %s", ctx.task_id)
+            return {"error": "validator_exception"}, markdown
 
     # ── Source loading ──────────────────────────────────────
 
