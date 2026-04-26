@@ -32,7 +32,7 @@
 8. **Pricing / quota** — credit system + usage metering already in DB schema; needs Stripe wiring + dashboard
 9. ✅ **Deeper planner heuristic** — `should_plan()` extended with 3-tier keyword check: 30 Chinese BD keywords, 50+ English planning phrases, 20 strong BD patterns; 51 tests (#147)
 10. ✅ **ClinicalTrials.gov chat tool** — `search_clinicaltrials` chat tool + `services/external/clinicaltrials.py` client; 18 tests (#145)
-11. **Multi-language** — English UI option (currently Chinese-first with English terms inline)
+11. ✅ **Multi-language** — English/Chinese toggle in Sidebar footer; `LocaleProvider` + `useLocale()` hook; 60+ keys in `en.ts`/`zh.ts`; Sidebar nav, login page, auth errors all translated; 12 tests (#148)
 12. ✅ **Company/asset news chat tool** — `search_company_news` chat tool + `search_news()` in Tavily service (news mode, recency filter); 19 tests (#146)
 
 ### 🔵 P3 — Month 3+
@@ -68,6 +68,7 @@ The April 2026 sprint took main from 6 services → 25 services + closed the BD 
 | #145 | P2-10 ClinicalTrials.gov chat tool + service client; 18 tests |
 | #146 | P2-12 Company/asset news search chat tool (Tavily news mode); 19 tests |
 | #147 | P2-09 `should_plan()` heuristic — English BD keywords + 51 tests |
+| #148 | P2-11 English/Chinese UI toggle — LocaleProvider, 60+ keys, Sidebar + login + auth wired; 12 tests |
 
 ## Architecture Notes for Next Session
 

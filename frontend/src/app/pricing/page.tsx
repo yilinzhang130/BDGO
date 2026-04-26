@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { LandingNav } from "@/components/LandingNav";
+import { CheckoutButton } from "@/components/CheckoutButton";
 
 const plans = [
   {
@@ -18,6 +21,7 @@ const plans = [
       "邮件支持",
     ],
     cta: "申请试用",
+    planId: "team" as const,
     highlight: false,
   },
   {
@@ -37,6 +41,7 @@ const plans = [
       "优先客服支持",
     ],
     cta: "申请试用",
+    planId: "pro" as const,
     highlight: true,
   },
   {
@@ -55,6 +60,7 @@ const plans = [
       "培训与入职支持",
     ],
     cta: "联系我们",
+    planId: null,
     highlight: false,
   },
 ];
@@ -176,23 +182,27 @@ export default function PricingPage() {
             >
               {p.desc}
             </p>
-            <Link
-              href={p.name === "企业版" ? "/contact" : "/login"}
-              style={{
-                display: "block",
-                textAlign: "center",
-                padding: "12px 0",
-                borderRadius: 10,
-                fontSize: 14,
-                fontWeight: 700,
-                textDecoration: "none",
-                background: p.highlight ? "#fff" : "#EEF2FF",
-                color: p.highlight ? "#1E3A8A" : "#1E3A8A",
-                marginBottom: 24,
-              }}
-            >
-              {p.cta}
-            </Link>
+            {p.planId ? (
+              <CheckoutButton planId={p.planId} label={p.cta} highlight={p.highlight} />
+            ) : (
+              <Link
+                href="/contact"
+                style={{
+                  display: "block",
+                  textAlign: "center",
+                  padding: "12px 0",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  background: p.highlight ? "#fff" : "#EEF2FF",
+                  color: "#1E3A8A",
+                  marginBottom: 24,
+                }}
+              >
+                {p.cta}
+              </Link>
+            )}
             <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
               {p.features.map((f) => (
                 <li

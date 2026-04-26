@@ -222,6 +222,21 @@ DEFAULT_GRANT_CREDITS = int(os.environ.get("DEFAULT_GRANT_CREDITS", "10000"))
 MIN_CREDITS_PER_REQUEST = int(os.environ.get("MIN_CREDITS_PER_REQUEST", "10"))
 
 # ─────────────────────────────────────────────────────────────
+# Stripe billing  (P2-08)
+# Keys are optional — billing endpoints return 503 when unset.
+# Set these in .env or VM environment before enabling payments.
+# ─────────────────────────────────────────────────────────────
+
+STRIPE_SECRET_KEY: str = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY: str = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET: str = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+
+# Stripe Price IDs for each paid tier.  Create products in the Stripe
+# Dashboard and paste the price_XXXXX IDs here (or via env var).
+STRIPE_PRICE_TEAM: str = os.environ.get("STRIPE_PRICE_TEAM", "")
+STRIPE_PRICE_PRO: str = os.environ.get("STRIPE_PRICE_PRO", "")
+
+# ─────────────────────────────────────────────────────────────
 # LLM / DB pool sizing (infra knobs)
 # ─────────────────────────────────────────────────────────────
 
