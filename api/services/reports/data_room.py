@@ -421,20 +421,12 @@ class DataRoomService(ReportService):
             }
         )
 
-        # If purpose is licensing/partnership and no CDA likely yet → offer
-        # to draft one (idempotent if already signed)
-        if inp.purpose in ("licensing", "partnership"):
-            project_name = inp.asset_name + (f" ({inp.indication})" if inp.indication else "")
-            chips.append(
-                {
-                    "label": "Draft CDA / NDA",
-                    "command": (
-                        f'/legal contract_type=cda party_position="乙方"'
-                        f' counterparty="<buyer name>"'
-                        f' project_name="{project_name}"'
-                    ),
-                    "slug": "legal-review",
-                }
-            )
+        # NOTE: The previous "Draft CDA / NDA" chip routed to /legal
+        # contract_type=cda — but /legal is review-mode and needs
+        # contract_text the user doesn't have yet, and there's no
+        # /draft-cda service. Removed: the BD will receive a CDA from
+        # the buyer (or send a template manually); when received, the
+        # user can paste it into /legal directly. /import-reply +
+        # status=cda_signed will route the next chip when that happens.
 
         return chips

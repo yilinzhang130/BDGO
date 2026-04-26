@@ -231,12 +231,17 @@ class DealTeaserService(ReportService):
         docx_bytes = docx_builder.document_to_bytes(doc)
         ctx.save_file(f"deal_teaser_{slug}.docx", docx_bytes, format="docx")
 
-        # BD lifecycle stage 3: after teaser, the natural next move is an NDA.
-        # Pre-build the /legal slash command so the chat UI can offer it as a chip.
-        nda_command = (
-            f'/legal contract_type=cda party_position="乙方"'
-            f' counterparty="{inp.company_name}"'
-            f' project_name="{inp.asset_name} ({inp.indication})"'
+        # BD lifecycle stage 3: after teaser, the natural next move is to
+        # send it via cold outreach to potential buyers. Route to /email,
+        # not /legal contract_type=cda — there's no /draft-cda service and
+        # /legal review needs contract_text the user doesn't have yet
+        # (we're sending the teaser, not reviewing a CDA). The email's own
+        # status-driven chips will handle CDA review when partner replies
+        # via /import-reply.
+        outreach_command = (
+            f'/email to_company="{inp.company_name}" purpose=cold_outreach'
+            f" from_perspective=seller"
+            f' asset_context="{inp.asset_name} — {inp.indication}"'
         )
 
         return ReportResult(
@@ -251,9 +256,9 @@ class DealTeaserService(ReportService):
                 "highlights_count": len(highlights),
                 "suggested_commands": [
                     {
-                        "label": "Draft NDA / CDA",
-                        "command": nda_command,
-                        "slug": "legal-review",
+                        "label": "Send via Cold Outreach",
+                        "command": outreach_command,
+                        "slug": "outreach-email",
                     }
                 ],
             },
