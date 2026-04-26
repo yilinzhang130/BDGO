@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from services.document.asset_extract import (
+    _ASSET_FIELDS,
+    _EXTENDED_FIELDS,
     _parse_json_loosely,
     build_intake_seed,
     build_teaser_command,
@@ -36,6 +38,7 @@ def test_build_teaser_command_full():
         "target": "PD-1",
         "phase": "Phase 2",
         "moa": "Anti-PD-1",
+        "modality": "单克隆抗体",
     }
     cmd = build_teaser_command(asset)
     assert cmd is not None
@@ -44,6 +47,21 @@ def test_build_teaser_command_full():
     assert 'asset_name="ABC-1234"' in cmd
     assert 'phase="Phase 2"' in cmd
     assert 'moa="Anti-PD-1"' in cmd
+    assert 'modality="单克隆抗体"' in cmd
+
+
+def test_build_teaser_command_modality_omitted_when_empty():
+    asset = {
+        "company_name": "Foo Bio",
+        "asset_name": "ABC-1234",
+        "indication": "NSCLC",
+        "target": "PD-1",
+        "phase": "Phase 2",
+        "modality": "",
+    }
+    cmd = build_teaser_command(asset)
+    assert cmd is not None
+    assert "modality" not in cmd
 
 
 def test_build_teaser_command_too_few_fields():
@@ -98,12 +116,44 @@ def test_extract_metadata_happy_path(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("services.document.asset_extract._extract_text", lambda _: "x" * 1000)
 
     def fake_llm(**_):
-        return '{"company_name": "Acme Bio", "asset_name": "ABC-9", "indication": "NSCLC", "target": "PD-1", "phase": "Phase 2", "moa": "mAb"}'
+        return (
+            '{"company_name": "Acme Bio", "asset_name": "ABC-9", "indication": "NSCLC", '
+            '"target": "PD-1", "phase": "Phase 2", "moa": "mAb", '
+            '"modality": "单克隆抗体", "ip_timeline": "化合物专利2034年到期", '
+            '"funding": "Series B $80M 2024", "team": "CEO: John Smith"}'
+        )
 
     result = extract_asset_metadata(f, fake_llm)
     assert result["company_name"] == "Acme Bio"
     assert result["asset_name"] == "ABC-9"
     assert result["phase"] == "Phase 2"
+    # S1-03: new fields
+    assert result["modality"] == "单克隆抗体"
+    assert result["ip_timeline"] == "化合物专利2034年到期"
+    assert result["funding"] == "Series B $80M 2024"
+    assert result["team"] == "CEO: John Smith"
+
+
+def test_extract_metadata_ten_fields_returned(tmp_path: Path, monkeypatch):
+    """Result always has all 10 keys, empty string when not found."""
+    f = tmp_path / "bp.pdf"
+    f.write_bytes(b"")
+    monkeypatch.setattr("services.document.asset_extract._extract_text", lambda _: "x" * 1000)
+
+    # LLM returns only core 6 fields
+    def fake_llm(**_):
+        return '{"company_name": "Foo", "asset_name": "F-1", "indication": "CRC", "target": "RAS", "phase": "Phase 1", "moa": ""}'
+
+    result = extract_asset_metadata(f, fake_llm)
+    assert set(result.keys()) == set(_ASSET_FIELDS)
+    # Extended fields default to empty string
+    for field in _EXTENDED_FIELDS:
+        assert result[field] == ""
+
+
+def test_asset_fields_count():
+    """Sanity: always 10 fields total."""
+    assert len(_ASSET_FIELDS) == 10
 
 
 # ── build_intake_seed ───────────────────────────────────────
@@ -167,3 +217,73 @@ def test_build_intake_seed_partial_fields_included():
     assert seed is not None
     assert "DLBCL" in seed
     assert "靶点" not in seed.split("启动")[0]  # no 靶点 X in the parenthesized prefix
+
+
+# ── S1-03: new extended fields in intake seed ───────────────
+
+
+def test_build_intake_seed_includes_modality():
+    asset = {
+        "company_name": "Peg-Bio",
+        "asset_name": "PEG-001",
+        "modality": "ADC",
+        "target": "KRAS G12D",
+        "indication": "NSCLC",
+        "phase": "Phase 2",
+    }
+    seed = build_intake_seed(asset)
+    assert seed is not None
+    assert "ADC" in seed
+    # modality should appear in parenthesized field block before 启动
+    prefix = seed.split("启动")[0]
+    assert "ADC" in prefix
+
+
+def test_build_intake_seed_includes_funding():
+    asset = {
+        "company_name": "Foo Bio",
+        "asset_name": "FOO-2",
+        "funding": "Series B $80M 2024",
+    }
+    seed = build_intake_seed(asset)
+    assert seed is not None
+    assert "Series B" in seed or "80M" in seed or "融资" in seed
+
+
+def test_build_intake_seed_includes_team():
+    asset = {
+        "company_name": "Foo Bio",
+        "asset_name": "FOO-2",
+        "team": "CEO: John Smith; CMO: Dr. Jane Lee",
+    }
+    seed = build_intake_seed(asset)
+    assert seed is not None
+    assert "John Smith" in seed or "核心团队" in seed
+
+
+def test_build_intake_seed_includes_ip_timeline():
+    asset = {
+        "company_name": "Foo Bio",
+        "asset_name": "FOO-2",
+        "ip_timeline": "化合物专利2034年到期",
+    }
+    seed = build_intake_seed(asset)
+    assert seed is not None
+    assert "2034" in seed or "IP" in seed
+
+
+def test_build_intake_seed_empty_extended_fields_no_extra_text():
+    """When extended fields are all empty, seed doesn't contain placeholder text."""
+    asset = {
+        "company_name": "Foo Bio",
+        "asset_name": "FOO-2",
+        "modality": "",
+        "funding": "",
+        "team": "",
+        "ip_timeline": "",
+    }
+    seed = build_intake_seed(asset)
+    assert seed is not None
+    assert "融资背景" not in seed
+    assert "核心团队" not in seed
+    assert "IP 情况" not in seed

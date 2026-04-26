@@ -24,17 +24,55 @@ from services.document.contract_extract import extract_contract_text
 logger = logging.getLogger(__name__)
 
 _MAX_TEXT_CHARS = 12_000  # cap LLM input for speed/cost
-_ASSET_FIELDS = ("company_name", "asset_name", "indication", "target", "phase", "moa")
 
-_EXTRACT_SYSTEM = """你是 BD 文档解析助手。任务：从 BP（业务计划书 / 资产介绍）文本里抽取 6 个字段。
+# Canonical 6-field core (always extracted)
+_CORE_FIELDS = ("company_name", "asset_name", "indication", "target", "phase", "moa")
+
+# S1-03: 4 additional fields (best-effort; left empty if not found)
+_EXTENDED_FIELDS = ("modality", "ip_timeline", "funding", "team")
+
+_ASSET_FIELDS = _CORE_FIELDS + _EXTENDED_FIELDS
+
+# Canonical modality values — the LLM must pick one or leave blank.
+_MODALITY_VALUES = (
+    "小分子",
+    "单克隆抗体",
+    "双抗/多抗",
+    "ADC",
+    "CAR-T",
+    "TCR-T",
+    "NK细胞疗法",
+    "siRNA/ASO",
+    "基因疗法",
+    "蛋白质/多肽",
+    "疫苗",
+    "放射性药物",
+    "其他生物制品",
+)
+
+_EXTRACT_SYSTEM = """你是 BD 文档解析助手。任务：从 BP（业务计划书 / 资产介绍）文本里抽取 10 个字段。
 
 硬规则：
-- 只输出 JSON 对象，键为 company_name / asset_name / indication / target / phase / moa
+- 只输出 JSON 对象，不要加任何解释或 markdown 代码块
 - 找不到的字段写空字符串 ""，不要编造
-- asset_name 优先用药物代号或商品名（如 "ABC-1234"、"PD-1单抗"）
-- phase 必须是这几个之一：Preclinical / Phase 1 / Phase 2 / Phase 3 / Approved，找不到留空
-- target 是分子靶点（如 "PD-1"、"BRAF"），不是治疗领域
-- moa 是机制描述（如 "Anti-PD-1 monoclonal antibody"），可留空
+- JSON 键（共 10 个）：
+    company_name  公司名称
+    asset_name    资产名称（优先用代号/商品名，如 "ABC-1234"、"PD-1单抗"）
+    indication    主要适应症（如 "NSCLC 一线"、"弥漫大B细胞淋巴瘤"）
+    target        分子靶点（如 "PD-1"、"KRAS G12D"），不是治疗领域
+    phase         开发阶段，必须是以下之一（否则留空）：
+                  Preclinical / Phase 1 / Phase 2 / Phase 3 / Approved
+    moa           作用机制一句话（如 "Covalent KRAS G12D inhibitor"），可留空
+    modality      药物形式，必须从以下选择（否则留空）：
+                  小分子 / 单克隆抗体 / 双抗/多抗 / ADC / CAR-T / TCR-T /
+                  NK细胞疗法 / siRNA/ASO / 基因疗法 / 蛋白质/多肽 / 疫苗 /
+                  放射性药物 / 其他生物制品
+    ip_timeline   关键专利到期年份或 FTO 状态一句话（如 "化合物专利2034年到期"），
+                  找不到留空
+    funding       最近一轮融资（如 "Series B $80M 2024"、"A轮 5亿人民币 2023年"），
+                  找不到留空
+    team          1-3 位关键人物（如 "CEO: John Smith; CMO: Dr. Jane Lee"），
+                  找不到留空
 """
 
 _EXTRACT_USER = """以下是 BP 文档前 {n_chars} 字：
@@ -70,7 +108,7 @@ def extract_asset_metadata(filepath: Path, llm_fn) -> dict:
             messages=[
                 {"role": "user", "content": _EXTRACT_USER.format(n_chars=len(text), text=text)}
             ],
-            max_tokens=400,
+            max_tokens=600,  # S1-03: bumped from 400 — 10 fields need more tokens
         )
     except Exception as e:
         logger.warning("asset_extract: LLM call failed: %s", e)
@@ -95,7 +133,7 @@ def build_teaser_command(asset: dict) -> str | None:
     if len(present) < 3:
         return None
     parts = ["/teaser"]
-    for k in required + ["moa"]:
+    for k in required + ["moa", "modality"]:
         v = asset.get(k)
         if v:
             parts.append(f'{k}="{v}"')
@@ -119,6 +157,8 @@ def build_intake_seed(asset: dict) -> str | None:
         return None
 
     fields = []
+    if asset.get("modality"):
+        fields.append(f"形式 {asset['modality']}")
     if asset.get("target"):
         fields.append(f"靶点 {asset['target']}")
     if asset.get("indication"):
@@ -129,8 +169,19 @@ def build_intake_seed(asset: dict) -> str | None:
         fields.append(f"MoA {asset['moa']}")
     fields_str = ("（" + ", ".join(fields) + "）") if fields else ""
 
+    # Append enrichment context so the planner LLM has richer input.
+    extra_parts: list[str] = []
+    if asset.get("funding"):
+        extra_parts.append(f"融资背景：{asset['funding']}。")
+    if asset.get("team"):
+        extra_parts.append(f"核心团队：{asset['team']}。")
+    if asset.get("ip_timeline"):
+        extra_parts.append(f"IP 情况：{asset['ip_timeline']}。")
+    extra_str = (" " + " ".join(extra_parts)) if extra_parts else ""
+
     return (
         f"为 {company} 的 {asset_name}{fields_str} 启动 BD intake 全面分析。"
+        f"{extra_str}"
         f"请规划一个多步执行计划，覆盖：靶点深度调研、适应症 landscape、IP/FTO 检查、"
         f"资产吸引力评估、Top-3 买方匹配、接触时机建议，最后综合输出 BD 策略备忘。"
         f"每步独立可取消，让我能勾选要跑的项目。"
