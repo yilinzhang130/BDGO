@@ -10,6 +10,7 @@ import { useLocale } from "@/lib/locale";
 import { SessionList } from "./SessionList";
 import { SearchModal } from "./SearchModal";
 import { CreditBadge } from "./CreditBadge";
+import { NotificationBell } from "./NotificationBell";
 import { FeedbackButton } from "./ReportButton";
 import { getToken } from "@/lib/auth";
 import { fetchInboxUnreadCount } from "@/lib/api";
@@ -303,6 +304,8 @@ const getTools = (t: TFn): NavItem[] => [
   { href: "/catalysts", label: t("nav.catalysts"), icon: Icon.zap },
   { href: "/reports", label: t("nav.reports"), icon: Icon.fileText },
   { href: "/conference", label: t("nav.conference"), icon: Icon.presentation },
+  { href: "/team", label: t("nav.team"), icon: Icon.users },
+  { href: "/notifications", label: t("nav.notifications"), icon: Icon.newspaper },
 ];
 
 function AdminNavItem() {
@@ -538,6 +541,9 @@ function SidebarFooter() {
             </div>
           </div>
         </Link>
+
+        {/* Notification bell */}
+        <NotificationBell />
 
         {/* Language toggle */}
         <button

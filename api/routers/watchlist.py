@@ -1,10 +1,18 @@
-"""Watchlist endpoints — per-user entity favorites (company/asset/disease/target)."""
+"""Watchlist endpoints — per-user entity favorites (company/asset/disease/target).
+
+Also includes sharing endpoints (P3-14):
+  POST   /api/watchlist/{id}/share          — share item with a teammate
+  GET    /api/watchlist/shared              — items shared with me
+  DELETE /api/watchlist/{id}/share/{uid}    — remove a share
+"""
 
 from auth import get_current_user
 from auth_db import transaction
 from crm_store import like_contains
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from routers.team import send_notification
 
 router = APIRouter()
 
@@ -165,3 +173,141 @@ def check_watchlist(
     if row:
         return {"watched": True, "id": row["id"]}
     return {"watched": False}
+
+
+# ---------------------------------------------------------------------------
+# Sharing models
+# ---------------------------------------------------------------------------
+
+
+class ShareRequest(BaseModel):
+    user_id: str  # UUID of the teammate to share with
+    permission: str = "view"  # 'view' | 'edit'
+    note: str | None = None  # optional message to send as notification
+
+
+class SharedItemOut(BaseModel):
+    share_id: int
+    item_id: int
+    entity_type: str
+    entity_key: str
+    notes: str | None
+    owner_id: str
+    owner_name: str
+    owner_email: str
+    permission: str
+    shared_at: str
+
+
+# ---------------------------------------------------------------------------
+# Share endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{item_id}/share")
+def share_watchlist_item(
+    item_id: int,
+    body: ShareRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Share a watchlist item with a teammate.  Creates a notification for the recipient."""
+    if body.permission not in ("view", "edit"):
+        raise HTTPException(400, "permission must be 'view' or 'edit'")
+
+    with transaction() as cur:
+        # Verify ownership
+        cur.execute(
+            "SELECT id, entity_type, entity_key FROM user_watchlists "
+            "WHERE id = %s AND user_id = %s",
+            (item_id, user["id"]),
+        )
+        item = cur.fetchone()
+        if not item:
+            raise HTTPException(404, "Watchlist item not found or not yours")
+
+        # Verify recipient exists
+        cur.execute(
+            "SELECT id, name FROM users WHERE id = %s AND is_active = TRUE", (body.user_id,)
+        )
+        recipient = cur.fetchone()
+        if not recipient:
+            raise HTTPException(404, "Recipient user not found")
+
+        # Upsert share
+        cur.execute(
+            """
+            INSERT INTO watchlist_shares (item_id, owner_id, shared_with_id, permission)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (item_id, shared_with_id) DO UPDATE SET permission = EXCLUDED.permission
+            RETURNING id
+            """,
+            (item_id, user["id"], body.user_id, body.permission),
+        )
+        share_id = cur.fetchone()["id"]
+
+    # Notify recipient
+    sender_name = user.get("name", user.get("email", "Someone"))
+    entity_label = f"{item['entity_type']}: {item['entity_key']}"
+    note_suffix = f" — {body.note}" if body.note else ""
+    send_notification(
+        recipient_id=body.user_id,
+        sender_id=user["id"],
+        type_="watchlist_share",
+        title=f"{sender_name} shared a watchlist item with you",
+        body=f"{entity_label}{note_suffix}",
+        link_url="/watchlist?tab=shared",
+    )
+
+    return {"share_id": share_id, "ok": True}
+
+
+@router.get("/shared", response_model=list[SharedItemOut])
+def get_shared_with_me(user: dict = Depends(get_current_user)):
+    """Return watchlist items that teammates have shared with the current user."""
+    with transaction() as cur:
+        cur.execute(
+            """
+            SELECT ws.id AS share_id,
+                   w.id  AS item_id,
+                   w.entity_type,
+                   w.entity_key,
+                   w.notes,
+                   ws.owner_id::text,
+                   u.name  AS owner_name,
+                   u.email AS owner_email,
+                   ws.permission,
+                   ws.created_at::text AS shared_at
+            FROM watchlist_shares ws
+            JOIN user_watchlists w ON w.id = ws.item_id
+            JOIN users u           ON u.id = ws.owner_id
+            WHERE ws.shared_with_id = %s
+            ORDER BY ws.created_at DESC
+            """,
+            (user["id"],),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+@router.delete("/{item_id}/share/{target_user_id}")
+def remove_share(
+    item_id: int,
+    target_user_id: str,
+    user: dict = Depends(get_current_user),
+):
+    """Remove a share.  Owner can unshare; recipient can remove their own access."""
+    with transaction() as cur:
+        cur.execute(
+            """
+            DELETE FROM watchlist_shares
+            WHERE item_id = %s
+              AND (owner_id = %s OR shared_with_id = %s)
+              AND (shared_with_id = %s OR owner_id = %s)
+            RETURNING id
+            """,
+            (item_id, user["id"], user["id"], target_user_id, target_user_id),
+        )
+        deleted = cur.fetchone()
+
+    if not deleted:
+        raise HTTPException(404, "Share not found")
+    return {"ok": True}

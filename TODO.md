@@ -37,7 +37,7 @@
 
 ### 🔵 P3 — Month 3+
 13. ✅ **Mobile PWA** — PWA manifest + SVG icons; service worker (cache-first static, network-first+fallback for `/api/reports/history`); mobile drawer sidebar with hamburger + backdrop; `OfflineIndicator` banner; offline.html fallback page (#150)
-14. **Team features** — shared watchlists, report collaboration, @mentions
+14. ✅ **Team features** — shared watchlists, report collaboration, notification bell (60s polling), `/team` + `/notifications` pages, `send_notification()` helper, 17 new tests (#151)
 15. **Public REST API** — programmatic access to report generation (auth via API keys, infra already there)
 16. **Conference tracker** — ASCO/ESMO/ASH/AACR abstract monitoring, integrates with /timing
 17. **Advanced analytics** — deal comp heatmaps, sector trend charts (separate visualization layer)
@@ -70,7 +70,8 @@ The April 2026 sprint took main from 6 services → 25 services + closed the BD 
 | #147 | P2-09 `should_plan()` heuristic — English BD keywords + 51 tests |
 | #148 | P2-11 English/Chinese UI toggle — LocaleProvider, 60+ keys, Sidebar + login + auth wired; 12 tests |
 | #149 | P2-08 Stripe Checkout + webhook + subscription status; `subscriptions` table; CheckoutButton; 17 tests |
-| #150 | P3-13 Mobile PWA — manifest, service worker, mobile drawer sidebar, OfflineIndicator |
+| #150 | P3-13 Mobile PWA — manifest, service worker, mobile drawer sidebar, OfflineIndicator, offline.html |
+| #151 | P3-14 Team features — watchlist sharing, report notifications, NotificationBell, /team + /notifications pages; 17 tests |
 
 ## Architecture Notes for Next Session
 

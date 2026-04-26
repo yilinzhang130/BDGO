@@ -33,6 +33,8 @@ from services.report_builder import (
     list_tasks,
 )
 
+from routers.team import send_notification
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 # Routes that must be accessible without a JWT (public share links).
@@ -382,6 +384,90 @@ def create_share_link(req: ShareRequest, request: Request, user: dict = Depends(
         )
 
     return {"token": token, "url": f"{base_url}/share/{token}"}
+
+
+# ---------------------------------------------------------------------------
+# Report notify teammate (P3-14)
+# ---------------------------------------------------------------------------
+
+
+class NotifyRequest(BaseModel):
+    task_id: str
+    recipient_id: str  # UUID of the teammate
+    note: str | None = None
+
+
+@router.post("/notify")
+def notify_teammate(
+    req: NotifyRequest,
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Create (or reuse) a share link, then send a notification to a teammate."""
+    base_url = str(request.base_url).rstrip("/")
+
+    with transaction() as cur:
+        # Verify the report belongs to this user
+        cur.execute(
+            "SELECT title FROM report_history WHERE task_id = %s AND user_id = %s",
+            (req.task_id, user["id"]),
+        )
+        report = cur.fetchone()
+        if not report:
+            raise HTTPException(404, "Report not found in history")
+
+        # Verify recipient
+        cur.execute(
+            "SELECT id, name FROM users WHERE id = %s AND is_active = TRUE",
+            (req.recipient_id,),
+        )
+        recipient = cur.fetchone()
+        if not recipient:
+            raise HTTPException(404, "Recipient user not found")
+
+        # Reuse or create share token
+        cur.execute(
+            "SELECT token FROM report_shares WHERE task_id = %s AND user_id = %s",
+            (req.task_id, user["id"]),
+        )
+        existing = cur.fetchone()
+        if existing:
+            token = existing["token"]
+        else:
+            cur.execute(
+                "SELECT files_json, markdown_preview FROM report_history "
+                "WHERE task_id = %s AND user_id = %s",
+                (req.task_id, user["id"]),
+            )
+            hist = cur.fetchone()
+            token = secrets.token_hex(16)
+            cur.execute(
+                "INSERT INTO report_shares "
+                "(token, task_id, user_id, title, files_json, markdown_preview) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (
+                    token,
+                    req.task_id,
+                    user["id"],
+                    report["title"],
+                    hist["files_json"] if hist else None,
+                    hist["markdown_preview"] if hist else None,
+                ),
+            )
+
+    share_url = f"{base_url}/share/{token}"
+    sender_name = user.get("name", user.get("email", "Someone"))
+    note_suffix = f" — {req.note}" if req.note else ""
+    send_notification(
+        recipient_id=req.recipient_id,
+        sender_id=user["id"],
+        type_="report_share",
+        title=f"{sender_name} shared a report with you",
+        body=f"{report['title']}{note_suffix}",
+        link_url=share_url,
+    )
+
+    return {"token": token, "url": share_url, "ok": True}
 
 
 @public_router.get("/share/{token}")

@@ -98,6 +98,7 @@ from routers import billing as billing_router
 from routers import credits as credits_router
 from routers import plan_templates as plan_templates_router
 from routers import sessions as sessions_router
+from routers import team as team_router
 
 _RECLAIM_INTERVAL_SECONDS = 15 * 60  # M-026: sweep every 15 minutes
 
@@ -286,6 +287,9 @@ app.include_router(plan_templates_router.router)
 # The webhook endpoint is intentionally public (Stripe signs the body).
 # Checkout + subscription use their own Depends(get_current_user) internally.
 app.include_router(billing_router.router)
+
+# Team features (P3-14): member directory + user notifications
+app.include_router(team_router.router, dependencies=_auth)
 
 
 # Public developer docs: filter the auto-generated OpenAPI to @public_api
