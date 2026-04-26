@@ -1,8 +1,8 @@
 # Skill Mirror — BDGO 报告服务 vs 本地 OpenClaw 技能
 
-BDGO 的 **25 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**线上 Python 实现**。本地 SKILL.md 是 prompt 的"原稿"，迭代快；BDGO Python 文件是"工厂"，把 prompt 嵌入完整的报告生产流水线（CRM 查询 → web 增强 → LLM → docx 渲染）。
+BDGO 的 **26 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**线上 Python 实现**。本地 SKILL.md 是 prompt 的"原稿"，迭代快；BDGO Python 文件是"工厂"，把 prompt 嵌入完整的报告生产流水线（CRM 查询 → web 增强 → LLM → docx 渲染）。
 
-剩下 **16 个**线上独有服务直接长在 BDGO 里，没有本地镜像（生命周期工具、写作工具、合同起草工具等）。
+剩下 **17 个**线上独有服务直接长在 BDGO 里，没有本地镜像（生命周期工具、写作工具、合同起草工具等）。
 
 本文档是这两套系统之间的**唯一真源**。当用户说"升级 X 技能"时，先读这里。
 
@@ -60,6 +60,7 @@ BDGO 的 **25 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 | `/import-reply` | `import-reply` | [import_reply.py](../api/services/reports/import_reply.py) | 粘贴邮件回信 → LLM 抽 status → 自动 /log |
 | `/dataroom` | `data-room` | [data_room.py](../api/services/reports/data_room.py) | 数据室文件清单（8 类 × modality × stage × audience） |
 | `/synthesize` | `bd-synthesize` | [bd_synthesize.py](../api/services/reports/bd_synthesize.py) | 综合多份 task 的 markdown → BD 策略备忘 |
+| `/buyers` | `buyer-matching` | [buyer_matching.py](../api/services/reports/buyer_matching.py) | 反向买方匹配：给定资产扫 MNC画像 + LLM 排 Top-N（S2-01） |
 
 #### `/draft-X` 合同起草家族（5 个，2026-04-26 完整上线）
 **结构化参数 → markdown + .docx skeleton**。所有服务共享 L0/L1 schema 验证 + gap-fill retry + 商业风险提示节 + 签署前 Checklist。每个服务在生成完毕后通过 `meta.suggested_commands` 推 `/legal contract_type=<X>` 做独立 BD-风险二次审查。
@@ -94,6 +95,10 @@ BDGO 的 **25 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 
 ┌─────────────────────────────────────────────────────────────────┐
 │  Stage 2 — Buyer 匹配 + outreach                                 │
+│                                                                  │
+│  /buyers target=X indication=Y phase=Z top_n=5  ← NEW (S2-01)  │
+│    ├→ chip /mnc company_name="[排名1买方]"  (deep-dive)          │
+│    └→ chip /email target=X indication=Y phase=Z                 │
 │                                                                  │
 │  /company perspective=buyer|seller                               │
 │    ├→ chip /timing                                               │
