@@ -263,3 +263,41 @@ def test_chat_tool_input_schema(svc):
     assert "asset_name" in schema["properties"]
     assert "company" in schema["properties"]
     assert "focus" in schema["properties"]
+
+
+# ── L0/L1 quality pass (gap-fill prompt builder) ───────────
+
+
+def test_gap_fill_prompt_filters_warns_and_includes_markdown():
+    from services.reports.bd_synthesize import _build_gap_fill_prompt
+
+    class FakeFinding:
+        severity = "fail"
+        section = "top_buyers"
+        message = "Top-3 第 3 行缺失"
+        evidence = ""
+
+    class FakeWarn:
+        severity = "warn"
+        section = "writing/soft_advice_voice"
+        message = "建议您"
+        evidence = ""
+
+    class FakeAudit:
+        findings = [FakeFinding(), FakeWarn()]
+
+    prompt = _build_gap_fill_prompt("# Memo\n\n...content...", FakeAudit())
+    assert "[top_buyers] Top-3 第 3 行缺失" in prompt
+    assert "建议您" not in prompt  # WARN filtered out
+    assert "# Memo" in prompt
+
+
+def test_gap_fill_prompt_truncates_long_markdown():
+    from services.reports.bd_synthesize import _build_gap_fill_prompt
+
+    class FakeAudit:
+        findings = []
+
+    huge_md = "x" * 70_000
+    prompt = _build_gap_fill_prompt(huge_md, FakeAudit())
+    assert prompt.count("x") <= 60_000

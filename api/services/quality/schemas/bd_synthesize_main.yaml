@@ -1,0 +1,106 @@
+# BD Strategy Memo (synthesize) — Schema v0.1
+#
+# 校验 /synthesize 服务输出的 7-section BD 策略备忘。
+# 关键校验点：
+#   1. 7 节全部存在（资产定位 / BD 评分 / Deal 结构 / Top-3 买方 / 风险 / 时机 / 下一步）
+#   2. 资产定位节字数 ≤ 50 字符（"一句话"约束 — warn 提醒长度过长）
+#   3. Top-3 买方节存在表格 + 至少出现 Rank 1, 2, 3
+#   4. 关键风险节至少 3 个编号风险（带 L1/L2/L3/L4 来源标注）
+#   5. 下一步 Action 节有 ≥3 个具体行动条目
+#   6. 不出现"⚠️ 源报告未涉及"超过 3 次（说明源报告太稀，综合质量低）
+
+report_type: bd_strategy_memo
+schema_version: "0.1"
+
+target_total_words:
+  min: 800
+  max: 4000
+
+sections:
+  - id: asset_positioning
+    name: 资产定位
+    heading_patterns:
+      - '一、资产定位|^\s*1[\.、].*资产定位|Asset\s*Positioning'
+    required: true
+
+  - id: bd_score
+    name: BD 可能性评分
+    heading_patterns:
+      - '二、BD\s*可能性|^\s*2[\.、].*BD|BD\s*Score|可能性评分'
+    required: true
+    # Section heading already contains "评分" — must look for actual rating
+    # signal in the body: ⭐ stars, "X / 5" pattern, or word "score"
+    # (case-insensitive). Bare "评分" doesn't count.
+    must_contain_one_of:
+      - '⭐'
+      - '\d\s*/\s*5'
+      - '\bscore\b'
+
+  - id: deal_structure
+    name: 推荐 Deal 结构
+    heading_patterns:
+      - '三、推荐\s*Deal|^\s*3[\.、].*Deal|Deal\s*Structure'
+    required: true
+    must_contain_one_of:
+      - 'License|Co-Dev|Out-license|Acquisition|许可|联合开发|Option'
+
+  - id: top_buyers
+    name: Top-3 买方匹配
+    heading_patterns:
+      - '四、Top|^\s*4[\.、].*买方|Top\s*-?\s*3.*[Bb]uyer|买方匹配'
+    required: true
+    # Top-3 必须含 1, 2, 3 排名（即使全是占位符也要有）
+    must_contain_all:
+      - '\|\s*1\s*\||Rank\s*1|^1\s|^\s*1[\.、]'
+      - '\|\s*2\s*\||Rank\s*2|^2\s|^\s*2[\.、]'
+      - '\|\s*3\s*\||Rank\s*3|^3\s|^\s*3[\.、]'
+
+  - id: key_risks
+    name: 关键风险 Top-3
+    heading_patterns:
+      - '五、关键风险|^\s*5[\.、].*风险|Key\s*Risks?'
+    required: true
+    # ≥3 个编号风险
+    must_contain_all:
+      - '1[\.、]|风险\s*1|Risk\s*1'
+      - '2[\.、]|风险\s*2|Risk\s*2'
+      - '3[\.、]|风险\s*3|Risk\s*3'
+    # 至少含一个来源等级标注（L1-L4）— 这是 synthesize 提示词的核心要求
+    must_contain_one_of:
+      - 'L1|L2|L3|L4|文本|推断|情境|外部'
+
+  - id: time_window
+    name: 推荐时间窗口
+    heading_patterns:
+      - '六、推荐时间|^\s*6[\.、].*时间|Time\s*Window|时间窗口'
+    required: true
+
+  - id: next_actions
+    name: 下一步 Action
+    heading_patterns:
+      - '七、下一步|^\s*7[\.、].*下一步|Next\s*Action|下一步\s*Action'
+    required: true
+    # ≥3 个具体行动条目（任意编号或 bullet 格式）
+    must_contain_all:
+      - '1[\.、]|^\s*-\s*\*?\*?\d|步\s*1|Action\s*1'
+      - '2[\.、]|步\s*2|Action\s*2'
+      - '3[\.、]|步\s*3|Action\s*3'
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则 — 禁用 marketing / hyperbole + 软词
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - pattern: '完美的|perfect\s+(?:asset|deal|opportunity)'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: 'fantastic|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '极具吸引力|绝佳机会'
+      category: marketing_hyperbole
+      severity: medium
+    # synthesize 系统提示明确禁止"建议您"/"我方建议"/"接下来可以"
+    - pattern: '建议您|我方建议|接下来可以'
+      category: soft_advice_voice
+      severity: medium
