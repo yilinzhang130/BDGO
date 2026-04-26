@@ -1,0 +1,76 @@
+# Outreach Timing Advisor — Schema v0.1
+#
+# 校验 /timing 服务输出的 5-section 接触时机建议。
+# 关键校验点：
+#   1. 5 节全部存在（推荐窗口 / 避开窗口 / 催化剂时间表 / 会议时间表 / 整体策略）
+#   2. 推荐窗口节必须含 YYYY-MM-DD 格式日期范围（"2026-09-01 至 2026-10-15"）
+#   3. 避开窗口节必须有"避开/不要/锁定/避开期"等关键词
+#   4. 整体策略一句话节字数 ≤ 100 字符（系统提示要求 ≤ 30 字）
+
+report_type: outreach_timing
+schema_version: "0.1"
+
+# 5 节短报告，1000-3500 字典型范围
+target_total_words:
+  min: 600
+  max: 5000
+
+sections:
+  - id: recommended_windows
+    name: 推荐窗口
+    heading_patterns:
+      - '一、推荐窗口|^\s*1[\.、].*推荐窗口|Recommended\s*Windows?'
+    required: true
+    # 必须含 YYYY-MM-DD 格式日期范围 (e.g. "2026-09-01 至 2026-10-15")
+    must_contain_one_of:
+      - '\d{4}-\d{2}-\d{2}\s*[至到\-—]\s*\d{4}-\d{2}-\d{2}'
+      - '\d{4}-\d{2}-\d{2}'  # 退一步只要有任意 ISO 日期就接受
+
+  - id: avoid_windows
+    name: 避开窗口
+    heading_patterns:
+      - '二、避开窗口|^\s*2[\.、].*避开|Avoid\s*Windows?'
+    required: true
+    # 必须有具体避开理由的关键词。"避开"在 heading 里就出现，所以只检查内容词。
+    must_contain_one_of:
+      - '不要|锁定|lockup|IR|black-?out|沉默|大会期间|财报前'
+
+  - id: catalyst_timeline
+    name: 催化剂时间表
+    heading_patterns:
+      - '三、催化剂|^\s*3[\.、].*催化剂|Catalyst\s*Timeline'
+    required: true
+    # heading 已含"催化剂"；这里只检查具体催化剂事件类型词
+    must_contain_one_of:
+      - 'readout|IND|NDA|BLA|approval|launch|Phase|filing|amendment|PDUFA'
+
+  - id: conference_timeline
+    name: 会议时间表
+    heading_patterns:
+      - '四、会议|^\s*4[\.、].*会议|Conference\s*Timeline'
+    required: true
+    # 至少出现一个核心 BD 会议关键词
+    must_contain_one_of:
+      - 'JPM|JPMorgan|BIO|ASCO|AACR|ESMO|ASH|BIO-Europe|deal-making|scientific'
+
+  - id: overall_strategy
+    name: 整体策略一句话
+    heading_patterns:
+      - '五、整体策略|^\s*5[\.、].*策略|Overall\s*Strategy|策略一句话'
+    required: true
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    # /timing 系统提示明确禁止「建议尽快联系」这种空话
+    - pattern: '建议尽快联系|尽快接触|尽早联系|建议您'
+      category: vague_advice
+      severity: medium
+    - pattern: '完美时机|绝佳时机|fantastic\s+timing'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: 'industry-leading|行业领先'
+      category: marketing_hyperbole
+      severity: medium

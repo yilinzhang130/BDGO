@@ -27,6 +27,7 @@ from typing import Literal
 from crm_store import LIKE_ESCAPE, like_contains
 from pydantic import BaseModel, Field
 
+from services.quality import audit_to_dict, validate_markdown
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -227,6 +228,40 @@ USER_PROMPT_TEMPLATE = """## Timing 分析任务
 """
 
 
+_GAP_FILL_PROMPT = """以下是已生成的接触时机建议 markdown 草稿，以及 Schema 校验器发现的结构性缺陷列表。
+请在**不改变已通过校验内容**的前提下，仅修补以下缺陷，输出**完整的修正后 markdown**。
+
+=== 待修补缺陷 ===
+{fail_list}
+
+=== 原始 markdown ===
+{markdown}
+
+修补规则：
+- "section_missing" → 按 5 节顺序（推荐窗口 / 避开窗口 / 催化剂时间表 / 会议时间表 / 整体策略一句话）插入缺失节
+- 推荐窗口节必须含 YYYY-MM-DD 至 YYYY-MM-DD 形式的日期范围
+- 避开窗口节必须明确"避开/IR 锁定/沉默期"等
+- 催化剂时间表至少出现一个 readout/IND/NDA/Phase 关键词
+- 会议时间表至少含一个核心 BD 会议（JPM/BIO/ASCO/AACR/ESMO/ASH 等）
+- 整体策略一句话节内容应 ≤ 30 字
+- 不要使用"建议尽快联系"这种空话 — 引用具体催化剂或日期
+- 不要新增未列出的章节，不要删除已有内容
+- 输出整个 markdown，不加任何解释或代码块包裹
+"""
+
+
+def _build_gap_fill_prompt(markdown: str, audit) -> str:
+    fail_lines = [
+        f"[{f.section}] {f.message}" + (f" | 证据: {f.evidence}" if f.evidence else "")
+        for f in audit.findings
+        if f.severity == "fail"
+    ]
+    return _GAP_FILL_PROMPT.format(
+        fail_list="\n".join(f"- {line}" for line in fail_lines),
+        markdown=markdown[:60_000],
+    )
+
+
 # ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
@@ -305,7 +340,12 @@ class TimingAdvisorService(ReportService):
         if not markdown or len(markdown) < 300:
             raise RuntimeError("LLM produced an empty or very short timing report.")
 
-        # Phase 4 — Save markdown
+        # Phase 4 — L0/L1 schema validation + targeted gap-fill
+        # Same shape as /draft-ts (#105), /dataroom (#106),
+        # /synthesize (#107), /company (#108).
+        schema_audit, markdown = self._validate_and_repair(markdown, ctx)
+
+        # Phase 5 — Save markdown (post-repair)
         slug = safe_slug(f"{inp.company_name}_{inp.asset_name or 'all'}") or "timing"
         md_filename = f"timing_{slug}_{today_str}.md"
         ctx.save_file(md_filename, markdown, format="md")
@@ -322,9 +362,55 @@ class TimingAdvisorService(ReportService):
                 "perspective": inp.perspective,
                 "catalysts_count": len(catalysts),
                 "conferences_count": len(conferences),
+                "schema_audit": schema_audit,
                 "suggested_commands": suggested_commands,
             },
         )
+
+    # ── L0 + L1 quality pass ────────────────────────────────
+
+    def _validate_and_repair(self, markdown: str, ctx: ReportContext) -> tuple[dict, str]:
+        """Schema audit; if FAIL>0, one targeted gap-fill LLM pass.
+
+        Same shape as the four prior services in this batch. Never raises.
+        """
+        try:
+            audit = validate_markdown(markdown, mode="timing_advisor")
+            ctx.log(f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}")
+            if audit.n_fail == 0:
+                return audit_to_dict(audit), markdown
+
+            ctx.log(f"L1 gap-fill: {audit.n_fail} fail(s) — targeted patch…")
+            patched = ctx.llm(
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": _build_gap_fill_prompt(markdown, audit)}],
+                max_tokens=3000,
+                label="timing_gap_fill",
+            )
+            if len(patched) > 300:
+                audit2 = validate_markdown(patched, mode="timing_advisor")
+                ctx.log(
+                    f"Post-gap-fill audit: FAIL={audit2.n_fail} "
+                    f"WARN={audit2.n_warn} (was {audit.n_fail} fail)"
+                )
+                if audit2.n_fail < audit.n_fail:
+                    schema_audit = audit_to_dict(audit2)
+                    schema_audit["gap_fill_attempted"] = True
+                    schema_audit["gap_fill_fail_before"] = audit.n_fail
+                    schema_audit["gap_fill_fail_after"] = audit2.n_fail
+                    return schema_audit, patched
+
+                ctx.log("L1 gap-fill didn't reduce FAILs — keeping original")
+            else:
+                ctx.log("L1 gap-fill produced too-short output — keeping original")
+
+            schema_audit = audit_to_dict(audit)
+            schema_audit["gap_fill_attempted"] = True
+            schema_audit["gap_fill_fail_before"] = audit.n_fail
+            return schema_audit, markdown
+        except Exception:
+            logger.exception("Schema validation failed for task %s", ctx.task_id)
+            return {"error": "validator_exception"}, markdown
 
     # ── CRM lookup ──────────────────────────────────────────
 
