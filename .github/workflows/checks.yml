@@ -120,6 +120,13 @@ jobs:
       - name: Prettier check
         run: npm run format:check
 
+      - name: Vitest
+        # Frontend unit tests (vitest + jsdom + RTL). Fast logic checks for
+        # pure helpers (filterCommands), components in isolation
+        # (SlashCommandPopup), and hooks (useSlashCommand). E2E coverage
+        # is a future story — vitest's role is fast feedback.
+        run: npm test
+
       - name: Next.js build
         # 抓 "lint 绿但 build 挂" 的盲区(比如漏 commit 被 import 的模块)。
         # Vercel 部署依赖 build 过 —— 让 CI 提早拦下。
