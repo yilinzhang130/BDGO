@@ -245,6 +245,23 @@ CREATE INDEX IF NOT EXISTS idx_outreach_user_status
     ON outreach_log(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_outreach_user_created
     ON outreach_log(user_id, created_at DESC);
+
+-- plan_templates: user-saved plan templates (X-18, 2026-04-26)
+-- Users can save any planner-generated plan as a named template for instant
+-- reuse (bypasses the planner LLM call). Built-in templates are Python
+-- constants in plan_templates.py; this table stores user-created custom ones.
+CREATE TABLE IF NOT EXISTS plan_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    plan_json JSONB NOT NULL,
+    is_builtin BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_plan_templates_user_id
+    ON plan_templates (user_id, created_at DESC);
 """
 
 # ---------------------------------------------------------------------------
