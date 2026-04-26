@@ -134,6 +134,17 @@ CONFERENCES_DIR = Path(
         str(Path(__file__).parent / "data" / "conferences"),
     )
 )
+# Conference calendar YAML — source of truth for `/timing` outreach-window
+# suggestions. Mirrors the conference-ingest MCP server's calendar so BDGO
+# can read the same exact data without spawning the MCP runtime. Missing
+# in production (servers without the openclaw workspace) → /timing falls
+# back to its hardcoded annual-recurring event list.
+CONFERENCE_CALENDAR_PATH = Path(
+    os.environ.get(
+        "CONFERENCE_CALENDAR_PATH",
+        os.path.expanduser("~/.openclaw/skills/conference-ingest/conferences_calendar.yml"),
+    )
+)
 REPORTS_DIR = Path(
     os.environ.get(
         "REPORTS_DIR",
