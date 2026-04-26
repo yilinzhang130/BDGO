@@ -505,6 +505,7 @@ function SidebarFooter() {
           }}
         >
           {user?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={user.avatar_url}
               alt={displayName}
@@ -590,6 +591,7 @@ export function Sidebar() {
   const showDatabase = prefs.show_database_nav === true;
   const showReports = prefs.show_report_cards === true;
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -609,7 +611,42 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="sidebar">
+      {/* Mobile hamburger — only visible at <640px via CSS */}
+      <button
+        className="mobile-menu-btn"
+        aria-label="Open menu"
+        onClick={() => setMobileOpen(true)}
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <rect x="2" y="4" width="16" height="2" rx="1" />
+          <rect x="2" y="9" width="16" height="2" rx="1" />
+          <rect x="2" y="14" width="16" height="2" rx="1" />
+        </svg>
+      </button>
+
+      {/* Backdrop for mobile drawer */}
+      {mobileOpen && <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />}
+
+      <aside className={`sidebar${mobileOpen ? " mobile-open" : ""}`}>
+        {/* Mobile close button */}
+        <button
+          className="sidebar-close-btn"
+          aria-label="Close menu"
+          onClick={() => setMobileOpen(false)}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <path d="M14 4L4 14M4 4l10 10" />
+          </svg>
+        </button>
+
         {/* Brand */}
         <div className="sidebar-brand">
           <BDGoLogo />

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Maskable icon: full bleed background, safe zone is center 80% -->
+  <rect width="512" height="512" fill="#1E3A8A"/>
+  <path d="M296 100L168 292h116l-60 120L432 220H312L296 100z" fill="#FFFFFF"/>
+</svg>
