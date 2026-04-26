@@ -96,3 +96,44 @@ def test_commercial_biotech_schema_loads():
     """The second mode's schema file should also load without error."""
     audit = validate_markdown("# Test", mode="commercial_biotech")
     assert audit.stats["schema"] == "commercial_biotech_main.yaml"
+
+
+# ─────────────────────────────────────────────────────────────
+# Drift tests — keep _SCHEMA_BY_MODE in sync with schemas/ dir
+# ─────────────────────────────────────────────────────────────
+
+
+def test_every_yaml_in_schemas_dir_is_registered():
+    """Orphan schema files are dead weight and signal forgotten plumbing.
+
+    If you add a YAML to api/services/quality/schemas/ but forget to
+    register it in _SCHEMA_BY_MODE, no service can validate against it
+    and the file rots. This test catches that drift.
+    """
+    from services.quality.schema_validator import _SCHEMA_BY_MODE, _SCHEMAS_DIR
+
+    on_disk = {p.name for p in _SCHEMAS_DIR.glob("*.yaml")}
+    registered = set(_SCHEMA_BY_MODE.values())
+    orphans = on_disk - registered
+    assert not orphans, (
+        f"Schema YAMLs exist on disk but are not in _SCHEMA_BY_MODE: "
+        f"{sorted(orphans)}. Either register them or delete them."
+    )
+
+
+def test_every_registered_mode_has_a_yaml_file():
+    """Inverse drift: a _SCHEMA_BY_MODE entry pointing to a missing
+    file would raise FileNotFoundError at validate_markdown call time.
+    Surface that at test time instead.
+    """
+    from services.quality.schema_validator import _SCHEMA_BY_MODE, _SCHEMAS_DIR
+
+    missing = [
+        f"{mode} → {fname}"
+        for mode, fname in _SCHEMA_BY_MODE.items()
+        if not (_SCHEMAS_DIR / fname).exists()
+    ]
+    assert not missing, (
+        f"_SCHEMA_BY_MODE references YAML files that don't exist on disk: "
+        f"{missing}. Either add the YAMLs or remove the modes."
+    )
