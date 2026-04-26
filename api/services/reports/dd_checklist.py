@@ -904,9 +904,7 @@ class DDChecklistService(ReportService):
             system_prompt = _get_system_prompt(perspective)
             patched = ctx.llm(
                 system=system_prompt,
-                messages=[
-                    {"role": "user", "content": _build_dd_gap_fill_prompt(markdown, audit)}
-                ],
+                messages=[{"role": "user", "content": _build_dd_gap_fill_prompt(markdown, audit)}],
                 max_tokens=6000,
                 label="dd_gap_fill",
             )
