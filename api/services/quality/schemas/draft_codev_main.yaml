@@ -1,0 +1,165 @@
+# Draft Co-Development Agreement — Schema v0.1
+#
+# 校验 /draft-codev 输出的 12-section CoDev markdown.
+# Key checks:
+#   1. 12 sections all present
+#   2. Definitions has joint-program / JSC / Background IP / Foreground IP / Joint IP
+#   3. JSC section specifies voting + deadlock mechanism
+#   4. Cost Sharing has specific percentages (or [TBD])
+#   5. IP Ownership distinguishes Background / Foreground / Joint
+#   6. Buyout section addresses fair-market-value mechanism
+#   7. Term & Termination addresses survival
+#   8. ≥5 commercial-risk callouts
+#   9. Pre-signing checklist mentions 律师/counsel
+
+report_type: codev_draft
+schema_version: "0.1"
+
+target_total_words:
+  min: 2200
+  max: 12000
+
+sections:
+  - id: parties
+    name: 当事方 (Parties)
+    heading_patterns:
+      - '一、|^\s*1[\.、]\s*'
+      - 'Parties|当事方'
+    required: true
+    must_contain_one_of:
+      - 'Party\s*A|Party\s*B|甲方|乙方'
+
+  - id: definitions
+    name: 定义 (Definitions)
+    heading_patterns:
+      - '二、|^\s*2[\.、]\s*'
+      - 'Definitions|定义'
+    required: true
+    must_contain_all:
+      - 'Joint\s*Steering|JSC'
+      - 'Background\s*IP|Background'
+      - 'Foreground\s*IP|Foreground'
+
+  - id: jsc
+    name: JSC (Joint Steering Committee)
+    heading_patterns:
+      - '三、|^\s*3[\.、]\s*'
+      - 'JSC|Joint\s*Steering|共同开发计划|开发计划'
+    required: true
+    must_contain_all:
+      - 'Voting|投票|consensus|majority'
+      - 'Deadlock|deadlock|escalation|deadlock'
+
+  - id: cost_sharing
+    name: 成本分摊 (Cost Sharing)
+    heading_patterns:
+      - '四、|^\s*4[\.、]\s*'
+      - 'Cost\s*Sharing|成本分摊'
+    required: true
+    must_contain_one_of:
+      - '\d+\s*%|\d+/\d+|TBD|分摊'
+    must_contain_all:
+      - 'Audit|审计'
+
+  - id: ip_ownership
+    name: IP 归属 (IP Ownership)
+    heading_patterns:
+      - '五、|^\s*5[\.、]\s*'
+      - 'IP\s*Ownership|IP\s*归属|知识产权|Improvements'
+    required: true
+    must_contain_all:
+      - 'Background'
+      - 'Foreground'
+      - 'Joint|联合'
+
+  - id: commercialization
+    name: 商业化 (Commercialization)
+    heading_patterns:
+      - '六、|^\s*6[\.、]\s*'
+      - 'Commercialization|商业化|Territory'
+    required: true
+
+  - id: diligence
+    name: 勤勉义务 (Diligence)
+    heading_patterns:
+      - '七、|^\s*7[\.、]\s*'
+      - 'Diligence|勤勉|努力义务'
+    required: true
+
+  - id: confidentiality
+    name: 保密 (Confidentiality)
+    heading_patterns:
+      - '八、|^\s*8[\.、]\s*'
+      - 'Confidentiality|保密'
+    required: true
+
+  - id: reps_indemnity
+    name: 陈述保证与赔偿 (Reps & Warranties + Indemnification)
+    heading_patterns:
+      - '九、|^\s*9[\.、]\s*'
+      - 'Reps\s*&?\s*Warranties|Indemnification|陈述与?保证|赔偿'
+    required: true
+    must_contain_one_of:
+      - 'indemnify|indemnification|赔偿'
+
+  - id: term_termination
+    name: 期限与终止 (Term & Termination + Effects)
+    heading_patterns:
+      - '十、|^\s*10[\.、]\s*'
+      - 'Term\s*&?\s*Termination|期限|终止'
+    required: true
+    must_contain_all:
+      - 'Termination|终止'
+      - 'survival|存续|surviv'
+
+  - id: buyout
+    name: 收购选择权 (Buyout / Change-of-Control)
+    heading_patterns:
+      - '十一、|^\s*11[\.、]\s*'
+      - 'Buyout|Change-of-Control|收购选择权|Change of Control'
+    required: true
+    must_contain_one_of:
+      - 'fair-market-value|FMV|fair\s*market|公允|appraisal|评估'
+
+  - id: governing_law
+    name: 适用法律 (Governing Law)
+    heading_patterns:
+      - '十二、|^\s*12[\.、]\s*'
+      - 'Governing\s*Law|适用法律|Dispute\s*Resolution|争议解决'
+    required: true
+
+  # ══════════════════════════════════════════════
+  # 风险提示 + Checklist
+  # ══════════════════════════════════════════════
+  - id: commercial_risks
+    name: 商业风险提示
+    heading_patterns:
+      - '商业风险|Commercial\s*Risks?|风险提示'
+    required: true
+    # ≥5 numbered risks (Co-Dev complexity)
+    must_contain_all:
+      - '1[\.、]|风险\s*1|Risk\s*1'
+      - '2[\.、]|风险\s*2|Risk\s*2'
+      - '3[\.、]|风险\s*3|Risk\s*3'
+      - '4[\.、]|风险\s*4|Risk\s*4'
+      - '5[\.、]|风险\s*5|Risk\s*5'
+
+  - id: pre_signing_checklist
+    name: 签署前 Checklist
+    heading_patterns:
+      - '签署前|Pre-Signing|Sign-off|Checklist'
+    required: true
+    must_contain_one_of:
+      - '律师|counsel|legal'
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - pattern: '完美的|fantastic|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: 'to\s*be\s*defined\s*later|to\s*be\s*determined\s*later'
+      category: incomplete_drafting
+      severity: medium
