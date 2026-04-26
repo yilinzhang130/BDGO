@@ -123,3 +123,102 @@ def test_asset_name_from_inp_used_when_lead_empty(svc):
     evaluate = next((c for c in cmds if c["slug"] == "deal-evaluator"), None)
     assert evaluate is not None
     assert 'asset_name="TEST-999"' in evaluate["command"]
+
+
+# ── Perspective parameter (S3-02) ───────────────────────────
+
+
+def test_input_default_perspective_is_buyer():
+    inp = DDChecklistInput(company="Peg-Bio")
+    assert inp.perspective == "buyer"
+
+
+def test_input_accepts_seller_perspective():
+    inp = DDChecklistInput(company="Peg-Bio", perspective="seller")
+    assert inp.perspective == "seller"
+
+
+def test_input_rejects_invalid_perspective():
+    import pytest
+
+    with pytest.raises(ValueError):
+        DDChecklistInput(company="Peg-Bio", perspective="advisor")  # type: ignore[arg-type]
+
+
+def test_get_system_prompt_buyer():
+    from services.reports.dd_checklist import _get_system_prompt
+
+    prompt = _get_system_prompt("buyer")
+    assert "代表**买方" in prompt
+    assert "尽调问题清单" in prompt
+
+
+def test_get_system_prompt_seller():
+    from services.reports.dd_checklist import _get_system_prompt
+
+    prompt = _get_system_prompt("seller")
+    assert "代表**卖方" in prompt
+    assert "买方最可能问的尖锐问题" in prompt
+    assert "我方应当准备的答复要点" in prompt
+
+
+def test_get_executive_summary_prompt_buyer():
+    from services.reports.dd_checklist import _get_executive_summary_prompt
+
+    prompt = _get_executive_summary_prompt("buyer")
+    assert "DD 的核心关注点" in prompt or "DD" in prompt
+
+
+def test_get_executive_summary_prompt_seller():
+    from services.reports.dd_checklist import _get_executive_summary_prompt
+
+    prompt = _get_executive_summary_prompt("seller")
+    assert "买方" in prompt
+    assert "会议" in prompt or "攻防" in prompt
+
+
+def test_chapter_prompt_buyer_uses_buyer_template():
+    """Buyer perspective → output template asks for `期望答复` only."""
+    from services.reports.dd_checklist import _CHAPTER_TITLES, _chapter_prompt
+
+    prompt = _chapter_prompt(
+        chapter_indices=[1],
+        chapter_titles=_CHAPTER_TITLES,
+        chapter_weights=["medium"] * 8,
+        asset_info="...",
+        positioning="FIC",
+        stage="Phase 2",
+        extra_context="",
+        web_block="",
+        perspective="buyer",
+    )
+    assert "期望答复" in prompt
+    assert "我方答复要点" not in prompt
+    assert "DD 问题清单" in prompt
+
+
+def test_chapter_prompt_seller_uses_seller_template():
+    """Seller perspective → output template asks for Q + 我方答复要点."""
+    from services.reports.dd_checklist import _CHAPTER_TITLES, _chapter_prompt
+
+    prompt = _chapter_prompt(
+        chapter_indices=[1],
+        chapter_titles=_CHAPTER_TITLES,
+        chapter_weights=["medium"] * 8,
+        asset_info="...",
+        positioning="FIC",
+        stage="Phase 2",
+        extra_context="",
+        web_block="",
+        perspective="seller",
+    )
+    assert "我方答复要点" in prompt
+    assert "买方可能问的问题" in prompt or "买方最可能问的问题" in prompt
+    assert "买方在 DD 会议上最可能问的问题 + 我方答复要点" in prompt
+
+
+def test_chat_tool_input_schema_includes_perspective(svc):
+    schema = svc.chat_tool_input_schema
+    assert "perspective" in schema["properties"]
+    assert schema["properties"]["perspective"]["enum"] == ["buyer", "seller"]
+    assert schema["properties"]["perspective"]["default"] == "buyer"

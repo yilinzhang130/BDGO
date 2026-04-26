@@ -200,13 +200,20 @@ class DDChecklistInput(BaseModel):
         None, description="Anything the seller already disclosed or analyst already searched"
     )
     include_web_search: bool = True
+    perspective: Literal["buyer", "seller"] = Field(
+        "buyer",
+        description=(
+            "buyer = 买方视角，生成发给项目方的 DD 问题清单；"
+            "seller = 卖方视角，预测买方会问什么 + 我方答复要点（用于会前准备）"
+        ),
+    )
 
 
 # ─────────────────────────────────────────────────────────────
 # Prompts
 # ─────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """你是 BD Go 平台的资深 Due Diligence 负责人，代表**买方（MNC / PE / Fund）**起草发给项目方 (biotech 卖方) 的尽调问题清单。
+_BUYER_SYSTEM_PROMPT = """你是 BD Go 平台的资深 Due Diligence 负责人，代表**买方（MNC / PE / Fund）**起草发给项目方 (biotech 卖方) 的尽调问题清单。
 
 你的输出**直接发给项目方的 CSO / CMO / CFO**，所以：
 
@@ -221,6 +228,25 @@ SYSTEM_PROMPT = """你是 BD Go 平台的资深 Due Diligence 负责人，代表
 """
 
 
+_SELLER_SYSTEM_PROMPT = """你是 BD Go 平台的资深 BD/CSO 顾问，代表**卖方（biotech）**为即将到来的买方 DD 会议做准备。
+
+你的任务：列出**买方最可能问的尖锐问题** + **我方应当准备的答复要点**，按章节组织。
+
+硬规则：
+1. **每个问题必须 specific** — 想象买方 BD/CSO 会怎么发起，带上资产的实际靶点/适应症/阶段/差异化分级。反例："他们会问你们的专利"✗，正例："买方 BD 会问：'{靶点} CoM 专利在 EU/US 的 remaining life，是否有 obviousness 风险？'"✓
+2. **每条问题配一段答复要点** — 1-3 个 bullet：用 CRM 数据 / 公开数据 / 已披露事实回答；如果答不完整，明确写 `⚠️ 需进一步准备：XXX`，不要编造。
+3. **按 3 级标记紧迫度**：🔴 HIGH (必答好) — 直接关系 deal go/no-go；🟡 MEDIUM — 影响估值或 term；🟢 LOW — 锦上添花。每章 3 级都要有。
+4. **中文表述 + 英文术语保留** (MoA, PK, PD, BE, CMC, IND, NDA, FTO, TAM 等)
+5. **答复要点不能 overpromise** — 没有 head-to-head 数据就老实说"目前无 head-to-head 数据，规划在 P2b 加入对照"，不要"基于内部分析显著优于"。
+6. **数据稀疏直接说** — 标 `[CRM 数据缺失，需补充]`，不要编造。
+7. **不替代法律 / 技术意见** — 答复要点是 BD 准备稿，会议前应由 CMC、临床、IP 团队最终审核。
+"""
+
+
+def _get_system_prompt(perspective: str) -> str:
+    return _SELLER_SYSTEM_PROMPT if perspective == "seller" else _BUYER_SYSTEM_PROMPT
+
+
 def _chapter_prompt(
     chapter_indices: list[int],  # 1-based
     chapter_titles: list[str],
@@ -230,8 +256,14 @@ def _chapter_prompt(
     stage: str,
     extra_context: str,
     web_block: str,
+    perspective: str = "buyer",
 ) -> str:
-    """Build a prompt for a batch of chapters."""
+    """Build a prompt for a batch of chapters.
+
+    `perspective` controls framing:
+      - "buyer": output is a list of questions to ask the seller
+      - "seller": output is anticipated buyer questions + our prepared answers
+    """
     chapter_lines = []
     for idx in chapter_indices:
         title = chapter_titles[idx - 1]
@@ -248,19 +280,26 @@ def _chapter_prompt(
         "Generic": "重点问 CMC 比对 / 杂质谱 / BE / 监管路径；临床章节聚焦 BE 而非 efficacy",
     }[positioning]
 
-    return f"""## 任务：为以下章节各写一份 DD 问题清单
+    output_template = _SELLER_OUTPUT_TEMPLATE if perspective == "seller" else _BUYER_OUTPUT_TEMPLATE
+    framing = (
+        "买方在 DD 会议上最可能问的问题 + 我方答复要点"
+        if perspective == "seller"
+        else "本章 DD 问题清单"
+    )
 
-本次 DD 的基本情况：
+    return f"""## 任务：为以下章节各写一份{framing}
+
+本次的基本情况：
 - **定位**: {positioning} — {weight_guidance}
 - **阶段**: {stage}
 
 ### 资产信息
 {asset_info}
 
-### 项目方已披露/分析师已搜到的上下文
+### 已披露/已搜到的上下文
 {extra_context or "(无)"}
 
-### Tavily 网络搜索结果（用于生成 specific 的问题，例如 "请说明你们如何回应 [竞品] 2025Q4 的 {{具体数据}}"）
+### Tavily 网络搜索结果（生成 specific 内容时引用）
 {web_block}
 
 ### 要写的章节
@@ -271,27 +310,7 @@ def _chapter_prompt(
 
 对每个章节，按以下模板输出 markdown：
 
-```
-## {{章节标题}}
-
-**本章DD重点**: (1-2 句针对本资产 {positioning} + {stage} 组合的说明)
-
-### 🔴 HIGH — 必答
-
-- **{{问题编号}}**: {{问题}}
-  - *期望答复*: {{数字/文件/表格/陈述}}
-
-- **{{问题编号}}**: ...
-
-### 🟡 MEDIUM — 重要
-
-- **{{问题编号}}**: ...
-  - *期望答复*: ...
-
-### 🟢 LOW — 补充
-
-- **{{问题编号}}**: ...
-```
+{output_template}
 
 问题编号格式：`Q{{章号}}.{{序号}}`。例如 `Q2.1`, `Q2.2` ...。
 
@@ -299,7 +318,62 @@ def _chapter_prompt(
 """
 
 
-EXECUTIVE_SUMMARY_PROMPT = """## 任务：为本次 DD 写一份 Executive Summary
+# ─────────────────────────────────────────────────────────────
+# Output templates per perspective
+# ─────────────────────────────────────────────────────────────
+
+
+_BUYER_OUTPUT_TEMPLATE = """```
+## {章节标题}
+
+**本章DD重点**: (1-2 句针对本资产 stage+positioning 组合的说明)
+
+### 🔴 HIGH — 必答
+
+- **{问题编号}**: {问题}
+  - *期望答复*: {数字/文件/表格/陈述}
+
+- **{问题编号}**: ...
+
+### 🟡 MEDIUM — 重要
+
+- **{问题编号}**: ...
+  - *期望答复*: ...
+
+### 🟢 LOW — 补充
+
+- **{问题编号}**: ...
+```"""
+
+
+_SELLER_OUTPUT_TEMPLATE = """```
+## {章节标题}
+
+**本章会议重点**: (1-2 句针对本资产 stage+positioning 组合，买方最可能死磕的方向)
+
+### 🔴 HIGH — 必准备好
+
+- **{问题编号}**: {买方可能问的问题}
+  - *我方答复要点*:
+    - {answer bullet 1（用 CRM/公开数据回答）}
+    - {answer bullet 2}
+    - {如有 gap，写 ⚠️ 需进一步准备：XXX}
+
+- **{问题编号}**: ...
+
+### 🟡 MEDIUM — 重要
+
+- **{问题编号}**: {买方可能问的问题}
+  - *我方答复要点*: ...
+
+### 🟢 LOW — 锦上添花
+
+- **{问题编号}**: ...
+  - *我方答复要点*: ...
+```"""
+
+
+_BUYER_EXECUTIVE_SUMMARY_PROMPT = """## 任务：为本次 DD 写一份 Executive Summary
 
 基于以下资产信息，写一段 150-200 字的 DD Executive Summary，格式：
 
@@ -329,6 +403,44 @@ EXECUTIVE_SUMMARY_PROMPT = """## 任务：为本次 DD 写一份 Executive Summa
 """
 
 
+_SELLER_EXECUTIVE_SUMMARY_PROMPT = """## 任务：为本次买方 DD 会议准备写一份 Executive Summary
+
+基于以下资产信息，写一段 150-200 字的卖方 DD 会议准备 Executive Summary，格式：
+
+```
+## Executive Summary — 买方 DD 会议三大攻防焦点
+
+根据 {{资产名}} 处于 **{{阶段}}** + **{{定位}}** 的组合，买方最可能死磕这三处：
+
+1. **[攻防焦点 1 的 one-liner]** — (一句话说明买方为什么会盯这点 + 我方应对策略)
+2. **[攻防焦点 2 的 one-liner]** — ...
+3. **[攻防焦点 3 的 one-liner]** — ...
+
+**建议会议准备**: (1 句话，例如 "提前发 P2 ORR + safety summary 给买方一周阅读，会上聚焦 Q4-Q5 临床数据问题")
+```
+
+### 资产信息
+{asset_info}
+
+### 定位与阶段
+- **定位**: {positioning}
+- **阶段**: {stage}
+
+### 已披露/已搜到的上下文
+{extra_context_or_none}
+
+直接输出 markdown，不要前言。
+"""
+
+
+def _get_executive_summary_prompt(perspective: str) -> str:
+    return (
+        _SELLER_EXECUTIVE_SUMMARY_PROMPT
+        if perspective == "seller"
+        else _BUYER_EXECUTIVE_SUMMARY_PROMPT
+    )
+
+
 # ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
@@ -336,19 +448,20 @@ EXECUTIVE_SUMMARY_PROMPT = """## 任务：为本次 DD 写一份 Executive Summa
 
 class DDChecklistService(ReportService):
     slug = "dd-checklist"
-    display_name = "DD 问题清单"
+    display_name = "DD 问题清单 / 会议准备"
     description = (
-        "针对单个 biotech 资产的**阶段-定位自适应** DD 尽调问卷。"
-        "根据资产定位 (FIC/BIC/Me-too/Generic) × 阶段 (临床前→已上市) 自动裁剪 8 章节重点："
-        "FIC 早期偏生物学+MoA+动物+CMC 基础；临床期偏试验设计+终点+早期毒；BIC 必问 vs 对标；仿制药重 CMC+BE+监管。"
-        "输出 ~50-80 个中英双语问题，Word 格式可直接发项目方。"
+        "针对单个 biotech 资产的**阶段-定位自适应**双向 DD 工具。"
+        "perspective=buyer (默认)：买方视角生成发给项目方的 DD 问题清单；"
+        "perspective=seller：卖方视角预测买方会问什么 + 我方答复要点（用于会前准备）。"
+        "8 章节 (团队/科学/CMC/临床/监管/IP/市场/交易) × 4 定位 (FIC/BIC/Me-too/Generic) × 5 阶段权重矩阵。"
     )
     chat_tool_name = "generate_dd_checklist"
     chat_tool_description = (
-        "Generate a BD Due Diligence question checklist for a biotech asset. Stage × positioning adaptive: "
-        "FIC-early focuses on biology/MoA/target validation/tox; BIC mandates vs-FIC head-to-head questions; "
-        "Me-too/Generic emphasizes CMC/BE/market-entry. Queries CRM for company/asset facts + optional Tavily "
-        "for competitor readouts and regulatory guidance. Returns 8-chapter Word doc (~60 questions, 120-180s)."
+        "Generate a BD Due Diligence document. Two perspectives: buyer (default) "
+        "produces questions to ask the seller; seller produces anticipated buyer "
+        "questions + our prepared answers for meeting prep. Stage × positioning "
+        "adaptive over 8 chapters. Pulls CRM + optional Tavily search. Returns "
+        "8-chapter Word doc (~60 entries, 120-180s)."
     )
     chat_tool_input_schema = {
         "type": "object",
@@ -379,6 +492,15 @@ class DDChecklistService(ReportService):
                 "type": "boolean",
                 "description": "Run Tavily searches for competitor readouts + regulatory guidance to make questions specific. Default true.",
                 "default": True,
+            },
+            "perspective": {
+                "type": "string",
+                "enum": ["buyer", "seller"],
+                "default": "buyer",
+                "description": (
+                    "buyer = 我方是 MNC/PE，生成发给项目方的 DD 问题清单 (default); "
+                    "seller = 我方是 biotech，预测买方会问什么 + 我方答复要点 (for meeting prep)."
+                ),
             },
         },
         "required": ["company"],
@@ -448,14 +570,16 @@ class DDChecklistService(ReportService):
         # Phase 4 — Build asset info block
         asset_info = self._format_asset_info(inp.company, company_row, assets, lead)
 
-        # Phase 5 — LLM: Executive Summary
-        ctx.log("生成 Executive Summary...")
+        # Phase 5 — LLM: Executive Summary (perspective-aware)
+        system_prompt = _get_system_prompt(inp.perspective)
+        exec_summary_template = _get_executive_summary_prompt(inp.perspective)
+        ctx.log(f"生成 Executive Summary ({inp.perspective})...")
         exec_summary = ctx.llm(
-            system=SYSTEM_PROMPT,
+            system=system_prompt,
             messages=[
                 {
                     "role": "user",
-                    "content": EXECUTIVE_SUMMARY_PROMPT.format(
+                    "content": exec_summary_template.format(
                         asset_info=asset_info,
                         positioning=positioning,
                         stage=stage,
@@ -481,9 +605,10 @@ class DDChecklistService(ReportService):
                 stage=stage,
                 extra_context=inp.extra_context or "",
                 web_block=web_block,
+                perspective=inp.perspective,
             )
             batch_md = ctx.llm(
-                system=SYSTEM_PROMPT,
+                system=system_prompt,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=3200,
             )
@@ -497,14 +622,23 @@ class DDChecklistService(ReportService):
                     chapter_texts[idx] = chunk
                 ctx.log(f"批 {batch} 完成 ({len(batch_md)} 字)")
 
-        # Phase 7 — Assemble markdown
+        # Phase 7 — Assemble markdown (perspective-aware header)
         display_name = lead.get("资产名称") or (company_row or {}).get("客户名称") or inp.company
+        is_seller = inp.perspective == "seller"
+        title_label = "买方 DD 会议准备" if is_seller else "BD Due Diligence 问题清单"
+        usage_note = (
+            "本文档是**卖方会前准备稿**：每条「买方可能问」+「我方答复要点」。"
+            "🔴 必准备好（go/no-go 关键）；🟡 重要（影响估值/term）；🟢 锦上添花。"
+            "会前由 CMC / 临床 / IP 团队最终审核。"
+            if is_seller
+            else "本清单按买方 DD 关注优先级排序。标 🔴 的问题为本资产 stage + positioning 下的核心风险，必须在首轮 DD 内获得答复；🟡 重要；🟢 补充。请项目方以「问题编号 + 书面答复 + 附件索引」格式回复。"
+        )
         header = (
-            f"# {display_name} — BD Due Diligence 问题清单\n\n"
-            f"> **生成日期**: {today}  |  **分析师**: BD Go (DD 尽调官)\n"
+            f"# {display_name} — {title_label}\n\n"
+            f"> **生成日期**: {today}  |  **视角**: {inp.perspective}  |  **分析师**: BD Go\n"
             f"> **定位**: {positioning}  |  **阶段**: {stage}  |  **CRM 命中**: "
             f"{'✓ ' + (company_row.get('客户名称', '?')) if company_row else '✗ 未命中（使用泛化模板）'}\n\n"
-            f"> **使用说明**: 本清单按买方 DD 关注优先级排序。标 🔴 的问题为本资产 stage + positioning 下的核心风险，必须在首轮 DD 内获得答复；🟡 重要；🟢 补充。请项目方以「问题编号 + 书面答复 + 附件索引」格式回复。\n\n"
+            f"> **使用说明**: {usage_note}\n\n"
             "---\n\n"
         )
 
@@ -523,10 +657,11 @@ class DDChecklistService(ReportService):
         if len(markdown) < 500:
             raise RuntimeError("DD checklist generation produced empty output")
 
-        # Phase 8 — Save
+        # Phase 8 — Save (filename reflects perspective)
         slug = safe_slug(display_name) or "asset"
-        md_name = f"dd_checklist_{slug}_{today}.md"
-        docx_name = f"dd_checklist_{slug}_{today}.docx"
+        prefix = "dd_meeting_prep" if inp.perspective == "seller" else "dd_checklist"
+        md_name = f"{prefix}_{slug}_{today}.md"
+        docx_name = f"{prefix}_{slug}_{today}.docx"
 
         ctx.save_file(md_name, markdown, format="md")
         ctx.log("Markdown 已保存")
@@ -535,7 +670,7 @@ class DDChecklistService(ReportService):
         doc = docx_builder.new_report_document()
         docx_builder.add_title(
             doc,
-            title=f"{display_name} DD 问题清单",
+            title=f"{display_name} {title_label}",
             subtitle=f"{positioning} · {stage} · {today}",
         )
         docx_builder.markdown_to_docx(markdown, doc)
@@ -548,11 +683,12 @@ class DDChecklistService(ReportService):
         return ReportResult(
             markdown=markdown,
             meta={
-                "title": f"{display_name} DD Checklist",
+                "title": f"{display_name} {title_label}",
                 "company": inp.company,
                 "asset": lead.get("资产名称") or inp.asset_name or "",
                 "positioning": positioning,
                 "stage": stage,
+                "perspective": inp.perspective,
                 "crm_hit_company": bool(company_row),
                 "crm_hit_assets": len(assets),
                 "web_results_count": len(web_results),
