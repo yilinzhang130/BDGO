@@ -31,6 +31,12 @@ export const SLASH_COMMANDS: Omit<
     example: 'target="KRAS G12C" indication="NSCLC 一线" phase="Phase 2" top_n=5',
   },
   { alias: "dd", slug: "dd-checklist", example: "某 KRAS G12C 抑制剂 III期 BIC 买方视角" },
+  {
+    alias: "faq",
+    slug: "dd-faq",
+    example:
+      'asset_context="KRAS G12D 抑制剂 NSCLC 2L Phase2 ORR42%" meeting_stage=data_room counterparty="AstraZeneca"',
+  },
   { alias: "commercial", slug: "commercial-assessment", example: "三阴乳腺癌 ADC 中国市场" },
   { alias: "disease", slug: "disease-landscape", example: "特发性肺纤维化 全球竞争格局" },
   { alias: "target", slug: "target-radar", example: "IRF5 自免 全球在研" },
