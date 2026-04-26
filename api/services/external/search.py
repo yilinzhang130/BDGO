@@ -151,3 +151,92 @@ def search_web(
         return []
 
     return []
+
+
+def search_news(
+    query: str,
+    days: int = 30,
+    max_results: int = 5,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> list[dict]:
+    """Search Tavily for recent news articles.
+
+    Uses Tavily's ``topic: "news"`` mode, which restricts results to news
+    sources and allows filtering by recency via the ``days`` parameter.
+
+    Args:
+        query: search query (company, drug, BD event, etc.)
+        days: return news published within the last N days (default 30)
+        max_results: max articles to return (default 5)
+        timeout: HTTP timeout seconds
+
+    Returns:
+        List of {title, url, snippet, published_date}. Empty on failure.
+    """
+    if not query.strip():
+        return []
+
+    keys = _active_keys()
+    if not keys:
+        if not _KEYS:
+            logger.warning("No Tavily keys configured — returning empty news results")
+        else:
+            logger.warning("All %d Tavily keys are banned for this process", len(_KEYS))
+        return []
+
+    payload = {
+        "query": query,
+        "max_results": max_results,
+        "topic": "news",
+        "days": max(1, min(days, 365)),
+        "search_depth": "basic",
+        "include_answer": False,
+        "include_raw_content": False,
+    }
+
+    for key in keys:
+        try:
+            resp = _http_client.post(
+                TAVILY_URL,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=timeout,
+            )
+        except httpx.HTTPError as e:
+            logger.warning("Tavily news request network error: %s", e)
+            continue
+
+        if resp.status_code == 200:
+            with _lock:
+                _usage[key] = _usage.get(key, 0) + 1
+            try:
+                data = resp.json()
+            except Exception:
+                return []
+            return [
+                {
+                    "title": r.get("title", ""),
+                    "url": r.get("url", ""),
+                    "snippet": (r.get("content") or r.get("raw_content") or "")[:500],
+                    "published_date": r.get("published_date", ""),
+                }
+                for r in data.get("results", [])
+            ]
+
+        if resp.status_code in (401, 403, 429):
+            logger.warning(
+                "Tavily key banned (status=%d, key=...%s) — advancing",
+                resp.status_code,
+                key[-6:],
+            )
+            with _lock:
+                _banned.add(key)
+            continue
+
+        logger.warning("Tavily news HTTP %d: %s", resp.status_code, resp.text[:200])
+        return []
+
+    return []
