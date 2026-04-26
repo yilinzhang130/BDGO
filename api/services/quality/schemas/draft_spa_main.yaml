@@ -1,0 +1,197 @@
+# Draft SPA / APA / Merger Agreement — Schema v0.1
+#
+# 校验 /draft-spa 服务输出的 13-section M&A agreement skeleton.
+# SPA 是 /draft-X 家族中最复杂的合同（实际 100+ 页），本 schema 校验骨架完整性。
+# Key checks:
+#   1. 13 sections all present
+#   2. Definitions section contains ≥6 of the core M&A terms
+#      (MAC / Closing / Knowledge / Indemnified Party / Loss / etc.)
+#   3. Purchase Price section mentions Working Capital adjustment
+#   4. Closing Conditions reference regulatory filings + bring-down reps
+#   5. R&W split: Fundamentals (uncapped) vs General Business (capped)
+#   6. Indemnification three-tuple: cap + basket + survival
+#   7. Termination references Outside Date / Drop-Dead Date
+#   8. Post-Closing covenants address Non-Compete + Non-Solicit
+#   9. ≥6 commercial-risk callouts (highest of /draft-X family)
+#  10. Pre-signing checklist mentions M&A counsel / R&W insurance / regulatory
+
+report_type: spa_draft
+schema_version: "0.1"
+
+target_total_words:
+  min: 3000
+  max: 14000
+
+sections:
+  - id: parties
+    name: 当事方 (Parties)
+    heading_patterns:
+      - '一、|^\s*1[\.、]\s*'
+      - 'Parties|当事方'
+    required: true
+    must_contain_all:
+      - 'Buyer|买方'
+      - 'Seller|卖方'
+    must_contain_one_of:
+      - 'Target|标的'
+
+  - id: definitions
+    name: 定义 (Definitions)
+    heading_patterns:
+      - '二、|^\s*2[\.、]\s*'
+      - 'Definitions|定义'
+    required: true
+    # Must contain ≥6 of the core M&A terms
+    must_contain_all:
+      - 'Affiliate|关联方'
+      - 'Closing|交割'
+      - 'Material\s*Adverse\s*Change|MAC|重大不利变化'
+      - 'Knowledge|知悉|认知'
+      - 'Loss|损失'
+      - 'Indemnified|赔偿义务'
+
+  - id: purchase_price
+    name: 收购价格与调整 (Purchase Price & Adjustments)
+    heading_patterns:
+      - '三、|^\s*3[\.、]\s*'
+      - 'Purchase\s*Price|收购价格|Consideration|对价'
+    required: true
+    # SPAs always have working-capital adjustment + cash/debt mechanics
+    must_contain_all:
+      - 'Working\s*Capital|净营运资本|NWC'
+    must_contain_one_of:
+      - 'Cash|Debt|Adjustment|现金|负债|调整'
+
+  - id: closing_conditions
+    name: 交割条件 (Closing Conditions)
+    heading_patterns:
+      - '四、|^\s*4[\.、]\s*'
+      - 'Closing\s*Conditions|交割条件'
+    required: true
+    # At minimum mentions bring-down + at least one regulatory or MAC trigger
+    must_contain_one_of:
+      - 'Bring[\s-]*Down|HSR|CFIUS|SAMR|MAC|Regulatory|监管|反垄断'
+
+  - id: interim_covenants
+    name: 过渡期约定 (Interim Period Covenants)
+    heading_patterns:
+      - '五、|^\s*5[\.、]\s*'
+      - 'Interim\s*Period|Interim\s*Covenants|过渡期'
+    required: true
+    must_contain_one_of:
+      - 'ordinary\s*course|exclusivity|no[\s-]*shop|notification|日常经营|排他|无购物'
+
+  - id: rw_fundamentals
+    name: 基础陈述保证 (Reps & Warranties — Fundamentals)
+    heading_patterns:
+      - '六、|^\s*6[\.、]\s*'
+      - 'Fundamentals|基础陈述|Fundamental\s*Reps?'
+    required: true
+    # Capitalization + Authority are signature fundamental reps
+    must_contain_one_of:
+      - 'Capitalization|Authority|Ownership|Title|股权结构|授权|所有权'
+
+  - id: rw_general
+    name: 一般商业陈述保证 (Reps & Warranties — General Business)
+    heading_patterns:
+      - '七、|^\s*7[\.、]\s*'
+      - 'General\s*Business|General\s*Reps?|一般商业|商业陈述'
+    required: true
+    must_contain_all:
+      - 'Financial|财务'
+      - 'IP|Intellectual\s*Property|知识产权'
+
+  - id: indemnification
+    name: 赔偿 (Indemnification)
+    heading_patterns:
+      - '八、|^\s*8[\.、]\s*'
+      - 'Indemnification|赔偿'
+    required: true
+    # The three-tuple (cap + basket + survival) is the SPA-specific shibboleth
+    must_contain_all:
+      - 'Cap|上限'
+      - 'Basket|篮子|起赔'
+      - 'Survival|存续|surviv'
+
+  - id: termination
+    name: 终止 (Termination)
+    heading_patterns:
+      - '九、|^\s*9[\.、]\s*'
+      - 'Termination|终止'
+    required: true
+    must_contain_one_of:
+      - 'Outside\s*Date|Drop[\s-]*Dead|长止日期|终止费'
+
+  - id: tax_matters
+    name: 税务 (Tax Matters)
+    heading_patterns:
+      - '十、|^\s*10[\.、]\s*'
+      - 'Tax\s*Matters|税务'
+    required: true
+
+  - id: post_closing
+    name: 交割后约定 (Post-Closing Covenants)
+    heading_patterns:
+      - '十一、|^\s*11[\.、]\s*'
+      - 'Post[\s-]*Closing|交割后'
+    required: true
+    must_contain_all:
+      - 'Non[\s-]*Compete|竞业禁止|非竞争'
+      - 'Non[\s-]*Solicit|非招揽|不招揽'
+
+  - id: escrow_insurance
+    name: 托管与保险 (Escrow & Insurance)
+    heading_patterns:
+      - '十二、|^\s*12[\.、]\s*'
+      - 'Escrow|R&W\s*Insurance|托管|保险'
+    required: true
+    must_contain_one_of:
+      - 'Escrow|R&W|托管|代管|保险'
+
+  - id: governing_law
+    name: 适用法律与争议解决 (Governing Law & Dispute Resolution)
+    heading_patterns:
+      - '十三、|^\s*13[\.、]\s*'
+      - 'Governing\s*Law|适用法律|Dispute\s*Resolution|争议解决'
+    required: true
+
+  # ══════════════════════════════════════════════
+  # 风险提示 + Checklist
+  # ══════════════════════════════════════════════
+  - id: commercial_risks
+    name: 商业风险提示
+    heading_patterns:
+      - '商业风险|Commercial\s*Risks?|风险提示'
+    required: true
+    # ≥6 numbered risks (SPA is the most complex of /draft-X)
+    must_contain_all:
+      - '1[\.、]|风险\s*1|Risk\s*1'
+      - '2[\.、]|风险\s*2|Risk\s*2'
+      - '3[\.、]|风险\s*3|Risk\s*3'
+      - '4[\.、]|风险\s*4|Risk\s*4'
+      - '5[\.、]|风险\s*5|Risk\s*5'
+      - '6[\.、]|风险\s*6|Risk\s*6'
+
+  - id: pre_signing_checklist
+    name: 签署前 Checklist
+    heading_patterns:
+      - '签署前|Pre-Signing|Sign-off|Checklist'
+    required: true
+    must_contain_one_of:
+      - 'M&A|律师|counsel|legal|律所|R&W\s*insurance|保险|antitrust|反垄断'
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - pattern: '完美的|fantastic|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '极具吸引力|绝佳|稳赚不赔'
+      category: marketing_hyperbole
+      severity: medium
+    # Common SPA bug: vague placeholders that don't survive counsel review
+    - pattern: 'to\s*be\s*defined|to\s*be\s*determined\s*later|TBD\s*later'
+      category: incomplete_drafting
+      severity: medium
