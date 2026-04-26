@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSessionStore } from "@/lib/sessions";
 import { useAuth } from "@/components/AuthProvider";
 import { parsePreferences } from "@/lib/auth";
+import { useLocale } from "@/lib/locale";
 import { SessionList } from "./SessionList";
 import { SearchModal } from "./SearchModal";
 import { CreditBadge } from "./CreditBadge";
@@ -228,6 +229,7 @@ const Icon = {
 // ---------------------------------------------------------------------------
 
 function BDGoLogo() {
+  const { t } = useLocale();
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
       <svg
@@ -264,7 +266,7 @@ function BDGoLogo() {
           BD<span style={{ fontWeight: 500 }}> Go</span>
         </div>
         <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 500, lineHeight: 1.2 }}>
-          生物医药BD情报
+          {t("nav.tagline")}
         </div>
       </div>
     </div>
@@ -281,26 +283,31 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-const DATABASE: NavItem[] = [
-  { href: "/companies", label: "公司", icon: Icon.building },
-  { href: "/assets", label: "资产", icon: Icon.flask },
-  { href: "/clinical", label: "临床", icon: Icon.fileText },
-  { href: "/ip", label: "专利", icon: Icon.shield },
-  { href: "/buyers", label: "买方", icon: Icon.users },
+type TFn = (key: string) => string;
+
+const getDatabase = (t: TFn): NavItem[] => [
+  { href: "/companies", label: t("nav.companies"), icon: Icon.building },
+  { href: "/assets", label: t("nav.assets"), icon: Icon.flask },
+  { href: "/clinical", label: t("nav.clinical"), icon: Icon.fileText },
+  { href: "/ip", label: t("nav.ip"), icon: Icon.shield },
+  { href: "/buyers", label: t("nav.buyers"), icon: Icon.users },
 ];
 
-const NEWS: NavItem[] = [{ href: "/deals", label: "交易", icon: Icon.handshake }];
+const getNews = (t: TFn): NavItem[] => [
+  { href: "/deals", label: t("nav.deals"), icon: Icon.handshake },
+];
 
-const TOOLS: NavItem[] = [
-  { href: "/dashboard", label: "仪表盘", icon: Icon.grid },
-  { href: "/watchlist", label: "关注", icon: Icon.star },
-  { href: "/catalysts", label: "催化剂", icon: Icon.zap },
-  { href: "/reports", label: "报告", icon: Icon.fileText },
-  { href: "/conference", label: "会议洞察", icon: Icon.presentation },
+const getTools = (t: TFn): NavItem[] => [
+  { href: "/dashboard", label: t("nav.dashboard"), icon: Icon.grid },
+  { href: "/watchlist", label: t("nav.watchlist"), icon: Icon.star },
+  { href: "/catalysts", label: t("nav.catalysts"), icon: Icon.zap },
+  { href: "/reports", label: t("nav.reports"), icon: Icon.fileText },
+  { href: "/conference", label: t("nav.conference"), icon: Icon.presentation },
 ];
 
 function AdminNavItem() {
   const pathname = usePathname();
+  const { t } = useLocale();
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
@@ -316,10 +323,10 @@ function AdminNavItem() {
   const active = pathname === "/admin" || pathname.startsWith("/admin/");
   return (
     <div className="nav-section">
-      <div className="nav-section-label">管理员</div>
+      <div className="nav-section-label">{t("nav.admin")}</div>
       <Link href="/admin" className={`nav-link ${active ? "active" : ""}`}>
         <span className="nav-icon">{Icon.shield}</span>
-        <span>管理</span>
+        <span>{t("nav.manage")}</span>
         {unread > 0 && (
           <span
             style={{
@@ -347,6 +354,7 @@ function AdminNavItem() {
 
 function AiddButton() {
   const [loading, setLoading] = useState(false);
+  const { t } = useLocale();
 
   async function handleClick() {
     setLoading(true);
@@ -360,7 +368,7 @@ function AiddButton() {
       const { url } = await res.json();
       window.open(url, "_blank", "noopener");
     } catch {
-      alert("生成跳转链接失败，请稍后重试");
+      alert(t("nav.projectCenterError"));
     } finally {
       setLoading(false);
     }
@@ -389,7 +397,7 @@ function AiddButton() {
       }}
     >
       <span style={{ fontSize: 15 }}>🧬</span>
-      <span>{loading ? "跳转中…" : "立项中心 (AIDD)"}</span>
+      <span>{loading ? t("nav.projectCenterLoading") : t("nav.projectCenter")}</span>
       {!loading && <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.8 }}>↗</span>}
     </button>
   );
@@ -469,10 +477,11 @@ function NavGroup({
 
 function SidebarFooter() {
   const { user, logout } = useAuth();
+  const { locale, setLocale, t } = useLocale();
   const initial =
     user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U";
-  const displayName = user?.name || user?.email || "用户";
-  const role = user?.title || "BD 专业人士";
+  const displayName = user?.name || user?.email || t("nav.defaultUser");
+  const role = user?.title || t("nav.defaultRole");
 
   return (
     <div
@@ -528,10 +537,29 @@ function SidebarFooter() {
             </div>
           </div>
         </Link>
+
+        {/* Language toggle */}
         <button
           className="icon-btn"
-          aria-label="退出"
-          title="退出登录"
+          aria-label="Switch language"
+          title={locale === "zh" ? "Switch to English" : "切换为中文"}
+          onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
+          style={{
+            color: "var(--text-muted)",
+            padding: "0.2rem 0.35rem",
+            borderRadius: 6,
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.02em",
+          }}
+        >
+          {t("nav.switchLang")}
+        </button>
+
+        <button
+          className="icon-btn"
+          aria-label={t("nav.logoutLabel")}
+          title={t("nav.logoutTitle")}
           onClick={logout}
           style={{ color: "var(--text-muted)", padding: "0.3rem", borderRadius: 6 }}
         >
@@ -550,6 +578,7 @@ export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
+  const { t } = useLocale();
   const { createSession } = useSessionStore();
   const prefs = parsePreferences(user);
   const showDatabase = prefs.show_database_nav === true;
@@ -613,7 +642,7 @@ export function Sidebar() {
             <circle cx="6.5" cy="6.5" r="4.5" />
             <path d="M10.5 10.5l3 3" />
           </svg>
-          <span style={{ flex: 1 }}>搜索…</span>
+          <span style={{ flex: 1 }}>{t("nav.search")}</span>
           <kbd
             style={{
               fontSize: 10,
@@ -630,25 +659,25 @@ export function Sidebar() {
         {/* New Chat */}
         <button className="new-chat-btn" onClick={handleNewChat}>
           {Icon.plus}
-          <span>新建对话</span>
+          <span>{t("nav.newChat")}</span>
         </button>
 
         {/* Nav */}
         <div className="sidebar-scroll">
           {/* Recent sessions */}
           <div className="nav-section">
-            <div className="nav-section-label">最近</div>
+            <div className="nav-section-label">{t("nav.recent")}</div>
             <SessionList />
           </div>
 
           {/* Database (conditional) */}
-          {showDatabase && <NavGroup label="数据库" items={DATABASE} />}
-          {showDatabase && <NavGroup label="资讯" items={NEWS} />}
+          {showDatabase && <NavGroup label={t("nav.database")} items={getDatabase(t)} />}
+          {showDatabase && <NavGroup label={t("nav.news")} items={getNews(t)} />}
 
-          {/* Tools — 仪表盘仅内部/管理员可见；报告受偏好设置控制 */}
+          {/* Tools — dashboard visible to admin/internal only; reports gated by preference */}
           <NavGroup
-            label="工具"
-            items={TOOLS.filter((item) => {
+            label={t("nav.tools")}
+            items={getTools(t).filter((item) => {
               if (item.href === "/dashboard") return user?.is_admin || user?.is_internal;
               if (item.href === "/reports") return showReports;
               return true;
