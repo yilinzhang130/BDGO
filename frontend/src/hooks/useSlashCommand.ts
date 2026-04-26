@@ -147,14 +147,26 @@ export function useSlashCommand(getInput: () => string, setInput: (v: string) =>
           return;
         }
 
-        const missing = (parsed.missing || []).join("、") || "更多信息";
+        const missingFields = parsed.missing || [];
+        const missing = missingFields.join("、") || "更多信息";
         const partial = Object.entries(parsed.params || {})
           .filter(([, v]) => v !== undefined && v !== null && v !== "")
           .map(([k, v]) => `${k}: ${v}`)
           .join("，");
         const partialHint = partial ? `\n\n已识别：${partial}` : "";
+
+        // Quick-patch hint: build a kv-style template the user can copy-paste
+        // and fill inline. The backend kv-parser (PR #123) takes these
+        // deterministically with no LLM round-trip, so iterating on missing
+        // fields is fast even for /draft-X services with 10+ params.
+        const kvQuickPatch = missingFields.length
+          ? `\n\n直接粘贴补全（每个 \`key="value"\`）：\n\`/${cmd.alias} ${missingFields
+              .map((f) => `${f}="…"`)
+              .join(" ")}\``
+          : "";
+
         pushAssistantMessage(
-          `生成 **${svc.display_name}** 还缺少：**${missing}**。${partialHint}\n\n请补全后重发，例如：\`/${cmd.alias} ${cmd.example}\``,
+          `生成 **${svc.display_name}** 还缺少：**${missing}**。${partialHint}${kvQuickPatch}\n\n或用自由文本，例如：\`/${cmd.alias} ${cmd.example}\``,
         );
       } catch (e) {
         const msg = e instanceof Error ? e.message : "未知错误";
