@@ -18,11 +18,13 @@ each turn re-sends the full history → input_tokens grows per turn.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from config import (
     CLAUDE_API_KEY,
     DEEPSEEK_API_KEY,
     MINIMAX_ANTHROPIC_VERSION,
+    MINIMAX_AUTH_STYLE,
     MINIMAX_KEY,
     MINIMAX_MODEL,
     MINIMAX_URL,
@@ -43,6 +45,10 @@ class ModelSpec:
     output_weight: float
     # Soft cap shown in UI ("max 80k context"); informational only
     context_note: str = ""
+    # HTTP auth header style. Most Anthropic-compatible providers use
+    # "x-api-key"; MiniMax Token/Coding Plan keys require "bearer". See
+    # config.MINIMAX_AUTH_STYLE.
+    auth_style: Literal["x-api-key", "bearer"] = "x-api-key"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -66,6 +72,7 @@ _MODELS: list[ModelSpec] = [
         input_weight=1.0,
         output_weight=4.0,
         context_note="80k tokens",
+        auth_style=MINIMAX_AUTH_STYLE,
     ),
     # Wired but disabled until DEEPSEEK_API_KEY is set in the VM env.
     ModelSpec(

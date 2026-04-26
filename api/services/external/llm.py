@@ -47,10 +47,13 @@ def _call_one_sync(
         "messages": messages,
         "max_tokens": max_tokens,
     }
-    headers = {
-        "x-api-key": model.api_key,
-        "Content-Type": "application/json",
-    }
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    # Auth header style varies per provider. Default Anthropic-compatible:
+    # x-api-key. MiniMax Token/Coding Plan: Authorization: Bearer.
+    if getattr(model, "auth_style", "x-api-key") == "bearer":
+        headers["Authorization"] = f"Bearer {model.api_key}"
+    else:
+        headers["x-api-key"] = model.api_key
     if model.anthropic_version:
         headers["anthropic-version"] = model.anthropic_version
 
