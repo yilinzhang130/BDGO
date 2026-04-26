@@ -1,0 +1,42 @@
+{
+  "name": "BD Go",
+  "short_name": "BD Go",
+  "description": "Biotech BD Intelligence Platform",
+  "start_url": "/chat",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFF",
+  "theme_color": "#1E3A8A",
+  "orientation": "portrait-primary",
+  "lang": "zh-CN",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Chat",
+      "short_name": "Chat",
+      "url": "/chat",
+      "description": "Start a new BD conversation"
+    },
+    {
+      "name": "Reports",
+      "short_name": "Reports",
+      "url": "/reports",
+      "description": "View saved reports"
+    }
+  ]
+}
