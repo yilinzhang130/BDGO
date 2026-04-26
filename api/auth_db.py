@@ -284,6 +284,35 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub
     ON subscriptions (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_cust
     ON subscriptions (stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
+
+-- Team features (P3-14): user-to-user notifications
+--   type: 'watchlist_share' | 'report_share' | 'mention'
+CREATE TABLE IF NOT EXISTS user_notifications (
+    id          BIGSERIAL PRIMARY KEY,
+    recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sender_id    UUID REFERENCES users(id) ON DELETE SET NULL,
+    type         VARCHAR(30) NOT NULL,
+    title        TEXT NOT NULL,
+    body         TEXT,
+    link_url     TEXT,
+    read_at      TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_notif_recipient
+    ON user_notifications (recipient_id, created_at DESC);
+
+-- Team features (P3-14): per-watchlist-item sharing
+CREATE TABLE IF NOT EXISTS watchlist_shares (
+    id             BIGSERIAL PRIMARY KEY,
+    item_id        BIGINT NOT NULL REFERENCES user_watchlists(id) ON DELETE CASCADE,
+    owner_id       UUID   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    shared_with_id UUID   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    permission     VARCHAR(10) NOT NULL DEFAULT 'view',  -- 'view' | 'edit'
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (item_id, shared_with_id)
+);
+CREATE INDEX IF NOT EXISTS idx_watchlist_shares_recipient
+    ON watchlist_shares (shared_with_id);
 """
 
 # ---------------------------------------------------------------------------

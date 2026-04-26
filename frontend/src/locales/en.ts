@@ -25,6 +25,8 @@ export const en: Record<string, string> = {
   "nav.reports": "Reports",
   "nav.conference": "Conferences",
   "nav.manage": "Manage",
+  "nav.team": "Team",
+  "nav.notifications": "Notifications",
 
   // Sidebar footer
   "nav.defaultUser": "User",

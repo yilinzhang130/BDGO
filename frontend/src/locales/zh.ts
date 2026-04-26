@@ -25,6 +25,8 @@ export const zh: Record<string, string> = {
   "nav.reports": "报告",
   "nav.conference": "会议洞察",
   "nav.manage": "管理",
+  "nav.team": "团队",
+  "nav.notifications": "通知",
 
   // Sidebar footer
   "nav.defaultUser": "用户",
