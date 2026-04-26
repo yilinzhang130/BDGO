@@ -65,6 +65,7 @@ CRM 与搜索（基础工具）：
   search_companies, search_assets, search_clinical, search_deals,
   query_treatment_guidelines, tavily_search, crm_aggregate,
   search_company_news（最近 N 天公司/资产新闻，Tavily news 模式）
+  search_clinicaltrials（ClinicalTrials.gov 实时查询，补充 CRM 数据）
 
 报告类 service（每个对应一个 chat tool）：
   - analyze_target              靶点 radar / 竞争格局
