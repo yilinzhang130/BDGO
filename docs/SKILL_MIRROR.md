@@ -1,8 +1,8 @@
 # Skill Mirror — BDGO 报告服务 vs 本地 OpenClaw 技能
 
-BDGO 的 **28 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**线上 Python 实现**。本地 SKILL.md 是 prompt 的"原稿"，迭代快；BDGO Python 文件是"工厂"，把 prompt 嵌入完整的报告生产流水线（CRM 查询 → web 增强 → LLM → docx 渲染）。
+BDGO 的 **29 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**线上 Python 实现**。本地 SKILL.md 是 prompt 的"原稿"，迭代快；BDGO Python 文件是"工厂"，把 prompt 嵌入完整的报告生产流水线（CRM 查询 → web 增强 → LLM → docx 渲染）。
 
-剩下 **19 个**线上独有服务直接长在 BDGO 里，没有本地镜像（生命周期工具、写作工具、合同起草工具等）。
+剩下 **20 个**线上独有服务直接长在 BDGO 里，没有本地镜像（生命周期工具、写作工具、合同起草工具等）。
 
 本文档是这两套系统之间的**唯一真源**。当用户说"升级 X 技能"时，先读这里。
 
@@ -34,7 +34,7 @@ BDGO 的 **28 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 | `/ip` | `ip-landscape` | `patent-landscape/SKILL.md` (712L) | 2026-04-24 | [ip_landscape.py:56](../api/services/reports/ip_landscape.py) | `CHAPTER_SYSTEM_PROMPT` (L56) + `_IP_CH1_PROMPT` / `_IP_CH2_PROMPT` ... |
 | `/legal` | `legal-review` | `bd-legal-review/SKILL.md` | 2026-04-25 | [legal_review.py:86](../api/services/reports/legal_review.py) | `SYSTEM_PROMPT_BASE` (L86) + `_TYPE_CHECKLISTS` (L170) + `_USER_PROMPT_TEMPLATE` (L324) |
 
-### 线上独有（无本地镜像，共 12 个）
+### 线上独有（无本地镜像，共 14 个）
 
 这些 ReportService **没有**对应的 SKILL.md，prompt 直接长在 BDGO 里。
 
@@ -47,7 +47,7 @@ BDGO 的 **28 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 
 如果要给这 3 个建立镜像，先在 `~/.openclaw/skills/` 下建 `SKILL.md`、把现有 Python prompt 拆出去、然后加进上面的镜像表。
 
-#### BD Lifecycle 工具（11 个，2026-04-26 新增）
+#### BD Lifecycle 工具（12 个，2026-04-26 新增）
 这一批是**生命周期编排 + 写作工具**，本质上不是分析报告，所以不需要本地 SKILL.md 镜像。
 
 | 斜杠 alias | slug | Python 文件 | 用途 |
@@ -63,6 +63,7 @@ BDGO 的 **28 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 | `/synthesize` | `bd-synthesize` | [bd_synthesize.py](../api/services/reports/bd_synthesize.py) | 综合多份 task 的 markdown → BD 策略备忘 |
 | `/buyers` | `buyer-matching` | [buyer_matching.py](../api/services/reports/buyer_matching.py) | 反向买方匹配：给定资产扫 MNC画像 + LLM 排 Top-N（S2-01） |
 | `/meeting` | `meeting-brief` | [meeting_brief.py](../api/services/reports/meeting_brief.py) | 会前简报（对方画像 / 我方目标 / 谈话要点 / 预见问题 / closing ask）（S3-03） |
+| `/faq` | `dd-faq` | [dd_faq.py](../api/services/reports/dd_faq.py) | DD FAQ 预生成：买方会问的 N 道题 + 我方答案，按 6 类 × 阶段裁剪，自动标 Gap（S3-04） |
 
 #### `/draft-X` 合同起草家族（5 个，2026-04-26 完整上线）
 **结构化参数 → markdown + .docx skeleton**。所有服务共享 L0/L1 schema 验证 + gap-fill retry + 商业风险提示节 + 签署前 Checklist。每个服务在生成完毕后通过 `meta.suggested_commands` 推 `/legal contract_type=<X>` 做独立 BD-风险二次审查。

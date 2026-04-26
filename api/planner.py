@@ -77,7 +77,8 @@ CRM 与搜索（基础工具）：
   - analyze_commercial          商业评估
   - generate_deal_evaluation    资产吸引力四象限压力测试
   - generate_rnpv_model         rNPV 估值模型
-  - generate_dd_checklist       DD 问题清单
+  - generate_dd_checklist       DD 问题清单（按公司 / perspective 分类）
+  - generate_dd_faq             DD FAQ 预生成（买方会问的 N 道题 + 我方准备答案，按会议阶段裁剪）
   - generate_legal_review       合同审查（CDA/TS/MTA/License/Co-Dev/SPA）
   - generate_deal_teaser        BD 推介 PPT + 摘要
   - generate_data_room_checklist  数据室文件清单（按 modality / stage / audience 裁剪）
