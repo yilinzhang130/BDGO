@@ -1,0 +1,182 @@
+# Draft License Agreement — Schema v0.1
+#
+# 校验 /draft-license 服务输出的 13-section License Agreement markdown.
+# Key checks:
+#   1. 13 sections all present
+#   2. Definitions section contains ≥6 of the 8 core terms (Affiliate /
+#      Licensed Product / Net Sales / Field / Territory / Effective Date /
+#      Phase / Sublicense)
+#   3. Financial Terms mentions Upfront / Milestone / Royalty
+#   4. Patent Prosecution section assigns lead party
+#   5. Effects of Termination addresses survival
+#   6. ≥5 commercial-risk callouts (License is more complex than TS/MTA)
+#   7. Pre-signing checklist mentions 律师/counsel/IP
+
+report_type: license_draft
+schema_version: "0.1"
+
+target_total_words:
+  min: 2500
+  max: 12000
+
+sections:
+  - id: parties
+    name: 当事方 (Parties)
+    heading_patterns:
+      - '一、|^\s*1[\.、]\s*'
+      - 'Parties|当事方'
+    required: true
+    must_contain_one_of:
+      - 'Licensor|授权方'
+
+  - id: definitions
+    name: 定义 (Definitions)
+    heading_patterns:
+      - '二、|^\s*2[\.、]\s*'
+      - 'Definitions|定义'
+    required: true
+    # Must contain ≥6 of the 8 core terms — checked individually
+    must_contain_all:
+      - 'Affiliate|关联方'
+      - 'Licensed\s*Product|许可产品'
+      - 'Net\s*Sales|净销售'
+      - 'Field|领域'
+      - 'Territory|地域'
+      - 'Effective\s*Date|生效日'
+
+  - id: license_grant
+    name: 许可授予 (License Grant)
+    heading_patterns:
+      - '三、|^\s*3[\.、]\s*'
+      - 'License\s*Grant|许可授予'
+    required: true
+    must_contain_one_of:
+      - 'exclusive|co-exclusive|non-exclusive|独占|共同独占|非独占'
+
+  - id: sublicense
+    name: 转许可 (Sublicense)
+    heading_patterns:
+      - '四、|^\s*4[\.、]\s*'
+      - 'Sublicense|转许可|分许可'
+    required: true
+
+  - id: diligence
+    name: 勤勉义务 (Diligence)
+    heading_patterns:
+      - '五、|^\s*5[\.、]\s*'
+      - 'Diligence|勤勉|努力义务'
+    required: true
+    # Must reference at least one development milestone keyword
+    must_contain_one_of:
+      - 'IND|Phase|NDA|BLA|first\s*commercial|first\s*sale|商业销售|临床'
+
+  - id: financial_terms
+    name: 财务条款 (Financial Terms)
+    heading_patterns:
+      - '六、|^\s*6[\.、]\s*'
+      - 'Financial\s*Terms|财务条款'
+    required: true
+    must_contain_one_of:
+      - 'Upfront|首付款'
+    # Must reference all three financial concepts
+    must_contain_all:
+      - 'Milestone|里程碑'
+      - 'Royalty|分成|提成|royalty'
+
+  - id: royalty_audit
+    name: 销售报告与审计 (Royalty Reports & Audit)
+    heading_patterns:
+      - '七、|^\s*7[\.、]\s*'
+      - 'Royalty\s*Reports|Audit|销售报告|审计'
+    required: true
+    must_contain_one_of:
+      - 'audit|审计|quarterly|季度'
+
+  - id: patent_prosecution
+    name: 专利申请与执行 (Patent Prosecution & Enforcement)
+    heading_patterns:
+      - '八、|^\s*8[\.、]\s*'
+      - 'Patent\s*Prosecution|Enforcement|专利申请|专利执行'
+    required: true
+    must_contain_one_of:
+      - 'Licensor|Licensee|joint|授权方|被授权方|联合'
+
+  - id: improvements
+    name: 改进与新 IP (Improvements & New IP)
+    heading_patterns:
+      - '九、|^\s*9[\.、]\s*'
+      - 'Improvements|New\s*IP|改进|新.*IP'
+    required: true
+
+  - id: confidentiality
+    name: 保密 (Confidentiality)
+    heading_patterns:
+      - '十、|^\s*10[\.、]\s*'
+      - 'Confidentiality|保密'
+    required: true
+
+  - id: reps_indemnity
+    name: 陈述保证与赔偿 (Reps & Warranties + Indemnification)
+    heading_patterns:
+      - '十一、|^\s*11[\.、]\s*'
+      - 'Reps\s*&?\s*Warranties|Indemnification|陈述与?保证|赔偿'
+    required: true
+    must_contain_one_of:
+      - 'indemnification|indemnify|赔偿|保护'
+
+  - id: term_termination_effects
+    name: 期限、终止与终止效果 (Term & Termination + Effects)
+    heading_patterns:
+      - '十二、|^\s*12[\.、]\s*'
+      - 'Term\s*&?\s*Termination|期限|终止'
+    required: true
+    must_contain_all:
+      - 'Termination|终止'
+      - 'survival|存续|surviv'
+
+  - id: governing_law_misc
+    name: 适用法律与杂项 (Governing Law + Misc)
+    heading_patterns:
+      - '十三、|^\s*13[\.、]\s*'
+      - 'Governing\s*Law|适用法律|Dispute\s*Resolution|争议解决'
+    required: true
+
+  # ══════════════════════════════════════════════
+  # 风险提示 + Checklist
+  # ══════════════════════════════════════════════
+  - id: commercial_risks
+    name: 商业风险提示
+    heading_patterns:
+      - '商业风险|Commercial\s*Risks?|风险提示'
+    required: true
+    # ≥5 numbered risks (License is more complex than TS/MTA)
+    must_contain_all:
+      - '1[\.、]|风险\s*1|Risk\s*1'
+      - '2[\.、]|风险\s*2|Risk\s*2'
+      - '3[\.、]|风险\s*3|Risk\s*3'
+      - '4[\.、]|风险\s*4|Risk\s*4'
+      - '5[\.、]|风险\s*5|Risk\s*5'
+
+  - id: pre_signing_checklist
+    name: 签署前 Checklist
+    heading_patterns:
+      - '签署前|Pre-Signing|Sign-off|Checklist'
+    required: true
+    must_contain_one_of:
+      - '律师|counsel|legal'
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - pattern: '完美的|fantastic|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '极具吸引力|绝佳'
+      category: marketing_hyperbole
+      severity: medium
+    # Common License agreement bug: "to be defined later" instead of actual definitions
+    - pattern: 'to\s*be\s*defined|to\s*be\s*determined\s*later|TBD\s*later'
+      category: incomplete_drafting
+      severity: medium
