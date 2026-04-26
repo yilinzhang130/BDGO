@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { errorMessage } from "@/lib/format";
+import { useLocale } from "@/lib/locale";
 
 type Tab = "login" | "register";
 
@@ -39,6 +40,7 @@ function BDGoLogo() {
 
 export default function LoginPage() {
   const { login, register, loading: authLoading } = useAuth();
+  const { t } = useLocale();
   const [tab, setTab] = useState<Tab>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,19 +53,19 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     if (!validateEmail(email)) {
-      setError("请输入有效的邮箱地址");
+      setError(t("login.error.invalidEmail"));
       return;
     }
     if (password.length < 6) {
-      setError("密码至少需要6个字符");
+      setError(t("login.error.passwordTooShort"));
       return;
     }
     if (tab === "register" && !name.trim()) {
-      setError("请输入您的姓名");
+      setError(t("login.error.nameRequired"));
       return;
     }
     if (tab === "register" && !inviteCode.trim()) {
-      setError("请输入邀请码");
+      setError(t("login.error.inviteRequired"));
       return;
     }
 
@@ -75,7 +77,7 @@ export default function LoginPage() {
         await register(email, password, name.trim(), inviteCode.trim());
       }
     } catch (err: unknown) {
-      setError(errorMessage(err, "操作失败，请稍后重试"));
+      setError(errorMessage(err, t("login.error.fallback")));
     } finally {
       setSubmitting(false);
     }
@@ -101,21 +103,21 @@ export default function LoginPage() {
         <div style={s.header}>
           <BDGoLogo />
           <h1 style={s.title}>BD Go</h1>
-          <p style={s.subtitle}>生物医药BD情报平台</p>
+          <p style={s.subtitle}>{t("nav.tagline")}</p>
         </div>
 
         {/* Tab switcher */}
         <div style={s.tabs}>
-          {(["login", "register"] as Tab[]).map((t) => (
+          {(["login", "register"] as Tab[]).map((tabKey) => (
             <button
-              key={t}
-              style={{ ...s.tab, ...(tab === t ? s.tabActive : {}) }}
+              key={tabKey}
+              style={{ ...s.tab, ...(tab === tabKey ? s.tabActive : {}) }}
               onClick={() => {
-                setTab(t);
+                setTab(tabKey);
                 setError("");
               }}
             >
-              {t === "login" ? "登录" : "注册"}
+              {tabKey === "login" ? t("login.tab.login") : t("login.tab.register")}
             </button>
           ))}
         </div>
@@ -125,10 +127,10 @@ export default function LoginPage() {
           {tab === "register" && (
             <>
               <div style={s.fieldGroup}>
-                <label style={s.label}>姓名</label>
+                <label style={s.label}>{t("login.label.name")}</label>
                 <input
                   type="text"
-                  placeholder="请输入您的姓名"
+                  placeholder={t("login.placeholder.name")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   style={s.input}
@@ -136,7 +138,7 @@ export default function LoginPage() {
                 />
               </div>
               <div style={s.fieldGroup}>
-                <label style={s.label}>邀请码</label>
+                <label style={s.label}>{t("login.label.inviteCode")}</label>
                 <input
                   type="text"
                   placeholder="BDGO-XXXX-XXXX"
@@ -151,7 +153,7 @@ export default function LoginPage() {
           )}
 
           <div style={s.fieldGroup}>
-            <label style={s.label}>邮箱地址</label>
+            <label style={s.label}>{t("login.label.email")}</label>
             <input
               type="email"
               placeholder="name@company.com"
@@ -171,7 +173,7 @@ export default function LoginPage() {
                 marginBottom: 6,
               }}
             >
-              <label style={s.label}>密码</label>
+              <label style={s.label}>{t("login.label.password")}</label>
               {tab === "login" && (
                 <a
                   href="#"
@@ -182,13 +184,17 @@ export default function LoginPage() {
                     fontWeight: 500,
                   }}
                 >
-                  忘记密码？
+                  {t("login.forgotPassword")}
                 </a>
               )}
             </div>
             <input
               type="password"
-              placeholder={tab === "login" ? "请输入密码" : "至少6位字符"}
+              placeholder={
+                tab === "login"
+                  ? t("login.placeholder.password.login")
+                  : t("login.placeholder.password.register")
+              }
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={s.input}
@@ -211,12 +217,16 @@ export default function LoginPage() {
             disabled={submitting}
             style={{ ...s.submitBtn, ...(submitting ? s.submitBtnDisabled : {}) }}
           >
-            {submitting ? "处理中…" : tab === "login" ? "登录" : "创建账户"}
+            {submitting
+              ? t("login.submit.loading")
+              : tab === "login"
+                ? t("login.submit.login")
+                : t("login.submit.register")}
           </button>
         </form>
 
         <p style={s.switchText}>
-          {tab === "login" ? "还没有账户？" : "已有账户？"}
+          {tab === "login" ? t("login.switch.noAccount") : t("login.switch.hasAccount")}
           <button
             style={s.switchLink}
             onClick={() => {
@@ -224,7 +234,7 @@ export default function LoginPage() {
               setError("");
             }}
           >
-            {tab === "login" ? "免费注册" : "立即登录"}
+            {tab === "login" ? t("login.switch.toRegister") : t("login.switch.toLogin")}
           </button>
         </p>
       </div>

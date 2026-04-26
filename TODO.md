@@ -30,10 +30,10 @@
 
 ### 🟢 P2 — Month 2
 8. **Pricing / quota** — credit system + usage metering already in DB schema; needs Stripe wiring + dashboard
-9. **Deeper planner agent** — coverage check via embedding similarity rather than rigid 7-step template
-10. **PubMed MCP / ClinicalTrials.gov MCP** — direct tools in Chat beyond the existing CRM-only path
+9. ✅ **Deeper planner heuristic** — `should_plan()` extended with 3-tier keyword check: 30 Chinese BD keywords, 50+ English planning phrases, 20 strong BD patterns; 51 tests (#147)
+10. ✅ **ClinicalTrials.gov chat tool** — `search_clinicaltrials` chat tool + `services/external/clinicaltrials.py` client; 18 tests (#145)
 11. **Multi-language** — English UI option (currently Chinese-first with English terms inline)
-12. **News feed page / catalyst calendar** — secondary nav routes pulling from CRM catalyst fields
+12. ✅ **Company/asset news chat tool** — `search_company_news` chat tool + `search_news()` in Tavily service (news mode, recency filter); 19 tests (#146)
 
 ### 🔵 P3 — Month 3+
 13. **Mobile PWA** — responsive layout + offline report viewing
@@ -64,6 +64,10 @@ The April 2026 sprint took main from 6 services → 25 services + closed the BD 
 | #141 | `/faq` — DD FAQ pre-generation, 6 meeting stages (S3-04) |
 | #142 | X-18 plan template system — 5 built-ins + user-saved templates |
 | #143 | S1-03 asset metadata 6 → 10 fields (modality, ip_timeline, funding, team) |
+| #144 | P1-07 Anthropic Claude API wired (`claude-sonnet-4-5`, `auth_style=x-api-key`); 18 tests |
+| #145 | P2-10 ClinicalTrials.gov chat tool + service client; 18 tests |
+| #146 | P2-12 Company/asset news search chat tool (Tavily news mode); 19 tests |
+| #147 | P2-09 `should_plan()` heuristic — English BD keywords + 51 tests |
 
 ## Architecture Notes for Next Session
 
