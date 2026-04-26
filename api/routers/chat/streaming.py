@@ -15,6 +15,7 @@ import json
 import logging
 
 import httpx
+import plan_templates as plan_templates_mod
 import planner as planner_mod
 from models import resolve_model
 
@@ -264,6 +265,10 @@ async def stream_chat(req):
 async def stream_plan_only(req):
     """Phase 1 stream: generate a plan proposal, emit one SSE event, done.
 
+    If ``req.plan_template_id`` is set, look up the template first and return
+    it directly (no LLM call, instant). Falls back to the planner LLM for
+    dynamic plan generation otherwise.
+
     Falls back to :func:`stream_chat` if the planner LLM returns no plan.
     """
     model = resolve_model(req.model_id)
@@ -276,7 +281,51 @@ async def stream_plan_only(req):
     if req.user_id:
         await asyncio.to_thread(ensure_session, req.session_id, req.user_id)
 
-    plan = await planner_mod.generate_plan(req.message, history, model)
+    # ── Template shortcut (X-18) ────────────────────────────────────────────
+    # If a plan_template_id is provided, resolve it directly without hitting
+    # the planner LLM. Built-in templates are resolved synchronously (dict
+    # lookup); user-saved templates need a DB read (asyncio.to_thread).
+    plan: dict | None = None
+    if getattr(req, "plan_template_id", None):
+        try:
+            resolved = await asyncio.to_thread(
+                plan_templates_mod.resolve_template,
+                req.user_id,
+                req.plan_template_id,
+            )
+            if resolved:
+                # Normalise to the same shape as generate_plan() output.
+                # Templates store the plan under "plan" key for user-saved rows;
+                # built-ins store it flat (steps at top level).
+                t_plan = resolved.get("plan") or resolved
+                plan = {
+                    "plan_id": t_plan.get("plan_id", f"tpl:{req.plan_template_id}"),
+                    "title": t_plan.get("title", resolved.get("name", "Template Plan")),
+                    "summary": t_plan.get("summary", resolved.get("description", "")),
+                    "steps": t_plan.get("steps", []),
+                    "_template_id": req.plan_template_id,
+                    "_from_template": True,
+                }
+                logger.info(
+                    "Serving plan from template '%s' (user=%s)",
+                    req.plan_template_id,
+                    req.user_id,
+                )
+            else:
+                logger.warning(
+                    "plan_template_id '%s' not found for user %s; falling back to LLM",
+                    req.plan_template_id,
+                    req.user_id,
+                )
+        except Exception:
+            logger.exception(
+                "Template lookup failed for id='%s'; falling back to LLM planner",
+                req.plan_template_id,
+            )
+
+    # ── LLM planner (normal path) ────────────────────────────────────────────
+    if plan is None:
+        plan = await planner_mod.generate_plan(req.message, history, model)
 
     if plan is None:
         logger.warning("Planner returned no plan; falling back to normal execution")

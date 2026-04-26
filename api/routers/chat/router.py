@@ -77,6 +77,11 @@ class ChatRequest(BaseModel):
     # Plan mode: "auto" (heuristic), "on" (always plan), "off" (skip planning)
     plan_mode: str = "auto"
     plan_confirm: PlanConfirm | None = None
+    # Optional: use a pre-defined plan template instead of calling the planner LLM.
+    # Accepts a built-in slug (e.g. "bd-intake") or a user-saved template UUID.
+    # When set and plan_mode is not "off", stream_plan_only will return the
+    # template plan directly without an LLM call.
+    plan_template_id: str | None = None
     # Search mode: "agent" (full tool loop) or "quick" (Tavily + summary only)
     search_mode: str = "agent"
     # user_id / is_admin / is_internal are injected by the endpoint,
