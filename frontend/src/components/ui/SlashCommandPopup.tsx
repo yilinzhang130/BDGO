@@ -52,6 +52,11 @@ export const SLASH_COMMANDS: Omit<
     slug: "draft-ts",
     example: "某 KRAS G12D 全球独家许可 首付2000万 里程碑3亿",
   },
+  {
+    alias: "draft-mta",
+    slug: "draft-mta",
+    example: "某 anti-PD1 抗体 转让给 Stanford 用于联合用药研究",
+  },
 ];
 
 export function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
