@@ -27,15 +27,55 @@ export function useSlashCommand(getInput: () => string, setInput: (v: string) =>
   const [reportServices, setReportServices] = useState<ReportService[]>([]);
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
   const [slashParsing, setSlashParsing] = useState(false);
+  // Services-fetch state. Previously this was a fire-and-forget call with
+  // `.catch(() => {})` swallowing every error — when /api/reports/list
+  // failed (CORS / 401 / 500 / network), the slash popup silently degraded
+  // to slug-only display and clicks did nothing. Now the failure surfaces:
+  //   - console.warn so it's visible in devtools immediately
+  //   - servicesLoadError is exposed to consumers (chat page can render a
+  //     banner / inline notice based on it)
+  //   - retryLoadServices() lets the UI offer a "Retry" button
+  //   - Auto-retry with backoff: 3 attempts then give up
+  const [servicesLoadError, setServicesLoadError] = useState<string | null>(null);
+  const [servicesLoading, setServicesLoading] = useState(true);
+
+  const loadServices = useCallback(async (): Promise<void> => {
+    // Iterative retry loop (avoids self-referencing useCallback). Three
+    // attempts with exponential backoff — 0ms, 800ms, 2400ms.
+    setServicesLoading(true);
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        const delay = 800 * Math.pow(3, attempt - 1);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+      try {
+        const data = (await fetchReportServices()) as { services?: ReportService[] };
+        const services = data?.services || [];
+        setReportServices(services);
+        setServicesLoadError(null);
+        setServicesLoading(false);
+        if (services.length === 0) {
+          // Endpoint reachable but returned no services — server-side
+          // misconfiguration. Surface as a soft warning.
+          console.warn("/api/reports/list returned 0 services; slash commands may not work");
+        }
+        return;
+      } catch (e) {
+        const detail = e instanceof Error ? e.message : String(e);
+        lastError = detail;
+        console.warn(
+          `[useSlashCommand] fetchReportServices failed (attempt ${attempt + 1}/3): ${detail}`,
+        );
+      }
+    }
+    setServicesLoadError(lastError || "Failed to load report services after 3 attempts");
+    setServicesLoading(false);
+  }, []);
 
   useEffect(() => {
-    fetchReportServices()
-      .then((data) => {
-        const d = data as { services?: ReportService[] };
-        setReportServices(d?.services || []);
-      })
-      .catch(() => {});
-  }, []);
+    void loadServices();
+  }, [loadServices]);
 
   const slashCommandsAll = useMemo<SlashCommand[]>(
     () =>
@@ -220,5 +260,10 @@ export function useSlashCommand(getInput: () => string, setInput: (v: string) =>
     slashParsing,
     handleSlashSelect,
     handleReportStarted,
+    // Services-fetch lifecycle — let the UI surface failures rather than
+    // silently degrading to slug-only slash commands.
+    servicesLoading,
+    servicesLoadError,
+    retryLoadServices: loadServices,
   };
 }

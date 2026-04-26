@@ -31,6 +31,9 @@ export function ChatInputBar({
   slashActiveIndex,
   onSlashActiveIndexChange,
   onSlashSelect,
+  slashServicesError,
+  slashServicesLoading,
+  onRetrySlashServices,
 }: {
   input: string;
   onInputChange: (v: string) => void;
@@ -45,6 +48,11 @@ export function ChatInputBar({
   slashActiveIndex: number;
   onSlashActiveIndexChange: (i: number | ((prev: number) => number)) => void;
   onSlashSelect: (cmd: SlashCommand) => void;
+  // Surfaced from useSlashCommand so the popup can show "load failed +
+  // retry" instead of silently degrading to slug-only display.
+  slashServicesError?: string | null;
+  slashServicesLoading?: boolean;
+  onRetrySlashServices?: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -121,6 +129,9 @@ export function ChatInputBar({
                 activeIndex={slashActiveIndex}
                 onSelect={onSlashSelect}
                 onHover={onSlashActiveIndexChange}
+                servicesError={slashServicesError}
+                servicesLoading={slashServicesLoading}
+                onRetryServices={onRetrySlashServices}
               />
             )}
             <textarea
