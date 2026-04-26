@@ -209,3 +209,124 @@ def test_chat_tool_input_schema(svc):
     assert "company" in schema["properties"]
     assert "status" in schema["properties"]
     assert "recent_days" in schema["properties"]
+
+
+# ─────────────────────────────────────────────────────────────
+# Structured meta — backing the chat-embedded mini-table (PR D)
+# ─────────────────────────────────────────────────────────────
+
+
+def test_pipeline_rows_for_meta_groups_per_company(svc):
+    """Multiple status rows for the same company collapse into one
+    company entry with status counts dict + summed total_events."""
+    raw = [
+        {
+            "to_company": "Pfizer",
+            "status": "sent",
+            "n": 3,
+            "last_touched": datetime.datetime(2026, 4, 20, 10, 0),
+        },
+        {
+            "to_company": "Pfizer",
+            "status": "replied",
+            "n": 1,
+            "last_touched": datetime.datetime(2026, 4, 22, 14, 0),
+        },
+        {
+            "to_company": "Lilly",
+            "status": "sent",
+            "n": 2,
+            "last_touched": datetime.datetime(2026, 4, 18, 9, 0),
+        },
+    ]
+    rows = svc._pipeline_rows_for_meta(raw)
+    assert len(rows) == 2
+    pfizer = next(r for r in rows if r["company"] == "Pfizer")
+    assert pfizer["statuses"] == {"sent": 3, "replied": 1}
+    assert pfizer["total_events"] == 4
+    # Pfizer's last_touched should be the later of the two timestamps
+    assert pfizer["last_touched"] == "2026-04-22T14:00:00"
+
+
+def test_pipeline_rows_for_meta_sorted_by_last_touched_desc(svc):
+    """Most recently touched company appears first — matches the markdown
+    pipeline view's sort order so users see the same ordering in either
+    rendering."""
+    raw = [
+        {
+            "to_company": "Old Co",
+            "status": "sent",
+            "n": 1,
+            "last_touched": datetime.datetime(2026, 1, 1),
+        },
+        {
+            "to_company": "Recent Co",
+            "status": "sent",
+            "n": 1,
+            "last_touched": datetime.datetime(2026, 4, 25),
+        },
+    ]
+    rows = svc._pipeline_rows_for_meta(raw)
+    assert [r["company"] for r in rows] == ["Recent Co", "Old Co"]
+
+
+def test_pipeline_rows_for_meta_empty(svc):
+    assert svc._pipeline_rows_for_meta([]) == []
+
+
+def test_pipeline_rows_for_meta_serializes_datetime(svc):
+    """meta is JSON-encoded into the report_history table; datetimes
+    must be stringified before they get there."""
+    import json
+
+    raw = [
+        {
+            "to_company": "X",
+            "status": "sent",
+            "n": 1,
+            "last_touched": datetime.datetime(2026, 4, 26, 12, 30),
+        }
+    ]
+    rows = svc._pipeline_rows_for_meta(raw)
+    # Must round-trip through JSON cleanly
+    payload = json.dumps(rows)
+    assert "2026-04-26T12:30:00" in payload
+
+
+def test_thread_events_for_meta_projects_safe_shape(svc):
+    """Long notes are truncated; missing fields default to empty
+    strings; datetime → ISO."""
+    raw = [
+        {
+            "id": "evt-001",
+            "created_at": datetime.datetime(2026, 4, 25, 10, 15),
+            "status": "replied",
+            "purpose": "cda_followup",
+            "channel": "email",
+            "to_contact": "Sarah Chen, Head of BD",
+            "subject": "Re: PEG-001 partnership",
+            "notes": "x" * 600,  # over the 400-char cap
+            "asset_context": "PEG-001 (NSCLC)",
+        },
+        {
+            # Missing optional fields
+            "id": "evt-002",
+            "created_at": None,
+            "status": "sent",
+            "purpose": "cold_outreach",
+            "channel": "email",
+        },
+    ]
+    out = svc._thread_events_for_meta(raw)
+    assert len(out) == 2
+    assert out[0]["event_id"] == "evt-001"
+    assert out[0]["ts"] == "2026-04-25T10:15:00"
+    assert len(out[0]["notes"]) == 400  # truncated
+    # Missing fields default to "" not None (avoids JS undefined-handling pain)
+    assert out[1]["ts"] == ""
+    assert out[1]["to_contact"] == ""
+    assert out[1]["asset_context"] == ""
+
+
+def test_thread_events_for_meta_empty(svc):
+    assert svc._thread_events_for_meta([]) == []
