@@ -29,10 +29,10 @@
 7. **Anthropic Claude API as alternate LLM** — model spec wired (`claude-sonnet-4-5`, `auth_style=x-api-key`); all streaming infra already Anthropic-native. **Action needed**: set `CLAUDE_API_KEY` env var on VM to unlock. Model shows as `available: false` in picker until key is present.
 
 ### 🟢 P2 — Month 2
-8. **Pricing / quota** — credit system + usage metering already in DB schema; needs Stripe wiring + dashboard
+8. ✅ **Stripe billing** — Checkout Sessions + webhook handler + subscription status endpoint; `subscriptions` table; credits granted on activation; graceful 503 when keys absent; `CheckoutButton` component, `/billing/success` + `/cancel` pages, pricing page wired; 17 tests (#149)
 9. ✅ **Deeper planner heuristic** — `should_plan()` extended with 3-tier keyword check: 30 Chinese BD keywords, 50+ English planning phrases, 20 strong BD patterns; 51 tests (#147)
 10. ✅ **ClinicalTrials.gov chat tool** — `search_clinicaltrials` chat tool + `services/external/clinicaltrials.py` client; 18 tests (#145)
-11. **Multi-language** — English UI option (currently Chinese-first with English terms inline)
+11. ✅ **Multi-language** — English/Chinese toggle in Sidebar footer; `LocaleProvider` + `useLocale()` hook; 60+ keys in `en.ts`/`zh.ts`; Sidebar nav, login page, auth errors all translated; 12 tests (#148)
 12. ✅ **Company/asset news chat tool** — `search_company_news` chat tool + `search_news()` in Tavily service (news mode, recency filter); 19 tests (#146)
 
 ### 🔵 P3 — Month 3+
@@ -68,6 +68,8 @@ The April 2026 sprint took main from 6 services → 25 services + closed the BD 
 | #145 | P2-10 ClinicalTrials.gov chat tool + service client; 18 tests |
 | #146 | P2-12 Company/asset news search chat tool (Tavily news mode); 19 tests |
 | #147 | P2-09 `should_plan()` heuristic — English BD keywords + 51 tests |
+| #148 | P2-11 English/Chinese UI toggle — LocaleProvider, 60+ keys, Sidebar + login + auth wired; 12 tests |
+| #149 | P2-08 Stripe Checkout + webhook + subscription status; `subscriptions` table; CheckoutButton; 17 tests |
 
 ## Architecture Notes for Next Session
 

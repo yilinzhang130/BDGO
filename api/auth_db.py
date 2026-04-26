@@ -262,6 +262,28 @@ CREATE TABLE IF NOT EXISTS plan_templates (
 );
 CREATE INDEX IF NOT EXISTS idx_plan_templates_user_id
     ON plan_templates (user_id, created_at DESC);
+
+-- Stripe subscriptions (P2-08).  One row per user (upsert on webhook).
+-- plan: free | team | pro | enterprise
+-- status mirrors Stripe subscription status: active | trialing | past_due |
+--   canceled | unpaid.  Rows for unsubscribed users have plan='free'.
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT UNIQUE,
+    plan VARCHAR(20) NOT NULL DEFAULT 'free',
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    credits_monthly INTEGER NOT NULL DEFAULT 0,
+    current_period_end TIMESTAMPTZ,
+    cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub
+    ON subscriptions (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_cust
+    ON subscriptions (stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
 """
 
 # ---------------------------------------------------------------------------

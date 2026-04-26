@@ -94,6 +94,7 @@ from routers import (
 )
 from routers import api_keys as api_keys_router
 from routers import auth as auth_router
+from routers import billing as billing_router
 from routers import credits as credits_router
 from routers import plan_templates as plan_templates_router
 from routers import sessions as sessions_router
@@ -281,6 +282,10 @@ app.include_router(
 app.include_router(credits_router.router)
 # Plan templates — router handles its own auth via Depends(get_current_user)
 app.include_router(plan_templates_router.router)
+# Billing (Stripe checkout + webhook + subscription status)
+# The webhook endpoint is intentionally public (Stripe signs the body).
+# Checkout + subscription use their own Depends(get_current_user) internally.
+app.include_router(billing_router.router)
 
 
 # Public developer docs: filter the auto-generated OpenAPI to @public_api
