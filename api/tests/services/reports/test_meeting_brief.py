@@ -30,7 +30,14 @@ def test_service_registered():
 
 
 def test_all_purposes_have_label():
-    purposes = ["intro_pitch", "cda_negotiation", "data_room_review", "term_sheet", "partnership", "follow_up"]
+    purposes = [
+        "intro_pitch",
+        "cda_negotiation",
+        "data_room_review",
+        "term_sheet",
+        "partnership",
+        "follow_up",
+    ]
     for p in purposes:
         assert p in _PURPOSE_LABEL, f"Missing label for purpose: {p}"
 

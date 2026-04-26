@@ -47,7 +47,8 @@ export const SLASH_COMMANDS: Omit<
   {
     alias: "meeting",
     slug: "meeting-brief",
-    example: 'counterparty="AstraZeneca" meeting_purpose=intro_pitch asset_context="KRAS G12D 抑制剂 Phase 2"',
+    example:
+      'counterparty="AstraZeneca" meeting_purpose=intro_pitch asset_context="KRAS G12D 抑制剂 Phase 2"',
   },
   { alias: "log", slug: "outreach-log", example: "2026-04-25 与诺华 BD 通话 讨论 IRF5 资产" },
   { alias: "outreach", slug: "outreach-list", example: "IRF5 自免 找潜在买方 Top 10" },
