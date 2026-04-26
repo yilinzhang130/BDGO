@@ -41,9 +41,17 @@ export const SLASH_COMMANDS: Omit<
   { alias: "timing", slug: "timing-advisor", example: "某 Claudin18.2 ADC 何时启动海外 BD" },
   { alias: "log", slug: "outreach-log", example: "2026-04-25 与诺华 BD 通话 讨论 IRF5 资产" },
   { alias: "outreach", slug: "outreach-list", example: "IRF5 自免 找潜在买方 Top 10" },
-  { alias: "import-reply", slug: "import-reply", example: "（粘贴对方邮件正文，自动归档为 outreach 记录）" },
+  {
+    alias: "import-reply",
+    slug: "import-reply",
+    example: "（粘贴对方邮件正文，自动归档为 outreach 记录）",
+  },
   { alias: "dataroom", slug: "data-room", example: "某 BCMA CAR-T 临床II期 海外授权 数据室清单" },
-  { alias: "draft-ts", slug: "draft-ts", example: "某 KRAS G12D 全球独家许可 首付2000万 里程碑3亿" },
+  {
+    alias: "draft-ts",
+    slug: "draft-ts",
+    example: "某 KRAS G12D 全球独家许可 首付2000万 里程碑3亿",
+  },
 ];
 
 export function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
