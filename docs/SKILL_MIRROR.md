@@ -1,8 +1,8 @@
 # Skill Mirror — BDGO 报告服务 vs 本地 OpenClaw 技能
 
-BDGO 的 **27 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**线上 Python 实现**。本地 SKILL.md 是 prompt 的"原稿"，迭代快；BDGO Python 文件是"工厂"，把 prompt 嵌入完整的报告生产流水线（CRM 查询 → web 增强 → LLM → docx 渲染）。
+BDGO 的 **28 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**线上 Python 实现**。本地 SKILL.md 是 prompt 的"原稿"，迭代快；BDGO Python 文件是"工厂"，把 prompt 嵌入完整的报告生产流水线（CRM 查询 → web 增强 → LLM → docx 渲染）。
 
-剩下 **18 个**线上独有服务直接长在 BDGO 里，没有本地镜像（生命周期工具、写作工具、合同起草工具等）。
+剩下 **19 个**线上独有服务直接长在 BDGO 里，没有本地镜像（生命周期工具、写作工具、合同起草工具等）。
 
 本文档是这两套系统之间的**唯一真源**。当用户说"升级 X 技能"时，先读这里。
 
@@ -47,7 +47,7 @@ BDGO 的 **27 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 
 如果要给这 3 个建立镜像，先在 `~/.openclaw/skills/` 下建 `SKILL.md`、把现有 Python prompt 拆出去、然后加进上面的镜像表。
 
-#### BD Lifecycle 工具（8 个，2026-04-26 新增）
+#### BD Lifecycle 工具（11 个，2026-04-26 新增）
 这一批是**生命周期编排 + 写作工具**，本质上不是分析报告，所以不需要本地 SKILL.md 镜像。
 
 | 斜杠 alias | slug | Python 文件 | 用途 |
@@ -55,6 +55,7 @@ BDGO 的 **27 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 | `/company` | `company-analysis` | [company_analysis.py](../api/services/reports/company_analysis.py) | 公司深度分析（双向 buyer/seller/neutral；CRM + Web） |
 | `/timing` | `timing-advisor` | [timing_advisor.py](../api/services/reports/timing_advisor.py) | Outreach 时机建议（CRM 催化剂 + 行业会议日历） |
 | `/email` | `outreach-email` | [outreach_email.py](../api/services/reports/outreach_email.py) | Cold outreach email 草稿（双向，6 用途，中英双语） |
+| `/batch-email` | `batch-outreach` | [batch_outreach.py](../api/services/reports/batch_outreach.py) | 批量 outreach（一次调用给 ≤10 家 MNC，接 /buyers；S2-09） |
 | `/log` | `outreach-log` | [outreach_log.py](../api/services/reports/outreach_log.py) | 记录 outreach 事件（INSERT-only） |
 | `/outreach` | `outreach-list` | [outreach_list.py](../api/services/reports/outreach_list.py) | 查 outreach pipeline / thread |
 | `/import-reply` | `import-reply` | [import_reply.py](../api/services/reports/import_reply.py) | 粘贴邮件回信 → LLM 抽 status → 自动 /log |
@@ -99,7 +100,9 @@ BDGO 的 **27 个** ReportService 中有 **9 个**是本地 OpenClaw 技能的**
 │                                                                  │
 │  /buyers target=X indication=Y phase=Z top_n=5  ← NEW (S2-01)  │
 │    ├→ chip /mnc company_name="[排名1买方]"  (deep-dive)          │
-│    └→ chip /email target=X indication=Y phase=Z                 │
+│    ├→ chip /email target=X indication=Y phase=Z  (single)       │
+│    └→ chip /batch-email companies=[...] asset=X  ← S2-09        │
+│         └→ chip /outreach  (view pipeline after batch send)     │
 │                                                                  │
 │  /company perspective=buyer|seller                               │
 │    ├→ chip /timing                                               │

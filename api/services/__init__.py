@@ -8,6 +8,7 @@ Adding a new report:
 """
 
 from services.report_builder import ReportService
+from services.reports.batch_outreach import BatchOutreachService
 from services.reports.bd_synthesize import BDSynthesizeService
 from services.reports.buyer_matching import BuyerMatchingService
 from services.reports.buyer_profile import BuyerProfileService
@@ -37,6 +38,7 @@ from services.reports.target_radar import TargetRadarService
 from services.reports.timing_advisor import TimingAdvisorService
 
 REPORT_SERVICES: dict[str, ReportService] = {
+    BatchOutreachService.slug: BatchOutreachService(),
     PaperAnalysisService.slug: PaperAnalysisService(),
     BDSynthesizeService.slug: BDSynthesizeService(),
     BuyerMatchingService.slug: BuyerMatchingService(),
