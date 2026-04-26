@@ -23,7 +23,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-
 # ─────────────────────────────────────────────────────────────
 # 1-2. /api/team/members
 # ─────────────────────────────────────────────────────────────
@@ -262,7 +261,6 @@ def test_notify_teammate_success(client, ext_headers):
     report_row = {"title": "Pfizer Analysis"}
     recipient_row = {"id": "uid-2", "name": "Alice"}
     share_row = {"token": "existing_token"}
-    hist_row = {"files_json": None, "markdown_preview": None}
 
     with (
         patch("routers.reports.transaction") as mock_tx,
