@@ -1,0 +1,114 @@
+# Deal Evaluator — Schema v0.1
+#
+# 校验 /evaluate 服务输出的四象限交易吸引力评估报告。
+# 关键校验点：
+#   1. 10 个核心章节全部存在（Stage判定 / 资产原型 / 四象限 / 加权总分 /
+#      创新层级 / 交易逻辑 / 风险 / 虚假叙事 / 买方匹配 / 交易建议）
+#   2. 四象限 Q1~Q4 均有打分（[X/5] 或 [X分]）
+#   3. 加权总分出现（/20 格式）
+#   4. 买方匹配节有表格
+#   5. Transaction Recommendation 含 Deal Readiness 结论
+#
+# perspective 不区分 — buyer/seller 视角结构相同（系统提示通过 phase 权重调整）
+
+report_type: deal_evaluator
+schema_version: "0.1"
+
+# 评估报告约 800-4000 字（markdown char）
+target_total_words:
+  min: 500
+  max: 8000
+
+sections:
+  - id: eval_stage
+    name: Evaluation Stage / 评估阶段
+    heading_patterns:
+      - 'Evaluation\s*Stage|评估阶段'
+    required: true
+    must_contain_one_of:
+      - 'Stage\s*[ABCR]|Stage A|Stage B|Stage C|Path R|Path-R'
+
+  - id: asset_archetype
+    name: Asset Archetype / 资产原型
+    heading_patterns:
+      - 'Asset\s*Archetype|资产原型'
+    required: true
+
+  - id: four_quadrant
+    name: Four-Quadrant Assessment / 四象限评估
+    heading_patterns:
+      - 'Four.Quadrant|四象限'
+    required: true
+    # Q1~Q4 打分 — 格式 "[X/5]" or "[X分]"
+    must_contain_all:
+      - 'Q1'
+      - 'Q2'
+      - 'Q3'
+      - 'Q4'
+
+  - id: weighted_score
+    name: Weighted Score / 加权总分
+    heading_patterns:
+      - 'Weighted\s*Score|加权总分'
+    required: true
+    # 总分格式 e.g. "14/20" or "14 / 20"
+    must_contain_one_of:
+      - '\d+\s*/\s*20'
+
+  - id: innovation_level
+    name: Innovation Level / 创新层级
+    heading_patterns:
+      - 'Innovation\s*Level|创新层级'
+    required: true
+    must_contain_one_of:
+      - 'Level\s*1|Level\s*2|Level\s*3|Me-Too|Optimizer|Pioneer|1\.0|2\.0|3\.0'
+
+  - id: deal_thesis
+    name: Deal Thesis / 交易逻辑
+    heading_patterns:
+      - 'Deal\s*Thesis|交易逻辑'
+    required: true
+
+  - id: key_risks
+    name: Key Risks / 核心风险
+    heading_patterns:
+      - 'Key\s*Risks|核心风险'
+    required: true
+    # 至少 2 条编号风险
+    must_contain_all:
+      - '1[\.、\)]\s|^\s*-\s|^\s*\*\s'
+
+  - id: false_narrative
+    name: False Narrative Flags / 虚假叙事警告
+    heading_patterns:
+      - 'False\s*Narrative|虚假叙事'
+    required: true
+
+  - id: buyer_mapping
+    name: Buyer Mapping / 潜在买方匹配
+    heading_patterns:
+      - 'Buyer\s*Mapping|潜在买方|买方匹配'
+    required: true
+
+  - id: transaction_recommendation
+    name: Transaction Recommendation / 交易建议
+    heading_patterns:
+      - 'Transaction\s*Recommendation|交易建议'
+    required: true
+    must_contain_one_of:
+      - 'Dealable|Deal Readiness|交易建议|交易时机|Not Yet|Conditionally'
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - pattern: '行业领先|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '巨大潜力|前景广阔'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: 'fantastic|绝佳|完美的'
+      category: marketing_hyperbole
+      severity: medium

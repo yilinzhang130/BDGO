@@ -44,6 +44,8 @@ _SCHEMA_BY_MODE: dict[str, str] = {
     "bd_synthesize": "bd_synthesize_main.yaml",
     "company_analysis": "company_analysis_main.yaml",
     "timing_advisor": "timing_advisor_main.yaml",
+    "deal_evaluator": "deal_evaluator_main.yaml",
+    "dd_checklist": "dd_checklist_main.yaml",
 }
 
 

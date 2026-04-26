@@ -1,0 +1,88 @@
+# DD Checklist — Schema v0.1
+#
+# 校验 /dd 服务输出的尽调问卷（buyer 视角）或问答准备表（seller 视角）。
+# 关键校验点：
+#   1. 8 个章节（Q1 公司团队 / Q2 科学靶点 / Q3 CMC分子 / Q4 临床数据 /
+#      Q5 监管路径 / Q6 IP独占 / Q7 市场商业 / Q8 交易结构）全部存在
+#   2. 每章含优先级标记（🔴 / HIGH 或 🟡 / MEDIUM）
+#   3. 全文至少包含 5 条编号或分级问题（内容密度最低线）
+#
+# perspective 不区分 — buyer 和 seller 视角共用同一 schema（结构相同，
+# seller 多了答复要点，但 8 章标题保持一致）
+
+report_type: dd_checklist
+schema_version: "0.1"
+
+# DD 问卷约 1000-10000 字（高权重章节各 20-25 条）
+target_total_words:
+  min: 800
+  max: 20000
+
+sections:
+  - id: q1_company_team
+    name: Q1. 公司与团队 (Company & Team)
+    heading_patterns:
+      - 'Q1[\.、\s].*(?:公司|Company|Team|团队)'
+      - '第[一1]章.*(?:公司|Company|Team)'
+    required: true
+
+  - id: q2_science_target
+    name: Q2. 科学与靶点 (Science & Target)
+    heading_patterns:
+      - 'Q2[\.、\s].*(?:科学|Science|Target|靶点)'
+      - '第[二2]章.*(?:科学|Science|Target)'
+    required: true
+
+  - id: q3_cmc_molecule
+    name: Q3. CMC 与分子 (CMC & Molecule)
+    heading_patterns:
+      - 'Q3[\.、\s].*(?:CMC|分子|Molecule|制药)'
+      - '第[三3]章.*(?:CMC|分子|Molecule)'
+    required: true
+
+  - id: q4_clinical_data
+    name: Q4. 临床数据 (Clinical Data)
+    heading_patterns:
+      - 'Q4[\.、\s].*(?:临床|Clinical|数据|Data)'
+      - '第[四4]章.*(?:临床|Clinical)'
+    required: true
+
+  - id: q5_regulatory
+    name: Q5. 监管路径 (Regulatory)
+    heading_patterns:
+      - 'Q5[\.、\s].*(?:监管|Regulatory|Regulation|注册)'
+      - '第[五5]章.*(?:监管|Regulatory)'
+    required: true
+
+  - id: q6_ip
+    name: Q6. IP 与独占 (IP & Exclusivity)
+    heading_patterns:
+      - 'Q6[\.、\s].*(?:IP|专利|Exclusivity|独占)'
+      - '第[六6]章.*(?:IP|专利)'
+    required: true
+
+  - id: q7_market_commercial
+    name: Q7. 市场与商业 (Market & Commercial)
+    heading_patterns:
+      - 'Q7[\.、\s].*(?:市场|Market|Commercial|商业)'
+      - '第[七7]章.*(?:市场|Market)'
+    required: true
+
+  - id: q8_deal_structure
+    name: Q8. 交易结构 (Deal Structure)
+    heading_patterns:
+      - 'Q8[\.、\s].*(?:交易|Deal|Structure|结构)'
+      - '第[八8]章.*(?:交易|Deal)'
+    required: true
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - pattern: '不要编造|请不要|AI无法|语言模型'
+      category: meta_leakage
+      severity: medium
+    - pattern: 'fantastic|绝佳|完美的'
+      category: marketing_hyperbole
+      severity: low
