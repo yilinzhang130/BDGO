@@ -118,14 +118,17 @@ def test_next_instance_returns_this_year_if_still_future():
 def test_compute_conferences_within_look_ahead_window(svc):
     today = datetime.date(2026, 4, 1)
     result = svc._compute_upcoming_conferences(today, look_ahead_months=12)
-    # Should return all annual events (each within 12 months)
+    # Should return events from calendar (if available) + annual fallback
     assert len(result) >= 6
     for ev in result:
-        d = datetime.date.fromisoformat(ev["date"])
-        assert d >= today
+        # Both calendar and annual rows now use date_start (was: "date" only)
+        d = datetime.date.fromisoformat(ev["date_start"])
+        # Calendar entries can be slightly in the past (look_back_days
+        # default = 30d to keep recent ASCO/ESMO context for BD outreach)
+        assert d >= today - datetime.timedelta(days=30)
         assert d <= today + datetime.timedelta(days=12 * 30 + 5)
-    # Sorted ascending
-    dates = [ev["date"] for ev in result]
+    # Sorted ascending by date_start
+    dates = [ev["date_start"] for ev in result]
     assert dates == sorted(dates)
 
 
@@ -135,8 +138,25 @@ def test_compute_conferences_short_window_excludes_far_events(svc):
     result = svc._compute_upcoming_conferences(today, look_ahead_months=3)
     cutoff = today + datetime.timedelta(days=3 * 30 + 5)
     for ev in result:
-        d = datetime.date.fromisoformat(ev["date"])
+        d = datetime.date.fromisoformat(ev["date_start"])
         assert d <= cutoff
+
+
+def test_compute_conferences_calendar_overrides_annual(svc):
+    """If a calendar entry covers ASCO-2026, the annual ASCO fallback
+    must NOT also be added (avoid double-counting)."""
+    today = datetime.date(2026, 4, 1)
+    result = svc._compute_upcoming_conferences(today, look_ahead_months=12)
+    asco_calendar = [
+        r for r in result if r.get("source") == "calendar" and "ASCO" in r.get("id", "")
+    ]
+    asco_annual = [r for r in result if r.get("source") == "annual" and r.get("short") == "ASCO"]
+    # If calendar has ASCO, annual must be suppressed
+    if asco_calendar:
+        assert not asco_annual, (
+            "ASCO appears in both calendar and annual fallback — double-counted: "
+            f"calendar={asco_calendar}, annual={asco_annual}"
+        )
 
 
 # ── Block formatting ────────────────────────────────────────
@@ -170,10 +190,36 @@ def test_format_conferences_block_with_data(svc):
     today = datetime.date(2026, 4, 1)
     conferences = svc._compute_upcoming_conferences(today, 12)
     block = svc._format_conferences_block(conferences)
-    # At least some major short names should appear
-    shorts = {ev["short"] for ev in conferences}
-    for short in shorts:
-        assert short in block
+    # Calendar rows surface their conference id (e.g. "ASCO-2026"),
+    # annual rows surface their short name (e.g. "ASCO Annual Meeting")
+    # — at least one identifier per conference must show up in the block
+    for ev in conferences:
+        ident = ev.get("id") or ev.get("short") or ev.get("name") or ""
+        assert ident, f"conference dict has no identifier: {ev}"
+        # Some part of the identifier should appear in the formatted block
+        token = ident.split("-")[0] if "-" in ident else ident.split()[0]
+        assert token in block, f"token {token!r} from {ident!r} missing in block"
+
+
+def test_format_conferences_block_calendar_row_shows_abstract_release(svc):
+    """The whole point of the calendar integration: surface abstract_release
+    dates as a BD outreach signal."""
+    today = datetime.date(2026, 4, 1)
+    conferences = svc._compute_upcoming_conferences(today, 12)
+    calendar_rows = [c for c in conferences if c.get("source") == "calendar"]
+    if not calendar_rows:
+        # Skip if calendar isn't available in this test environment
+        return
+    sample_with_release = next(
+        (c for c in calendar_rows if c.get("abstract_release")),
+        None,
+    )
+    if sample_with_release is None:
+        return  # all calendar rows lacked abstract_release; nothing to assert
+    block = svc._format_conferences_block([sample_with_release])
+    assert sample_with_release["abstract_release"] in block, (
+        f"abstract_release {sample_with_release['abstract_release']} missing from block:\n{block}"
+    )
 
 
 def test_format_conferences_block_empty(svc):

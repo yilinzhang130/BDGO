@@ -24,9 +24,11 @@ import datetime
 import logging
 from typing import Literal
 
+from config import CONFERENCE_CALENDAR_PATH
 from crm_store import LIKE_ESCAPE, like_contains
 from pydantic import BaseModel, Field
 
+from services.external.conference_calendar import load_calendar
 from services.quality import audit_to_dict, validate_markdown
 from services.report_builder import (
     ReportContext,
@@ -168,6 +170,7 @@ SYSTEM_PROMPT = """你是 BD Go 的资深 timing 分析师。任务：给定一�
 - **JPM 后 4-6 周（Feb-Mar）**：JPM 上聊过的 deal 进入正式 DD/TS 阶段
 - **BIO Convention 前 8-10 周**：partneringONE 系统排日程窗口
 - **大会读出周**：尽量避免 cold outreach（注意力都在大会）
+- **大会摘要公开日（abstract release）前后**：摘要公开当天起的 1-2 周是 buyer 主动询价高峰（看到正面数据后想锁定 BD）。摘要公开前 3-4 周是 seller 提前发邮件埋伏的好时点（"看到您下个月的 [大会] 摘要..."）— 仅在你能从下面"会议时间表"中看到 abstract_release 具体日期时使用此策略
 
 ## 输出结构（严格按此 5 节，无多无少）
 
@@ -484,14 +487,62 @@ class TimingAdvisorService(ReportService):
     def _compute_upcoming_conferences(
         self, today: datetime.date, look_ahead_months: int
     ) -> list[dict]:
-        cutoff = today + datetime.timedelta(days=look_ahead_months * 30)
-        out = []
+        """Merge two sources of conference timing:
+
+        1. ``conferences_calendar.yml`` — exact 2025/2026 conference dates
+           with abstract_release dates (the BD-critical signal). Sourced
+           from the conference-ingest MCP server's calendar; missing on
+           prod gets [].
+        2. ``_INDUSTRY_EVENTS`` — annual-recurring fallback (approximate
+           week-of-month for events the calendar doesn't explicitly list,
+           like JPM HC).
+
+        Calendar entries take priority. Annual events whose short name
+        already appears in the calendar are skipped to avoid double-
+        counting (e.g. ASCO-2026 in calendar + "ASCO Annual Meeting"
+        annual fallback).
+        """
+        look_ahead_days = look_ahead_months * 30
+        cutoff = today + datetime.timedelta(days=look_ahead_days)
+
+        # 1. Calendar (exact dates + abstract_release)
+        from_calendar = load_calendar(
+            CONFERENCE_CALENDAR_PATH,
+            today=today,
+            look_ahead_days=look_ahead_days,
+        )
+
+        # Track which short names the calendar already covers so the annual
+        # fallback doesn't re-add the same event with a less precise date.
+        covered_shorts: set[str] = set()
+        for c in from_calendar:
+            short = c["id"].split("-")[0].upper() if c.get("id") else ""
+            if short:
+                covered_shorts.add(short)
+
+        # 2. Annual fallback for anything the calendar doesn't list
+        from_annual: list[dict] = []
         for ev in _INDUSTRY_EVENTS:
+            short_upper = ev["short"].split()[0].upper()  # "JPM HC" → "JPM"
+            if short_upper in covered_shorts:
+                continue
             d = _next_instance(ev["month"], ev["approx_week"], today)
             if d <= cutoff:
-                out.append({**ev, "date": d.isoformat()})
-        out.sort(key=lambda x: x["date"])
-        return out
+                from_annual.append(
+                    {
+                        **ev,
+                        "date_start": d.isoformat(),
+                        "abstract_release": "",  # unknown for annual approximations
+                        "days_to_meeting": (d - today).days,
+                        "days_to_abstract_release": None,
+                        "status_label": "annual recurrence",
+                        "source": "annual",
+                    }
+                )
+
+        merged = from_calendar + from_annual
+        merged.sort(key=lambda x: x.get("date_start", "9999"))
+        return merged
 
     # ── Prompt formatting ───────────────────────────────────
 
@@ -517,15 +568,37 @@ class TimingAdvisorService(ReportService):
         return "\n".join(lines)
 
     def _format_conferences_block(self, conferences: list[dict]) -> str:
+        """Format the conference block for the LLM prompt.
+
+        Calendar-sourced rows surface the abstract-release date as a
+        first-class BD signal (pre-release outreach is a key window).
+        Annual-fallback rows show only the meeting date.
+        """
         if not conferences:
             return "(无未来 12 月内的主要会议)"
         lines = []
         for ev in conferences:
-            lines.append(
-                f"- {ev['date']} | {ev['short']} ({ev['name']}) | "
-                f"类别={ev['category']} | 城市={ev['city']} | "
-                f"BD 含义：{ev['bd_note']}"
-            )
+            if ev.get("source") == "calendar":
+                # Calendar entry: full BD-relevant fields
+                line = (
+                    f"- {ev['date_start']} | {ev.get('id', '')} ({ev.get('name', '')}) | "
+                    f"TA={ev.get('ta', '?')} | 优先级={ev.get('bd_priority', '?')} | "
+                    f"摘要公开={ev.get('abstract_release', '?')} | "
+                    f"状态={ev.get('status_label', '?')}"
+                )
+                if ev.get("location"):
+                    line += f" | 地点={ev['location']}"
+                if ev.get("notes"):
+                    line += f" | 备注：{ev['notes']}"
+                lines.append(line)
+            else:
+                # Annual recurrence fallback: less precise
+                date_str = ev.get("date_start") or ev.get("date") or "?"
+                lines.append(
+                    f"- {date_str} | {ev.get('short', '?')} ({ev.get('name', '?')}) | "
+                    f"类别={ev.get('category', '?')} | 城市={ev.get('city', '?')} | "
+                    f"BD 含义：{ev.get('bd_note', '?')}"
+                )
         return "\n".join(lines)
 
     # ── Lifecycle handoff chips ─────────────────────────────
