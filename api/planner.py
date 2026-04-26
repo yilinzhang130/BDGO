@@ -72,7 +72,8 @@ CRM 与搜索（基础工具）：
   - analyze_paper               文献综述
   - analyze_ip                  IP / FTO 检查
   - analyze_company             公司深度分析（buyer/seller/neutral 视角）
-  - generate_buyer_profile      MNC 买方画像
+  - generate_buyer_profile      MNC 买方画像（单家 MNC 深度画像）
+  - find_top_buyers             买方匹配排名（输入资产 → 输出 Top-N 潜在买方列表）
   - analyze_commercial          商业评估
   - generate_deal_evaluation    资产吸引力四象限压力测试
   - generate_rnpv_model         rNPV 估值模型
@@ -104,7 +105,7 @@ CRM 与搜索（基础工具）：
   2. 适应症 landscape（research_disease）— default_selected: true
   3. IP / FTO 检查（analyze_ip）— default_selected: false（贵，部分资产已知 IP 干净）
   4. 资产吸引力评估（generate_deal_evaluation）— required: true
-  5. Top-3 买方匹配（generate_buyer_profile × N 或 analyze_company perspective=seller × N）— default_selected: true
+  5. Top-N 买方匹配（find_top_buyers 或 generate_buyer_profile × N）— default_selected: true
   6. 接触时机建议（advise_outreach_timing）— default_selected: false（速查可省）
   7. 综合 BD 策略备忘（required: true，依赖前 6 步的输出，由执行 agent 读取并综合）
 

@@ -200,8 +200,8 @@ class BuyerMatchingService(ReportService):
         # Phase 1 — Load MNC candidates from CRM
         ctx.log("加载 MNC画像 候选买方...")
         mnc_rows = ctx.crm_query(
-            'SELECT company_name, company_cn, heritage_ta, bd_pattern_theses, '
-            'sunk_cost_by_ta, deal_size_preference, innovation_philosophy '
+            "SELECT company_name, company_cn, heritage_ta, bd_pattern_theses, "
+            "sunk_cost_by_ta, deal_size_preference, innovation_philosophy "
             'FROM "MNC画像" ORDER BY company_name LIMIT 60',
         )
         ctx.log(f"MNC画像 返回 {len(mnc_rows)} 家候选买方")
@@ -314,9 +314,7 @@ class BuyerMatchingService(ReportService):
                 if isinstance(raw, str):
                     try:
                         parsed = json.loads(raw)
-                        raw = (
-                            "; ".join(parsed) if isinstance(parsed, list) else str(parsed)[:200]
-                        )
+                        raw = "; ".join(parsed) if isinstance(parsed, list) else str(parsed)[:200]
                     except (json.JSONDecodeError, TypeError):
                         pass
                 lines.append(f"  BD patterns: {str(raw)[:200]}")
