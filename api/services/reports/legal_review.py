@@ -575,44 +575,81 @@ class LegalReviewService(ReportService):
         return []
 
     def _mta_next_steps(self, inp: LegalReviewInput) -> list[dict]:
-        """After MTA review → offer the License Agreement (most common next step)."""
-        parts = ["/legal contract_type=license", f' party_position="{inp.party_position}"']
+        """After MTA review → draft a License Agreement (most common next step).
+
+        Routes to /draft-license, NOT /legal contract_type=license. /legal
+        is review-mode and needs contract_text the user doesn't have yet
+        (the License Agreement hasn't been drafted — that's exactly what
+        we're handing off to do). Closed-loop bug fixed alongside the
+        same pattern in /log, /import-reply, /evaluate, /rnpv (#119,
+        #121, #122).
+        """
+        our_role, counterparty_role = self._infer_license_role(inp.party_position)
+        parts = [f"/draft-license our_role={our_role}"]
         if inp.counterparty:
-            parts.append(f' counterparty="{inp.counterparty}"')
+            parts.append(f' {counterparty_role}="{inp.counterparty}"')
         if inp.project_name:
-            parts.append(f' project_name="{inp.project_name}"')
+            # project_name is typically "Asset (Indication)" — pass as asset_name
+            # context for the LLM extractor; user can refine.
+            parts.append(f' asset_name="{inp.project_name}"')
         return [
             {
                 "label": "Draft License Agreement",
                 "command": "".join(parts),
-                "slug": "legal-review",
+                "slug": "draft-license",
             }
         ]
 
     def _ts_next_steps(self, inp: LegalReviewInput) -> list[dict]:
-        """After term sheet review → offer the two most common definitive agreements."""
-        base = {
-            "counterparty": f' counterparty="{inp.counterparty}"' if inp.counterparty else "",
-            "project": f' project_name="{inp.project_name}"' if inp.project_name else "",
-            "position": f' party_position="{inp.party_position}"',
-        }
+        """After TS review → offer the two most common definitive agreements.
 
-        def _cmd(contract_type: str) -> str:
-            return (
-                f"/legal contract_type={contract_type}"
-                f"{base['position']}"
-                f"{base['counterparty']}"
-                f"{base['project']}"
-            )
+        Both chips route to /draft-X services (not /legal review). See
+        _mta_next_steps for the closed-loop bug context.
+        """
+        license_role, license_cp_role = self._infer_license_role(inp.party_position)
+        codev_role = self._infer_codev_role(inp.party_position)
+        codev_cp_role = "party_b" if codev_role == "party_a" else "party_a"
+
+        license_parts = [f"/draft-license our_role={license_role}"]
+        codev_parts = [f"/draft-codev our_role={codev_role}"]
+        if inp.counterparty:
+            license_parts.append(f' {license_cp_role}="{inp.counterparty}"')
+            codev_parts.append(f' {codev_cp_role}="{inp.counterparty}"')
+        if inp.project_name:
+            license_parts.append(f' asset_name="{inp.project_name}"')
+            codev_parts.append(f' program_name="{inp.project_name}"')
 
         return [
             {
                 "label": "Draft License Agreement",
-                "command": _cmd("license"),
-                "slug": "legal-review",
+                "command": "".join(license_parts),
+                "slug": "draft-license",
             },
-            {"label": "Draft Co-Dev Agreement", "command": _cmd("co_dev"), "slug": "legal-review"},
+            {
+                "label": "Draft Co-Dev Agreement",
+                "command": "".join(codev_parts),
+                "slug": "draft-codev",
+            },
         ]
+
+    @staticmethod
+    def _infer_license_role(party_position: str) -> tuple[str, str]:
+        """Map a TS/MTA party_position to (our_role, counterparty_role) for
+        the /draft-license handoff.
+
+        Convention: in a License Agreement we use "licensor=乙方 / licensee=甲方"
+        (matches draft_license.py's _build_suggested_commands). So if the
+        user is 甲方 in the just-reviewed TS/MTA, they're the licensee
+        side of the upcoming License; counterparty becomes licensor.
+        """
+        if party_position == "甲方":
+            return "licensee", "licensor"
+        return "licensor", "licensee"
+
+    @staticmethod
+    def _infer_codev_role(party_position: str) -> str:
+        """Map party_position to /draft-codev's symmetric role enum."""
+        return "party_a" if party_position == "甲方" else "party_b"
 
     def _compose_title(self, inp: LegalReviewInput, contract_type_name: str) -> str:
         parts = []
