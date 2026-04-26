@@ -1,0 +1,88 @@
+# Disease Landscape — Schema v0.1
+#
+# 校验 /disease 服务输出的 9-chapter 适应症全景报告。
+# 关键校验点：
+#   1. 9 章全部存在（文献综述 / 已批准药物 / Phase3管线 / Phase1/2管线 /
+#      催化剂 / 治疗指南 / 未满足需求 / 新兴靶点 / 立项评分）
+#   2. 已批准药物章含表格
+#   3. 立项评分章含评分矩阵（含数字评分）
+#   4. 禁止 meta leakage
+
+report_type: disease_landscape
+schema_version: "0.1"
+
+target_total_words:
+  min: 2000
+  max: 18000
+
+sections:
+  - id: lit_review
+    name: 第一章 文献综述
+    heading_patterns:
+      - '第一章|文献综述|Chapter\s*1|1[\.、\s].*文献'
+    required: true
+    must_contain_one_of:
+      - '流行病学|发病率|患病率|epidemiology|prevalence|incidence|pathophysiology|病理'
+
+  - id: approved_drugs
+    name: 第二章 已批准药物
+    heading_patterns:
+      - '第二章|已批准药物|Approved\s*Drugs|2[\.、\s].*批准|2[\.、\s].*已批'
+    required: true
+    must_contain_one_of:
+      - '\|.*\|.*\||FDA|NMPA|获批|approved|批准'
+
+  - id: pipeline_phase3
+    name: 第三章 在研管线 Phase 3
+    heading_patterns:
+      - '第三章|Phase\s*3.*管线|在研管线.*Phase\s*3|3[\.、\s].*管线|3[\.、\s].*Phase\s*3'
+    required: true
+
+  - id: pipeline_early
+    name: 第四章 在研管线 Phase 1/2
+    heading_patterns:
+      - '第四章|Phase\s*[12].*管线|早期.*管线|4[\.、\s].*管线|4[\.、\s].*Phase'
+    required: true
+
+  - id: catalysts
+    name: 第五章 关键催化剂
+    heading_patterns:
+      - '第五章|关键催化剂|Key\s*Catalysts|5[\.、\s].*催化'
+    required: true
+
+  - id: guidelines
+    name: 第六章 治疗指南
+    heading_patterns:
+      - '第六章|治疗指南|Treatment\s*Guidelines|6[\.、\s].*指南'
+    required: true
+    must_contain_one_of:
+      - 'NCCN|ASCO|ESMO|ESC|AHA|指南|Guideline|guideline|一线|二线|first.line|second.line'
+
+  - id: unmet_need
+    name: 第七章 未满足需求
+    heading_patterns:
+      - '第七章|未满足需求|Unmet\s*Need|7[\.、\s].*未满足|7[\.、\s].*需求'
+    required: true
+
+  - id: emerging_targets
+    name: 第八章 新兴靶点
+    heading_patterns:
+      - '第八章|新兴靶点|Emerging\s*Targets|8[\.、\s].*新兴|8[\.、\s].*靶点'
+    required: true
+
+  - id: scoring_matrix
+    name: 第九章 立项评分矩阵
+    heading_patterns:
+      - '第九章|立项评分|Scoring\s*Matrix|9[\.、\s].*评分|9[\.、\s].*立项'
+    required: true
+    must_contain_one_of:
+      - '\d+\s*/\s*\d+|\d+\s*分|score|评分|总分|综合评分'
+
+quality_rules:
+  banned_patterns:
+    - pattern: '行业领先|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '不要编造|请不要|AI无法|语言模型'
+      category: meta_leakage
+      severity: high

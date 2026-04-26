@@ -1,0 +1,88 @@
+# Target Radar — Schema v0.1
+#
+# 校验 /target 服务输出的 7-section 靶点竞争格局报告。
+# 关键校验点：
+#   1. 7 节全部存在（Executive Summary / 竞争密度 / 管线格局 / 临床证据 /
+#      科学热度 / MNC 买方匹配 / Bottom Line）
+#   2. 管线格局节含阶段分布（Phase 1/2/3/Approved）
+#   3. MNC 买方匹配节含表格
+#   4. Scorecard（综合评分 /20）存在
+#   5. 禁止出现 marketing hyperbole
+
+report_type: target_radar
+schema_version: "0.1"
+
+target_total_words:
+  min: 800
+  max: 10000
+
+sections:
+  - id: executive_summary
+    name: Executive Summary
+    heading_patterns:
+      - 'Executive\s*Summary|执行摘要|执行\s*摘要'
+    required: true
+    must_contain_one_of:
+      - '竞争|competition|landscape|靶点|target'
+
+  - id: competition_density
+    name: 竞争密度 (Competition Density)
+    heading_patterns:
+      - '竞争密度|Competition\s*Density|1[\.、\s].*竞争密度'
+    required: true
+    must_contain_one_of:
+      - '🏖️|🌊|🔥|💀|crowded|moderate|niche|intense|density'
+
+  - id: pipeline_landscape
+    name: 管线格局 (Pipeline Landscape)
+    heading_patterns:
+      - '管线格局|Pipeline\s*Landscape|2[\.、\s].*管线'
+    required: true
+    must_contain_one_of:
+      - 'Phase\s*[123]|Phase\s*III|Phase\s*II|Phase\s*I|Approved|approved|获批|临床'
+
+  - id: clinical_evidence
+    name: 临床证据 (Clinical Evidence)
+    heading_patterns:
+      - '临床证据|Clinical\s*Evidence|3[\.、\s].*临床'
+    required: true
+
+  - id: scientific_momentum
+    name: 科学热度 (Scientific Momentum)
+    heading_patterns:
+      - '科学热度|Scientific\s*Momentum|4[\.、\s].*科学'
+    required: true
+
+  - id: mnc_buyer_fit
+    name: MNC 买方匹配 (MNC Buyer Fit)
+    heading_patterns:
+      - 'MNC\s*买方|Buyer\s*Fit|5[\.、\s].*买方|5[\.、\s].*MNC'
+    required: true
+    must_contain_one_of:
+      - '\|.*\|.*\||MNC|Pfizer|Roche|AZ|AstraZeneca|Novartis|BMS|Bristol|Merck|Sanofi|Lilly|J&J|Abbvie'
+
+  - id: bd_assessment
+    name: BD 价值判断 (BD Assessment)
+    heading_patterns:
+      - 'BD\s*机会|BD\s*价值|BD\s*Assessment|BD\s*Opportunity|6[\.、\s].*BD'
+    required: true
+
+  - id: bottom_line
+    name: Bottom Line & Recommendation
+    heading_patterns:
+      - 'Bottom\s*Line|Recommendation|推荐|结论|7[\.、\s].*Bottom'
+    required: true
+    must_contain_one_of:
+      - '\d+\s*/\s*20|/20|评分|score|综合'
+
+quality_rules:
+  banned_patterns:
+    - pattern: '行业领先|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '巨大潜力|前景广阔|无限潜力'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '不要编造|请不要|AI无法|语言模型'
+      category: meta_leakage
+      severity: high

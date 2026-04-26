@@ -30,6 +30,7 @@ from pydantic import BaseModel
 
 from services.document import docx_builder
 from services.external import search
+from services.quality import audit_to_dict, validate_markdown
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -228,6 +229,42 @@ _IP_CH7_PROMPT = """
 
 直接以 `## 第七章 BD 战略建议` 开头输出 markdown：
 """
+
+
+# ─────────────────────────────────────────────────────────────
+# L0/L1 quality helpers
+# ─────────────────────────────────────────────────────────────
+
+_GAP_FILL_PROMPT = """以下是已生成的 IP 景观简报 markdown 草稿，以及 Schema 校验器发现的结构性缺陷列表。
+请在**不改变已通过校验内容**的前提下，仅修补以下缺陷，输出**完整的修正后 markdown**。
+
+=== 待修补缺陷 ===
+{fail_list}
+
+=== 原始 markdown ===
+{markdown}
+
+修补规则：
+- "section_missing" → 按 7 章顺序（执行摘要 & 风险概览 / 专利组合全貌 / 专利到期日历 /
+  核心阻断专利 / 竞争对手专利格局 / 空白区域分析 / BD 战略建议）插入缺失章节
+- 执行摘要章必须含 FTO 风险等级（🔴/🟡/🟢 或 high/medium/low risk）
+- 专利组合章必须含表格（专利数 / 管辖区 / 专利类型 等）
+- 核心阻断专利章必须引用专利号（US/CN/EP 格式）或明确写"无可见阻断专利"
+- 数据驱动 — 若数据缺失明确写 "⚠️ 待补充"，不要编造
+- 输出整个 markdown，不加任何解释或代码块包裹
+"""
+
+
+def _build_ip_gap_fill_prompt(markdown: str, audit) -> str:
+    fail_lines = [
+        f"[{f.section}] {f.message}" + (f" | 证据: {f.evidence}" if f.evidence else "")
+        for f in audit.findings
+        if f.severity == "fail"
+    ]
+    return _GAP_FILL_PROMPT.format(
+        fail_list="\n".join(f"- {line}" for line in fail_lines),
+        markdown=markdown[:60_000],
+    )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -453,6 +490,8 @@ class IPLandscapeService(ReportService):
         ctx.save_file(docx_filename, docx_bytes, format="docx")
         ctx.log("Word document saved")
 
+        schema_audit, markdown = self._validate_and_repair(markdown, ctx, system_prompt)
+
         return ReportResult(
             markdown=markdown,
             meta={
@@ -463,8 +502,53 @@ class IPLandscapeService(ReportService):
                 "stats": stats,
                 "chapters": 7,
                 "total_chars": total_chars,
+                "schema_audit": schema_audit,
             },
         )
+
+    # ── L0 + L1 quality pass ────────────────────────────────
+
+    def _validate_and_repair(
+        self, markdown: str, ctx: ReportContext, system_prompt: str
+    ) -> tuple[dict, str]:
+        """Schema audit; if FAIL>0, one targeted gap-fill LLM pass. Never raises."""
+        try:
+            audit = validate_markdown(markdown, mode="ip_landscape")
+            ctx.log(f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}")
+            if audit.n_fail == 0:
+                return audit_to_dict(audit), markdown
+
+            ctx.log(f"L1 gap-fill: {audit.n_fail} fail(s) — targeted patch…")
+            patched = ctx.llm(
+                system=system_prompt,
+                messages=[{"role": "user", "content": _build_ip_gap_fill_prompt(markdown, audit)}],
+                max_tokens=6000,
+                label="ip_gap_fill",
+            )
+            if len(patched) > 500:
+                audit2 = validate_markdown(patched, mode="ip_landscape")
+                ctx.log(
+                    f"Post-gap-fill audit: FAIL={audit2.n_fail} "
+                    f"WARN={audit2.n_warn} (was {audit.n_fail} fail)"
+                )
+                if audit2.n_fail < audit.n_fail:
+                    schema_audit = audit_to_dict(audit2)
+                    schema_audit["gap_fill_attempted"] = True
+                    schema_audit["gap_fill_fail_before"] = audit.n_fail
+                    schema_audit["gap_fill_fail_after"] = audit2.n_fail
+                    return schema_audit, patched
+
+                ctx.log("L1 gap-fill didn't reduce FAILs — keeping original")
+            else:
+                ctx.log("L1 gap-fill produced too-short output — keeping original")
+
+            schema_audit = audit_to_dict(audit)
+            schema_audit["gap_fill_attempted"] = True
+            schema_audit["gap_fill_fail_before"] = audit.n_fail
+            return schema_audit, markdown
+        except Exception:
+            logger.exception("Schema validation failed for task %s", ctx.task_id)
+            return {"error": "validator_exception"}, markdown
 
     # ── CRM queries ─────────────────────────────────────────
     def _query_patents(

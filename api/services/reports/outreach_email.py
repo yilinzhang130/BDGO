@@ -25,6 +25,7 @@ import datetime
 import logging
 from typing import Literal
 
+import outreach_db
 from pydantic import BaseModel, Field
 
 from services.report_builder import (
@@ -302,20 +303,25 @@ class OutreachEmailService(ReportService):
         ctx.save_file(md_filename, markdown, format="md")
         ctx.log("Email draft saved")
 
-        suggested_commands = self._build_suggested_commands(inp)
+        # S2-08: auto-log the draft as an outreach event so users don't
+        # have to manually click the /log chip every time.
+        auto_log_id = self._auto_log(inp, body, ctx)
 
-        return ReportResult(
-            markdown=markdown,
-            meta={
-                "title": f"{inp.purpose} email → {inp.to_company}",
-                "to_company": inp.to_company,
-                "purpose": inp.purpose,
-                "from_perspective": inp.from_perspective,
-                "tone": inp.tone,
-                "language": inp.language,
-                "suggested_commands": suggested_commands,
-            },
-        )
+        suggested_commands = self._build_suggested_commands(inp, logged=auto_log_id is not None)
+
+        meta: dict = {
+            "title": f"{inp.purpose} email → {inp.to_company}",
+            "to_company": inp.to_company,
+            "purpose": inp.purpose,
+            "from_perspective": inp.from_perspective,
+            "tone": inp.tone,
+            "language": inp.language,
+            "suggested_commands": suggested_commands,
+        }
+        if auto_log_id is not None:
+            meta["auto_logged_event_id"] = auto_log_id
+
+        return ReportResult(markdown=markdown, meta=meta)
 
     # ── Helpers ─────────────────────────────────────────────
 
@@ -344,27 +350,81 @@ class OutreachEmailService(ReportService):
         )
         return meta_header + body.strip() + "\n"
 
-    def _build_suggested_commands(self, inp: OutreachEmailInput) -> list[dict]:
+    def _auto_log(self, inp: OutreachEmailInput, body: str, ctx: ReportContext) -> int | None:
+        """Write an outreach_log row automatically after the email is drafted.
+
+        Skips silently if ctx.user_id is unavailable (e.g. unit tests that
+        don't inject a user context).  Returns the new event id on success,
+        or None on skip / error.
+        """
+        if not ctx.user_id:
+            return None
+        try:
+            subject = self._extract_subject(body)
+            to_contact: str | None = None
+            if inp.to_name or inp.to_role:
+                parts = [p for p in [inp.to_name, inp.to_role] if p]
+                to_contact = ", ".join(parts)
+            event_id = outreach_db.insert_event(
+                user_id=ctx.user_id,
+                to_company=inp.to_company,
+                purpose=inp.purpose,
+                channel="email",
+                status="sent",
+                to_contact=to_contact,
+                asset_context=inp.asset_context,
+                perspective=inp.from_perspective,
+                subject=subject,
+                notes="Auto-logged by /email service",
+                session_id=None,
+            )
+            ctx.log(f"Auto-logged outreach event #{event_id}")
+            return event_id
+        except Exception:
+            logger.exception("Auto-log failed for email to %s — skipping", inp.to_company)
+            return None
+
+    @staticmethod
+    def _extract_subject(body: str) -> str | None:
+        """Extract the Subject: line from the LLM-generated email body."""
+        for line in body.splitlines():
+            stripped = line.strip()
+            if stripped.lower().startswith("subject:"):
+                return stripped[len("subject:") :].strip() or None
+        return None
+
+    def _build_suggested_commands(
+        self, inp: OutreachEmailInput, *, logged: bool = False
+    ) -> list[dict]:
         """Lifecycle next-step chips after an outreach email is drafted.
 
-        Universal first chip: /log this event so it shows up in the
-        outreach pipeline. Then purpose-specific downstream chip.
+        If auto-log succeeded (logged=True), replace the /log chip with a
+        "View Thread" chip — no point asking users to log what's already done.
+        If auto-log was skipped (no user_id in ctx), keep the /log chip so
+        users can log manually.
         """
-        # Build the /log chip — applies to every purpose
-        log_parts = [
-            "/log",
-            f' to_company="{inp.to_company}"',
-            f" purpose={inp.purpose}",
-            " status=sent",
-            f" perspective={inp.from_perspective}",
-        ]
-        if inp.asset_context:
-            log_parts.append(f' asset_context="{inp.asset_context}"')
-        log_chip = {
-            "label": "Log as Sent",
-            "command": "".join(log_parts),
-            "slug": "outreach-log",
-        }
+        if logged:
+            first_chip = {
+                "label": "View Thread",
+                "command": f'/outreach company="{inp.to_company}"',
+                "slug": "outreach-list",
+            }
+        else:
+            # Fallback: auto-log unavailable, offer manual /log
+            log_parts = [
+                "/log",
+                f' to_company="{inp.to_company}"',
+                f" purpose={inp.purpose}",
+                " status=sent",
+                f" perspective={inp.from_perspective}",
+            ]
+            if inp.asset_context:
+                log_parts.append(f' asset_context="{inp.asset_context}"')
+            first_chip = {
+                "label": "Log as Sent",
+                "command": "".join(log_parts),
+                "slug": "outreach-log",
+            }
 
         # Purpose-specific downstream
         downstream: list[dict] = []
@@ -386,4 +446,4 @@ class OutreachEmailService(ReportService):
             )
         # data_room / term_sheet_send / meeting_request / follow_up: no extra chip
 
-        return [log_chip] + downstream
+        return [first_chip] + downstream
