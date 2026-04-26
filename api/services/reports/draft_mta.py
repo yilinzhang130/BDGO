@@ -458,7 +458,7 @@ class DraftMTAService(ReportService):
         docx_bytes = docx_builder.document_to_bytes(doc)
         ctx.save_file(f"draft_mta_{slug}_{today}.docx", docx_bytes, format="docx")
 
-        suggested_commands = self._build_suggested_commands(inp)
+        suggested_commands = self._build_suggested_commands(inp, ctx.task_id)
 
         return ReportResult(
             markdown=markdown,
@@ -522,9 +522,13 @@ class DraftMTAService(ReportService):
 
     # ── Lifecycle handoff chips ─────────────────────────────
 
-    def _build_suggested_commands(self, inp: DraftMTAInput) -> list[dict]:
+    def _build_suggested_commands(self, inp: DraftMTAInput, task_id: str) -> list[dict]:
         """After drafting → most natural next step is /legal review for an
-        independent BD-risk pass before sharing with counterparty."""
+        independent BD-risk pass before sharing with counterparty.
+
+        Embeds source_task_id={task_id} so /legal can pull the just-generated
+        markdown directly without the user re-pasting their draft.
+        """
         # party_position in /legal review depends on our_role
         # provider = 我方提供，对方接收 → 我方是 transferring party (typically 甲方)
         # recipient = 我方接收 → 我方是 receiving party (typically 乙方)
@@ -536,6 +540,7 @@ class DraftMTAService(ReportService):
                 "label": "Review MTA Risks",
                 "command": (
                     f'/legal contract_type=mta party_position="{party_position}"'
+                    f" source_task_id={task_id}"
                     f' counterparty="{counterparty}"'
                     f' project_name="{inp.material_name} ({inp.project_title})"'
                 ),

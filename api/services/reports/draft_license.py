@@ -515,7 +515,7 @@ class DraftLicenseService(ReportService):
         docx_bytes = docx_builder.document_to_bytes(doc)
         ctx.save_file(f"draft_license_{slug}_{today}.docx", docx_bytes, format="docx")
 
-        suggested_commands = self._build_suggested_commands(inp)
+        suggested_commands = self._build_suggested_commands(inp, ctx.task_id)
 
         return ReportResult(
             markdown=markdown,
@@ -590,8 +590,12 @@ class DraftLicenseService(ReportService):
 
     # ── Lifecycle handoff chips ─────────────────────────────
 
-    def _build_suggested_commands(self, inp: DraftLicenseInput) -> list[dict]:
-        """After License draft → /legal review for an independent BD-risk pass."""
+    def _build_suggested_commands(self, inp: DraftLicenseInput, task_id: str) -> list[dict]:
+        """After License draft → /legal review for an independent BD-risk pass.
+
+        Embeds source_task_id={task_id} so /legal can pull the just-generated
+        markdown directly without the user re-pasting their draft.
+        """
         party_position = "乙方" if inp.our_role == "licensor" else "甲方"
         counterparty = inp.licensee if inp.our_role == "licensor" else inp.licensor
         chips: list[dict] = [
@@ -599,6 +603,7 @@ class DraftLicenseService(ReportService):
                 "label": "Review License Risks",
                 "command": (
                     f'/legal contract_type=license party_position="{party_position}"'
+                    f" source_task_id={task_id}"
                     f' counterparty="{counterparty}"'
                     f' project_name="{inp.asset_name} ({inp.indication})"'
                 ),

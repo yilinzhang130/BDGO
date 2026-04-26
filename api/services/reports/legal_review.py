@@ -65,14 +65,22 @@ class LegalReviewInput(BaseModel):
     party_position: Literal["甲方", "乙方"]
     contract_text: str | None = None
     filename: str | None = None  # uploaded file in BP_DIR
+    # source_task_id closes the /draft-X → /legal lifecycle loop. When the
+    # frontend chip "Review SPA Risks" fires, it passes the just-completed
+    # /draft-spa task id here; LegalReviewService resolves it to the
+    # generated markdown so the user doesn't have to paste it.
+    source_task_id: str | None = None
     counterparty: str | None = None
     project_name: str | None = None
     focus: str | None = None  # 自由文本，e.g. "重点看 IP 转移和排他"
 
     @model_validator(mode="after")
     def _require_text_or_filename(self) -> LegalReviewInput:
-        if not self.contract_text and not self.filename:
-            raise ValueError("必须提供 contract_text（粘贴文本）或 filename（上传文件名）之一")
+        if not self.contract_text and not self.filename and not self.source_task_id:
+            raise ValueError(
+                "必须提供 contract_text（粘贴文本）、filename（上传文件名）"
+                "或 source_task_id（来自 /draft-X 的任务 id）之一"
+            )
         return self
 
 
@@ -389,6 +397,15 @@ class LegalReviewService(ReportService):
                 "type": "string",
                 "description": "Uploaded contract file under BP_DIR (.pdf or .docx). Either this or contract_text is required.",
             },
+            "source_task_id": {
+                "type": "string",
+                "description": (
+                    "Reference to a prior /draft-X task whose generated markdown "
+                    "should be reviewed in place of contract_text/filename. "
+                    "Provided automatically by /draft-X chip handoffs (e.g. "
+                    "/legal contract_type=spa source_task_id=abc123 ...)."
+                ),
+            },
             "counterparty": {
                 "type": "string",
                 "description": "Counterparty company name (optional, used in report header).",
@@ -476,13 +493,54 @@ class LegalReviewService(ReportService):
     # ── helpers ─────────────────────────────────────────────
 
     def _resolve_contract_text(self, inp: LegalReviewInput, ctx: ReportContext) -> tuple[str, str]:
-        """Return (text, source_label). Prefers filename if both given."""
+        """Return (text, source_label).
+
+        Resolution order: filename (uploaded file) → contract_text (pasted) →
+        source_task_id (read .md from a prior /draft-X task). The first
+        non-empty wins; this keeps "user manually pasted text" winning over
+        a stale chip-injected source_task_id, while still letting the chip
+        handoff work when the user just clicks the chip.
+        """
         if inp.filename:
             ctx.log(f"Extracting contract text from {inp.filename}...")
             filepath = BP_DIR / Path(inp.filename).name
             text = extract_contract_text(filepath)
             return text, f"file:{Path(inp.filename).name}"
-        return (inp.contract_text or ""), "pasted"
+        if inp.contract_text:
+            return inp.contract_text, "pasted"
+        if inp.source_task_id:
+            text = self._read_markdown_from_task(inp.source_task_id, ctx)
+            return text, f"task:{inp.source_task_id}"
+        return "", ""
+
+    def _read_markdown_from_task(self, task_id: str, ctx: ReportContext) -> str:
+        """Resolve a prior task's generated markdown for /draft-X → /legal handoff.
+
+        Validates ownership: the source task must belong to the same user
+        running this review (defense-in-depth, even though the chip is only
+        shown in the user's own ReportTaskCard).
+        """
+        from services.report_builder import REPORTS_DIR, get_task
+
+        task = get_task(task_id)
+        if not task:
+            raise RuntimeError(
+                f"找不到来源任务 {task_id} — chip 可能指向已删除或失败的 /draft-X 任务"
+            )
+        task_user = task.get("user_id")
+        if task_user and ctx.user_id and task_user != ctx.user_id:
+            raise RuntimeError(f"来源任务 {task_id} 不属于当前用户")
+        files = (task.get("result") or {}).get("files") or []
+        md_match = next((f for f in files if f.get("format") == "md"), None)
+        if not md_match:
+            raise RuntimeError(f"来源任务 {task_id} 没有 markdown 输出")
+        filepath = REPORTS_DIR / task_id / md_match["filename"]
+        if not filepath.exists():
+            raise RuntimeError(
+                f"来源任务 {task_id} 的 markdown 文件不在磁盘上 — 可能因部署变更被清理"
+            )
+        ctx.log(f"从来源任务 {task_id} 读取合同正文 ({md_match['filename']})")
+        return filepath.read_text(encoding="utf-8")
 
     def _truncate(self, text: str) -> tuple[str, bool]:
         if len(text) <= _MAX_CONTRACT_CHARS:

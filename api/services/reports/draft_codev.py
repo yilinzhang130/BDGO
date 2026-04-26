@@ -518,7 +518,7 @@ class DraftCoDevService(ReportService):
         docx_bytes = docx_builder.document_to_bytes(doc)
         ctx.save_file(f"draft_codev_{slug}_{today}.docx", docx_bytes, format="docx")
 
-        suggested_commands = self._build_suggested_commands(inp)
+        suggested_commands = self._build_suggested_commands(inp, ctx.task_id)
 
         return ReportResult(
             markdown=markdown,
@@ -576,12 +576,16 @@ class DraftCoDevService(ReportService):
 
     # ── Lifecycle handoff chips ─────────────────────────────
 
-    def _build_suggested_commands(self, inp: DraftCoDevInput) -> list[dict]:
+    def _build_suggested_commands(self, inp: DraftCoDevInput, task_id: str) -> list[dict]:
         """After CoDev draft → /legal review for an independent BD-risk pass.
 
         Co-Dev parties are symmetric — both are 甲方 / 乙方 depending on the
         contract template; we use 乙方 as a reasonable default for our_role=party_a
-        (originator/IP owner)."""
+        (originator/IP owner).
+
+        Embeds source_task_id={task_id} so /legal can pull the just-generated
+        markdown directly without the user re-pasting their draft.
+        """
         party_position = "乙方" if inp.our_role == "party_a" else "甲方"
         counterparty = inp.party_b if inp.our_role == "party_a" else inp.party_a
         return [
@@ -589,6 +593,7 @@ class DraftCoDevService(ReportService):
                 "label": "Review CoDev Risks",
                 "command": (
                     f'/legal contract_type=co_dev party_position="{party_position}"'
+                    f" source_task_id={task_id}"
                     f' counterparty="{counterparty}"'
                     f' project_name="{inp.program_name} ({inp.indication})"'
                 ),

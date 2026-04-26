@@ -546,7 +546,7 @@ class DraftTSService(ReportService):
         docx_bytes = docx_builder.document_to_bytes(doc)
         ctx.save_file(f"draft_ts_{slug}_{today}.docx", docx_bytes, format="docx")
 
-        suggested_commands = self._build_suggested_commands(inp)
+        suggested_commands = self._build_suggested_commands(inp, ctx.task_id)
 
         return ReportResult(
             markdown=markdown,
@@ -633,15 +633,20 @@ class DraftTSService(ReportService):
 
     # ── Lifecycle handoff chips ─────────────────────────────
 
-    def _build_suggested_commands(self, inp: DraftTSInput) -> list[dict]:
+    def _build_suggested_commands(self, inp: DraftTSInput, task_id: str) -> list[dict]:
         """After drafting → most natural next step is sending to /legal review
-        for an independent BD-risk pass before sharing with counterparty."""
+        for an independent BD-risk pass before sharing with counterparty.
+
+        Embeds source_task_id={task_id} so /legal can pull the just-generated
+        markdown directly without the user re-pasting their draft.
+        """
         chips: list[dict] = [
             {
                 "label": "Review TS Risks",
                 "command": (
                     f"/legal contract_type=ts party_position="
                     f'"{"乙方" if inp.our_role == "licensor" else "甲方"}"'
+                    f" source_task_id={task_id}"
                     f' counterparty="{inp.licensee if inp.our_role == "licensor" else inp.licensor}"'
                     f' project_name="{inp.asset_name} ({inp.indication})"'
                 ),

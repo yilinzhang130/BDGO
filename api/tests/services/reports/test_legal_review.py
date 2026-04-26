@@ -243,3 +243,172 @@ def test_chat_tool_input_schema_is_well_formed():
     assert "filename" not in schema["required"]
     assert "contract_type" in schema["required"]
     assert "party_position" in schema["required"]
+
+
+# ─────────────────────────────────────────────────────────────
+# /draft-X → /legal lifecycle handoff via source_task_id
+# ─────────────────────────────────────────────────────────────
+
+
+class TestSourceTaskIdHandoff:
+    """The /draft-X chip emits `source_task_id={ctx.task_id}` so /legal
+    can pull the just-generated draft markdown directly. Without this,
+    clicking the chip lands the user on a /legal flow that still
+    demands contract_text (closed-loop bug)."""
+
+    def test_input_accepts_source_task_id_alone(self):
+        from services.reports.legal_review import LegalReviewInput
+
+        inp = LegalReviewInput(
+            contract_type="spa",
+            party_position="甲方",
+            source_task_id="abc123def",
+        )
+        assert inp.source_task_id == "abc123def"
+        assert inp.contract_text is None
+        assert inp.filename is None
+
+    def test_input_rejects_when_all_three_sources_empty(self):
+        import pytest
+        from services.reports.legal_review import LegalReviewInput
+
+        with pytest.raises(ValueError, match="contract_text|filename|source_task_id"):
+            LegalReviewInput(contract_type="spa", party_position="甲方")
+
+    def test_schema_advertises_source_task_id(self):
+        from services.reports.legal_review import LegalReviewService
+
+        svc = LegalReviewService()
+        props = svc.chat_tool_input_schema["properties"]
+        assert "source_task_id" in props
+        assert props["source_task_id"]["type"] == "string"
+        # description must mention /draft-X so the LLM extractor picks it up
+        assert "draft-X" in props["source_task_id"]["description"]
+
+    def test_resolve_prefers_filename_over_text_over_task_id(self, tmp_path):
+        """Resolution order is filename > contract_text > source_task_id.
+        This keeps a manually re-pasted contract winning over a stale
+        chip-injected source_task_id reference.
+        """
+        from services.reports.legal_review import LegalReviewInput, LegalReviewService
+
+        svc = LegalReviewService()
+
+        class FakeCtx:
+            task_id = "current-task"
+            user_id = "u1"
+
+            def log(self, msg):
+                pass
+
+        # 1. filename takes priority — but extract_contract_text would need a
+        #    real file; we don't test that path here. Instead test text > task_id.
+        inp = LegalReviewInput(
+            contract_type="spa",
+            party_position="甲方",
+            contract_text="pasted body",
+            source_task_id="some-task",
+        )
+        text, label = svc._resolve_contract_text(inp, FakeCtx())
+        assert text == "pasted body"
+        assert label == "pasted"
+
+    def test_resolve_from_task_when_only_task_id_set(self, tmp_path, monkeypatch):
+        """When only source_task_id is set, resolver reads the .md file
+        from REPORTS_DIR/{task_id}/."""
+        from services.reports import legal_review as lr_mod
+        from services.reports.legal_review import LegalReviewInput, LegalReviewService
+
+        # Build a fake REPORTS_DIR with a markdown file
+        fake_reports_dir = tmp_path / "reports"
+        task_id = "fake-spa-task"
+        task_dir = fake_reports_dir / task_id
+        task_dir.mkdir(parents=True)
+        md_filename = "draft_spa_test.md"
+        (task_dir / md_filename).write_text("# SPA Draft — TargetCo\n\nbody...\n", encoding="utf-8")
+
+        # Stub get_task to return our fake row
+        def fake_get_task(tid):
+            assert tid == task_id
+            return {
+                "task_id": tid,
+                "user_id": "u1",
+                "result": {"files": [{"format": "md", "filename": md_filename}]},
+            }
+
+        monkeypatch.setattr("services.report_builder.get_task", fake_get_task)
+        monkeypatch.setattr("services.report_builder.REPORTS_DIR", fake_reports_dir)
+        # Also monkeypatch the imports inside _read_markdown_from_task
+        monkeypatch.setattr(lr_mod, "_MAX_CONTRACT_CHARS", 80_000)
+
+        svc = LegalReviewService()
+        inp = LegalReviewInput(
+            contract_type="spa",
+            party_position="甲方",
+            source_task_id=task_id,
+        )
+
+        class FakeCtx:
+            task_id = "current-task"
+            user_id = "u1"
+            _logs = []
+
+            def log(self, msg):
+                self._logs.append(msg)
+
+        ctx = FakeCtx()
+        text, label = svc._resolve_contract_text(inp, ctx)
+        assert "SPA Draft — TargetCo" in text
+        assert label == f"task:{task_id}"
+        # Should have logged the resolution for debugging
+        assert any(task_id in m for m in ctx._logs)
+
+    def test_resolve_from_task_rejects_other_users_task(self, tmp_path, monkeypatch):
+        """Defense in depth: source_task_id must belong to the same user."""
+        import pytest
+        from services.reports.legal_review import LegalReviewInput, LegalReviewService
+
+        def fake_get_task(tid):
+            return {"task_id": tid, "user_id": "other-user", "result": {"files": []}}
+
+        monkeypatch.setattr("services.report_builder.get_task", fake_get_task)
+
+        svc = LegalReviewService()
+        inp = LegalReviewInput(
+            contract_type="spa",
+            party_position="甲方",
+            source_task_id="someone-elses-task",
+        )
+
+        class FakeCtx:
+            task_id = "current-task"
+            user_id = "u1"
+
+            def log(self, msg):
+                pass
+
+        with pytest.raises(RuntimeError, match="不属于当前用户"):
+            svc._resolve_contract_text(inp, FakeCtx())
+
+    def test_resolve_from_task_raises_when_task_not_found(self, monkeypatch):
+        import pytest
+        from services.reports.legal_review import LegalReviewInput, LegalReviewService
+
+        monkeypatch.setattr("services.report_builder.get_task", lambda tid: None)
+
+        svc = LegalReviewService()
+        inp = LegalReviewInput(
+            contract_type="spa",
+            party_position="甲方",
+            source_task_id="nonexistent",
+        )
+
+        class FakeCtx:
+            task_id = "current-task"
+            user_id = "u1"
+
+            def log(self, msg):
+                pass
+
+        with pytest.raises(RuntimeError, match="找不到来源任务"):
+            svc._resolve_contract_text(inp, FakeCtx())

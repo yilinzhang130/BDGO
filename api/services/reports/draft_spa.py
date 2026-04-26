@@ -535,7 +535,7 @@ class DraftSPAService(ReportService):
         docx_bytes = docx_builder.document_to_bytes(doc)
         ctx.save_file(f"draft_spa_{slug}_{today}.docx", docx_bytes, format="docx")
 
-        suggested_commands = self._build_suggested_commands(inp)
+        suggested_commands = self._build_suggested_commands(inp, ctx.task_id)
 
         return ReportResult(
             markdown=markdown,
@@ -602,10 +602,15 @@ class DraftSPAService(ReportService):
 
     # ── Lifecycle handoff chips ─────────────────────────────
 
-    def _build_suggested_commands(self, inp: DraftSPAInput) -> list[dict]:
+    def _build_suggested_commands(self, inp: DraftSPAInput, task_id: str) -> list[dict]:
         """After SPA draft → /legal review for an independent BD-risk pass.
 
-        SPA conventions: buyer = 甲方, seller = 乙方."""
+        SPA conventions: buyer = 甲方, seller = 乙方.
+
+        Embeds source_task_id={task_id} so /legal can pull the just-generated
+        markdown directly — closing the lifecycle loop without making the
+        user paste their draft again.
+        """
         party_position = "甲方" if inp.our_role == "buyer" else "乙方"
         counterparty = inp.seller if inp.our_role == "buyer" else inp.buyer
         return [
@@ -613,6 +618,7 @@ class DraftSPAService(ReportService):
                 "label": "Review SPA Risks",
                 "command": (
                     f'/legal contract_type=spa party_position="{party_position}"'
+                    f" source_task_id={task_id}"
                     f' counterparty="{counterparty}"'
                     f' project_name="{inp.target_company} ({inp.deal_structure})"'
                 ),
