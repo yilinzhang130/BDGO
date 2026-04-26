@@ -187,7 +187,7 @@ def test_system_prompt_emphasizes_perspective_adaptation():
 
 def test_chips_always_offers_legal_review(svc):
     inp = _minimal_input()
-    chips = svc._build_suggested_commands(inp)
+    chips = svc._build_suggested_commands(inp, "test-task-abc123")
     review = next((c for c in chips if c["slug"] == "legal-review"), None)
     assert review is not None
     assert "contract_type=mta" in review["command"]
@@ -196,7 +196,7 @@ def test_chips_always_offers_legal_review(svc):
 def test_chips_provider_role_offers_draft_ts_followup(svc):
     """Provider's natural BD next step is the license that follows."""
     inp = _minimal_input(our_role="provider")
-    chips = svc._build_suggested_commands(inp)
+    chips = svc._build_suggested_commands(inp, "test-task-abc123")
     ts = next((c for c in chips if c["slug"] == "draft-ts"), None)
     assert ts is not None
     assert "our_role=licensor" in ts["command"]
@@ -205,20 +205,20 @@ def test_chips_provider_role_offers_draft_ts_followup(svc):
 def test_chips_recipient_role_no_draft_ts(svc):
     """Recipient just received material — drafting a license is premature."""
     inp = _minimal_input(our_role="recipient")
-    chips = svc._build_suggested_commands(inp)
+    chips = svc._build_suggested_commands(inp, "test-task-abc123")
     assert not any(c["slug"] == "draft-ts" for c in chips)
 
 
 def test_chips_review_command_party_position_per_role(svc):
     """Party position in /legal review depends on our_role."""
     provider_inp = _minimal_input(our_role="provider")
-    provider_chip = svc._build_suggested_commands(provider_inp)[0]
+    provider_chip = svc._build_suggested_commands(provider_inp, "test-task-abc123")[0]
     # As provider (transferring) we are 甲方
     assert "甲方" in provider_chip["command"]
     assert 'counterparty="Stanford University"' in provider_chip["command"]
 
     recipient_inp = _minimal_input(our_role="recipient")
-    recipient_chip = svc._build_suggested_commands(recipient_inp)[0]
+    recipient_chip = svc._build_suggested_commands(recipient_inp, "test-task-abc123")[0]
     # As recipient we are 乙方
     assert "乙方" in recipient_chip["command"]
     assert 'counterparty="Peg-Bio"' in recipient_chip["command"]
@@ -226,7 +226,7 @@ def test_chips_review_command_party_position_per_role(svc):
 
 def test_chips_review_includes_project_name(svc):
     inp = _minimal_input()
-    chip = svc._build_suggested_commands(inp)[0]
+    chip = svc._build_suggested_commands(inp, "test-task-abc123")[0]
     assert "PEG-001" in chip["command"]
     assert "Combination study" in chip["command"]
 
@@ -288,3 +288,16 @@ def test_chat_tool_input_schema(svc):
     assert schema["properties"]["term_months"]["maximum"] == 60
     assert schema["properties"]["publication_review_days"]["default"] == 30
     assert schema["properties"]["derivatives_ownership"]["default"] == "negotiated"
+
+
+def test_chip_includes_source_task_id_for_legal_handoff(svc):
+    """The /legal chip must embed source_task_id={task_id} so /legal
+    can pull the just-generated draft markdown without making the user
+    re-paste. This closes the /draft-X → /legal lifecycle loop."""
+    inp = _minimal_input()
+    chips = svc._build_suggested_commands(inp, "task-xyz-123")
+    legal_chip = next((c for c in chips if c["slug"] == "legal-review"), None)
+    assert legal_chip is not None, "every /draft-X must offer a /legal chip"
+    assert "source_task_id=task-xyz-123" in legal_chip["command"], (
+        f"chip command missing source_task_id: {legal_chip['command']}"
+    )

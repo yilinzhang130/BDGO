@@ -226,7 +226,7 @@ def test_fmt_amount_decimal(svc):
 
 def test_chips_offers_legal_review(svc):
     inp = _minimal_input()
-    chips = svc._build_suggested_commands(inp)
+    chips = svc._build_suggested_commands(inp, "test-task-abc123")
     review = next((c for c in chips if c["slug"] == "legal-review"), None)
     assert review is not None
     assert "contract_type=spa" in review["command"]
@@ -235,7 +235,7 @@ def test_chips_offers_legal_review(svc):
 def test_chips_buyer_is_jiafang(svc):
     """SPA convention: buyer = 甲方."""
     inp = _minimal_input(our_role="buyer")
-    chip = svc._build_suggested_commands(inp)[0]
+    chip = svc._build_suggested_commands(inp, "test-task-abc123")[0]
     assert "甲方" in chip["command"]
     assert 'counterparty="Founders & VCs of TargetCo"' in chip["command"]
 
@@ -243,14 +243,14 @@ def test_chips_buyer_is_jiafang(svc):
 def test_chips_seller_is_yifang(svc):
     """SPA convention: seller = 乙方."""
     inp = _minimal_input(our_role="seller")
-    chip = svc._build_suggested_commands(inp)[0]
+    chip = svc._build_suggested_commands(inp, "test-task-abc123")[0]
     assert "乙方" in chip["command"]
     assert 'counterparty="Pfizer"' in chip["command"]
 
 
 def test_chips_project_includes_deal_structure(svc):
     inp = _minimal_input(deal_structure="merger")
-    chip = svc._build_suggested_commands(inp)[0]
+    chip = svc._build_suggested_commands(inp, "test-task-abc123")[0]
     assert "merger" in chip["command"]
     assert "TargetCo" in chip["command"]
 
@@ -305,3 +305,16 @@ def test_chat_tool_input_schema(svc):
     assert schema["properties"]["indemnity_basket_usd_mm"]["default"] == 0.5
     assert schema["properties"]["indemnity_survival_months"]["default"] == 18
     assert schema["properties"]["governing_law"]["default"] == "Delaware"
+
+
+def test_chip_includes_source_task_id_for_legal_handoff(svc):
+    """The /legal chip must embed source_task_id={task_id} so /legal
+    can pull the just-generated draft markdown without making the user
+    re-paste. This closes the /draft-X → /legal lifecycle loop."""
+    inp = _minimal_input()
+    chips = svc._build_suggested_commands(inp, "task-xyz-123")
+    legal_chip = next((c for c in chips if c["slug"] == "legal-review"), None)
+    assert legal_chip is not None, "every /draft-X must offer a /legal chip"
+    assert "source_task_id=task-xyz-123" in legal_chip["command"], (
+        f"chip command missing source_task_id: {legal_chip['command']}"
+    )

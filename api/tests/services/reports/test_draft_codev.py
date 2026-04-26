@@ -151,7 +151,7 @@ def test_system_prompt_disclaims_legal_advice():
 
 def test_chips_offers_legal_review(svc):
     inp = _minimal_input()
-    chips = svc._build_suggested_commands(inp)
+    chips = svc._build_suggested_commands(inp, "test-task-abc123")
     review = next((c for c in chips if c["slug"] == "legal-review"), None)
     assert review is not None
     assert "contract_type=co_dev" in review["command"]
@@ -159,12 +159,12 @@ def test_chips_offers_legal_review(svc):
 
 def test_chips_party_position_per_role(svc):
     inp_a = _minimal_input(our_role="party_a")
-    chip_a = svc._build_suggested_commands(inp_a)[0]
+    chip_a = svc._build_suggested_commands(inp_a, "test-task-abc123")[0]
     assert "乙方" in chip_a["command"]
     assert 'counterparty="BeiGene"' in chip_a["command"]
 
     inp_b = _minimal_input(our_role="party_b")
-    chip_b = svc._build_suggested_commands(inp_b)[0]
+    chip_b = svc._build_suggested_commands(inp_b, "test-task-abc123")[0]
     assert "甲方" in chip_b["command"]
     assert 'counterparty="Peg-Bio"' in chip_b["command"]
 
@@ -211,3 +211,16 @@ def test_chat_tool_input_schema(svc):
     assert schema["properties"]["our_role"]["enum"] == ["party_a", "party_b"]
     assert schema["properties"]["cost_split_model"]["default"] == "50_50"
     assert schema["properties"]["party_a_share_pct"]["default"] == 50
+
+
+def test_chip_includes_source_task_id_for_legal_handoff(svc):
+    """The /legal chip must embed source_task_id={task_id} so /legal
+    can pull the just-generated draft markdown without making the user
+    re-paste. This closes the /draft-X → /legal lifecycle loop."""
+    inp = _minimal_input()
+    chips = svc._build_suggested_commands(inp, "task-xyz-123")
+    legal_chip = next((c for c in chips if c["slug"] == "legal-review"), None)
+    assert legal_chip is not None, "every /draft-X must offer a /legal chip"
+    assert "source_task_id=task-xyz-123" in legal_chip["command"], (
+        f"chip command missing source_task_id: {legal_chip['command']}"
+    )

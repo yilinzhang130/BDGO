@@ -235,7 +235,7 @@ def test_system_prompt_emphasizes_perspective_adaptation():
 
 def test_chips_always_offers_legal_review(svc):
     inp = _minimal_input()
-    chips = svc._build_suggested_commands(inp)
+    chips = svc._build_suggested_commands(inp, "test-task-abc123")
     review = next((c for c in chips if c["slug"] == "legal-review"), None)
     assert review is not None
     assert "contract_type=ts" in review["command"]
@@ -243,7 +243,7 @@ def test_chips_always_offers_legal_review(svc):
 
 def test_chips_licensor_role_offers_seller_dd_prep(svc):
     inp = _minimal_input(our_role="licensor")
-    chips = svc._build_suggested_commands(inp)
+    chips = svc._build_suggested_commands(inp, "test-task-abc123")
     dd = next((c for c in chips if c["slug"] == "dd-checklist"), None)
     assert dd is not None
     assert "perspective=seller" in dd["command"]
@@ -252,21 +252,21 @@ def test_chips_licensor_role_offers_seller_dd_prep(svc):
 def test_chips_licensee_role_no_dd_prep(svc):
     """As licensee (buyer), TS draft → review only; we already did our DD."""
     inp = _minimal_input(our_role="licensee")
-    chips = svc._build_suggested_commands(inp)
+    chips = svc._build_suggested_commands(inp, "test-task-abc123")
     assert not any(c["slug"] == "dd-checklist" for c in chips)
 
 
 def test_chips_review_command_party_position_per_role(svc):
     """Party position in /legal review depends on our_role."""
     licensor_inp = _minimal_input(our_role="licensor")
-    licensor_chip = svc._build_suggested_commands(licensor_inp)[0]
+    licensor_chip = svc._build_suggested_commands(licensor_inp, "test-task-abc123")[0]
     # As licensor (我方授权出去) we are 乙方 in legal review
     assert "乙方" in licensor_chip["command"]
     # Counterparty is the licensee
     assert 'counterparty="Eli Lilly"' in licensor_chip["command"]
 
     licensee_inp = _minimal_input(our_role="licensee")
-    licensee_chip = svc._build_suggested_commands(licensee_inp)[0]
+    licensee_chip = svc._build_suggested_commands(licensee_inp, "test-task-abc123")[0]
     # As licensee (我方授权进来) we are 甲方
     assert "甲方" in licensee_chip["command"]
     assert 'counterparty="Peg-Bio"' in licensee_chip["command"]
@@ -274,7 +274,7 @@ def test_chips_review_command_party_position_per_role(svc):
 
 def test_chips_review_includes_project_name(svc):
     inp = _minimal_input()
-    chip = svc._build_suggested_commands(inp)[0]
+    chip = svc._build_suggested_commands(inp, "test-task-abc123")[0]
     assert 'project_name="PEG-001 (NSCLC)"' in chip["command"]
 
 
@@ -341,3 +341,16 @@ def test_gap_fill_prompt_truncates_long_markdown():
     prompt = _build_gap_fill_prompt(huge_md, FakeAudit())
     # 60k char cap on the markdown insertion
     assert prompt.count("x") <= 60_000
+
+
+def test_chip_includes_source_task_id_for_legal_handoff(svc):
+    """The /legal chip must embed source_task_id={task_id} so /legal
+    can pull the just-generated draft markdown without making the user
+    re-paste. This closes the /draft-X → /legal lifecycle loop."""
+    inp = _minimal_input()
+    chips = svc._build_suggested_commands(inp, "task-xyz-123")
+    legal_chip = next((c for c in chips if c["slug"] == "legal-review"), None)
+    assert legal_chip is not None, "every /draft-X must offer a /legal chip"
+    assert "source_task_id=task-xyz-123" in legal_chip["command"], (
+        f"chip command missing source_task_id: {legal_chip['command']}"
+    )
