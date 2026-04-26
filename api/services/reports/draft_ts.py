@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 
 from services.document import docx_builder
 from services.enums import MODALITY_VALUES, PHASE_VALUES
+from services.quality import audit_to_dict, validate_markdown
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -301,6 +302,38 @@ SYSTEM_PROMPT = """你是 BD Go 平台的资深 BD 法务起草师，服务 biot
 """
 
 
+_GAP_FILL_PROMPT = """以下是已生成的 Term Sheet markdown 草稿，以及 Schema 校验器发现的结构性缺陷列表。
+请在**不改变已通过校验的内容**的前提下，仅修补以下缺陷，输出**完整的修正后 markdown**（从第一行到最后一行）。
+
+=== 待修补缺陷 ===
+{fail_list}
+
+=== 原始 markdown ===
+{markdown}
+
+修补规则：
+- 每条缺陷标注章节（section）和问题描述（message）；只修改相关章节
+- "section_missing" → 在合理位置（按 13 节顺序）插入该节标题 + ≥150 字内容
+- "section_content" → 在该节中补全缺失关键词（如 "BINDING" / "Royalty" / "律师"）
+- "subsection_missing" → 在该 section 末尾追加 subsection
+- 不要新增未列出的章节、不要删除已有内容、不要改标题格式
+- 保持双语风格（中文为主，金额/术语英文）+ Binding/Non-Binding 标记
+- 输出整个 markdown，不加任何解释或代码块包裹
+"""
+
+
+def _build_gap_fill_prompt(markdown: str, audit) -> str:
+    fail_lines = [
+        f"[{f.section}] {f.message}" + (f" | 证据: {f.evidence}" if f.evidence else "")
+        for f in audit.findings
+        if f.severity == "fail"
+    ]
+    return _GAP_FILL_PROMPT.format(
+        fail_list="\n".join(f"- {line}" for line in fail_lines),
+        markdown=markdown[:60_000],
+    )
+
+
 USER_PROMPT_TEMPLATE = """## TS Drafting Task
 
 ### Parties
@@ -490,7 +523,13 @@ class DraftTSService(ReportService):
                 "Check that all required fields are populated."
             )
 
-        # Save outputs
+        # ── L0/L1 Schema validation + gap-fill retry ──────
+        # TS structural integrity matters: a missing section forces
+        # downstream legal review to spot it. Run the validator and, if
+        # there are FAILs, do one targeted patch pass.
+        schema_audit, markdown = self._validate_and_repair(markdown, ctx)
+
+        # Save outputs (post-repair markdown if patch happened)
         slug = safe_slug(f"{inp.licensor}_{inp.licensee}_{inp.asset_name}") or "ts"
         md_filename = f"draft_ts_{slug}_{today}.md"
         ctx.save_file(md_filename, markdown, format="md")
@@ -520,9 +559,58 @@ class DraftTSService(ReportService):
                 "indication": inp.indication,
                 "phase": inp.phase,
                 "modality": inp.modality,
+                "schema_audit": schema_audit,
                 "suggested_commands": suggested_commands,
             },
         )
+
+    # ── L0 + L1 quality pass ────────────────────────────────
+
+    def _validate_and_repair(self, markdown: str, ctx: ReportContext) -> tuple[dict, str]:
+        """Run schema validation; if FAILs, do one targeted gap-fill LLM pass.
+
+        Returns (audit_dict, possibly_repaired_markdown). Never raises —
+        validation failure must not block delivery (the draft is still
+        useful even with structural issues; we just record them).
+        """
+        try:
+            audit = validate_markdown(markdown, mode="draft_ts")
+            ctx.log(f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}")
+            if audit.n_fail == 0:
+                return audit_to_dict(audit), markdown
+
+            ctx.log(f"L1 gap-fill: {audit.n_fail} fail(s) — targeted patch…")
+            patched = ctx.llm(
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": _build_gap_fill_prompt(markdown, audit)}],
+                max_tokens=6000,
+                label="ts_gap_fill",
+            )
+            if len(patched) > 800:
+                audit2 = validate_markdown(patched, mode="draft_ts")
+                ctx.log(
+                    f"Post-gap-fill audit: FAIL={audit2.n_fail} "
+                    f"WARN={audit2.n_warn} (was {audit.n_fail} fail)"
+                )
+                # Only swap if the patch actually reduced FAILs
+                if audit2.n_fail < audit.n_fail:
+                    schema_audit = audit_to_dict(audit2)
+                    schema_audit["gap_fill_attempted"] = True
+                    schema_audit["gap_fill_fail_before"] = audit.n_fail
+                    schema_audit["gap_fill_fail_after"] = audit2.n_fail
+                    return schema_audit, patched
+
+                ctx.log("L1 gap-fill didn't reduce FAILs — keeping original")
+            else:
+                ctx.log("L1 gap-fill produced too-short output — keeping original")
+
+            schema_audit = audit_to_dict(audit)
+            schema_audit["gap_fill_attempted"] = True
+            schema_audit["gap_fill_fail_before"] = audit.n_fail
+            return schema_audit, markdown
+        except Exception:
+            logger.exception("Schema validation failed for task %s", ctx.task_id)
+            return {"error": "validator_exception"}, markdown
 
     # ── Formatting helpers ─────────────────────────────────
 

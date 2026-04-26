@@ -1,0 +1,176 @@
+# Draft Term Sheet — Schema v0.1
+#
+# 校验 /draft-ts 服务输出的 13-section TS markdown。
+# 关键校验点：
+#   1. 13 个固定 section 全部存在
+#   2. 5 个 binding sections 都有 [BINDING] 标签（confidentiality / no-shop /
+#      term & termination / governing law / 整个 binding map）
+#   3. 财务条款节有可识别的金额结构（$/M/% 任一）
+#   4. 风险提示节存在 + 至少 3 个编号风险
+#   5. 签署前 checklist 存在
+#
+# 不校验：具体金额数字（用户输入决定）、文字字数（TS 本身简短，不需要 22k 字）
+
+report_type: ts_draft
+schema_version: "0.1"
+
+# TS 是简短法律文档；不强制总字数。LLM 会按结构产出 ~1500-4500 字。
+target_total_words:
+  min: 1200
+  max: 6000
+
+# ══════════════════════════════════════════════
+# 13 主章节
+# ══════════════════════════════════════════════
+sections:
+  - id: parties
+    name: 当事方 (Parties)
+    heading_patterns:
+      - '一、|^\s*1[\.、]\s*'
+      - 'Parties|当事方'
+    required: true
+    must_contain_one_of:
+      - 'Licensor|授权方'
+      - 'Licensee|被授权方'
+
+  - id: subject_asset
+    name: 标的资产 (Subject Asset)
+    heading_patterns:
+      - '二、|^\s*2[\.、]\s*'
+      - 'Subject\s*Asset|标的资产'
+    required: true
+
+  - id: field_of_use
+    name: 适用范围 (Field of Use)
+    heading_patterns:
+      - '三、|^\s*3[\.、]\s*'
+      - 'Field\s*of\s*Use|适用范围|Field'
+    required: true
+
+  - id: territory
+    name: 地域 (Territory)
+    heading_patterns:
+      - '四、|^\s*4[\.、]\s*'
+      - 'Territory|地域'
+    required: true
+
+  - id: exclusivity_scope
+    name: 独占性 (Exclusivity)
+    heading_patterns:
+      - '五、|^\s*5[\.、]\s*'
+      - '^\s*##\s*.*Exclusivity|独占性'
+    required: true
+    # Must specify exclusive | co-exclusive | non-exclusive
+    must_contain_one_of:
+      - 'exclusive|co-exclusive|non-exclusive|独占|共同独占|非独占'
+
+  - id: financial_terms
+    name: 财务条款 (Financial Terms)
+    heading_patterns:
+      - '六、|^\s*6[\.、]\s*'
+      - 'Financial\s*Terms|财务条款'
+    required: true
+    # 至少含 1 个金额或 royalty 标记
+    must_contain_one_of:
+      - 'Upfront|首付款'
+      - 'Milestone|里程碑'
+      - 'Royalty|分成|提成'
+      - '\$\d|\d+%|\[TBD\]'
+
+  - id: diligence
+    name: 勤勉义务 (Diligence)
+    heading_patterns:
+      - '七、|^\s*7[\.、]\s*'
+      - 'Diligence|勤勉|努力义务'
+    required: true
+
+  - id: ip_ownership
+    name: IP 归属 (IP Ownership)
+    heading_patterns:
+      - '八、|^\s*8[\.、]\s*'
+      - 'IP\s*Ownership|IP\s*归属|知识产权归属|IP\s*&|改进'
+    required: true
+
+  - id: reps_warranties
+    name: 陈述与保证 (Reps & Warranties)
+    heading_patterns:
+      - '九、|^\s*9[\.、]\s*'
+      - 'Reps\s*&\s*Warranties|陈述与保证|Representations'
+    required: true
+
+  - id: confidentiality
+    name: 保密 (Confidentiality)
+    heading_patterns:
+      - '十、|^\s*10[\.、]\s*'
+      - '^\s*##\s*.*Confidentiality|保密'
+    required: true
+    # 必须标 BINDING
+    must_contain_all:
+      - 'BINDING|具约束力'
+
+  - id: exclusivity_no_shop
+    name: 排他期 / No-Shop (Exclusivity / No-Shop)
+    heading_patterns:
+      - '十一、|^\s*11[\.、]\s*'
+      - 'No-Shop|No\s*Shop|排他期|Exclusivity\s*/\s*No-Shop'
+    required: true
+    must_contain_all:
+      - 'BINDING|具约束力'
+    # Must mention a specific period
+    must_contain_one_of:
+      - '\d+\s*days|\d+\s*天|月'
+
+  - id: term_termination
+    name: 期限与终止 (Term & Termination)
+    heading_patterns:
+      - '十二、|^\s*12[\.、]\s*'
+      - 'Term\s*&?\s*Termination|期限|终止'
+    required: true
+    must_contain_all:
+      - 'BINDING|具约束力'
+
+  - id: governing_law
+    name: 适用法律与争议解决 (Governing Law)
+    heading_patterns:
+      - '十三、|^\s*13[\.、]\s*'
+      - 'Governing\s*Law|适用法律|Dispute\s*Resolution|争议解决'
+    required: true
+    must_contain_all:
+      - 'BINDING|具约束力'
+
+  # ══════════════════════════════════════════════
+  # 风险提示 + Checklist（在 13 主节之后）
+  # ══════════════════════════════════════════════
+  - id: commercial_risks
+    name: 商业风险提示
+    heading_patterns:
+      - '商业风险|Commercial\s*Risks?|风险提示'
+    required: true
+    # 任意 3 种风险编号格式之一（"1." / "**1.**" / "1、" / "Risk 1" / "风险 1"）
+    must_contain_all:
+      - '1[\.、]|风险\s*1|Risk\s*1'
+      - '2[\.、]|风险\s*2|Risk\s*2'
+      - '3[\.、]|风险\s*3|Risk\s*3'
+
+  - id: pre_signing_checklist
+    name: 签署前 Checklist
+    heading_patterns:
+      - '签署前|Pre-Signing|Sign-off|Checklist'
+    required: true
+    must_contain_one_of:
+      - '律师|counsel|legal'
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则 — 禁用 marketing / hyperbole
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - pattern: '完美的\s*deal|perfect\s+deal'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: 'fantastic|industry-leading'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '极具吸引力|绝佳机会'
+      category: marketing_hyperbole
+      severity: medium
