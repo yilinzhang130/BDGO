@@ -26,6 +26,7 @@ from crm_store import LIKE_ESCAPE, like_contains
 from pydantic import BaseModel, Field
 
 from services.document import docx_builder
+from services.quality import audit_to_dict, validate_markdown
 from services.report_builder import (
     ReportContext,
     ReportResult,
@@ -444,6 +445,33 @@ def _get_executive_summary_prompt(perspective: str) -> str:
     )
 
 
+_DD_GAP_FILL_PROMPT = """以下 DD 问卷 / 会议准备报告未通过结构检查，请在原有内容基础上补全缺失章节。
+
+## 检查失败项
+{fail_list}
+
+## 原始报告
+{markdown}
+
+## 要求
+- 仅补全上方列出的缺失章节，保持原有问题 / 答复要点不变
+- 缺失章节至少包含 3 个 HIGH 优先级问题（🔴 HIGH）
+- 直接输出完整 markdown，不加解释或代码块包裹
+"""
+
+
+def _build_dd_gap_fill_prompt(markdown: str, audit) -> str:
+    fail_lines = [
+        f"[{f.section}] {f.message}" + (f" | 证据: {f.evidence}" if f.evidence else "")
+        for f in audit.findings
+        if f.severity == "fail"
+    ]
+    return _DD_GAP_FILL_PROMPT.format(
+        fail_list="\n".join(f"- {line}" for line in fail_lines),
+        markdown=markdown[:60_000],
+    )
+
+
 # ─────────────────────────────────────────────────────────────
 # Service
 # ─────────────────────────────────────────────────────────────
@@ -660,7 +688,11 @@ class DDChecklistService(ReportService):
         if len(markdown) < 500:
             raise RuntimeError("DD checklist generation produced empty output")
 
-        # Phase 8 — Save (filename reflects perspective)
+        # Phase 8 — L0/L1 schema validation + targeted gap-fill
+        # Same pattern as /company / /evaluate. Never raises.
+        schema_audit, markdown = self._validate_and_repair(markdown, ctx, inp.perspective)
+
+        # Phase 9 — Save (filename reflects perspective)
         slug = safe_slug(display_name) or "asset"
         prefix = "dd_meeting_prep" if inp.perspective == "seller" else "dd_checklist"
         md_name = f"{prefix}_{slug}_{today}.md"
@@ -696,6 +728,7 @@ class DDChecklistService(ReportService):
                 "crm_hit_assets": len(assets),
                 "web_results_count": len(web_results),
                 "inferred_fallback": bool(inferred_note),
+                "schema_audit": schema_audit,
                 "suggested_commands": suggested_commands,
             },
         )
@@ -851,6 +884,56 @@ class DDChecklistService(ReportService):
             end = matches[i + 1].start() if i + 1 < len(matches) else len(batch_md)
             results.append((idx, batch_md[start:end].strip()))
         return results
+
+    # ── L0 + L1 quality pass ────────────────────────────────
+
+    def _validate_and_repair(
+        self, markdown: str, ctx: ReportContext, perspective: str
+    ) -> tuple[dict, str]:
+        """Schema audit; if FAIL>0, one targeted gap-fill LLM pass.
+
+        Same shape as /company / /evaluate. Never raises.
+        """
+        try:
+            audit = validate_markdown(markdown, mode="dd_checklist")
+            ctx.log(f"Schema audit: FAIL={audit.n_fail} WARN={audit.n_warn} INFO={audit.n_info}")
+            if audit.n_fail == 0:
+                return audit_to_dict(audit), markdown
+
+            ctx.log(f"L1 gap-fill: {audit.n_fail} fail(s) — targeted patch…")
+            system_prompt = _get_system_prompt(perspective)
+            patched = ctx.llm(
+                system=system_prompt,
+                messages=[
+                    {"role": "user", "content": _build_dd_gap_fill_prompt(markdown, audit)}
+                ],
+                max_tokens=6000,
+                label="dd_gap_fill",
+            )
+            if len(patched) > 500:
+                audit2 = validate_markdown(patched, mode="dd_checklist")
+                ctx.log(
+                    f"Post-gap-fill audit: FAIL={audit2.n_fail} "
+                    f"WARN={audit2.n_warn} (was {audit.n_fail} fail)"
+                )
+                if audit2.n_fail < audit.n_fail:
+                    schema_audit = audit_to_dict(audit2)
+                    schema_audit["gap_fill_attempted"] = True
+                    schema_audit["gap_fill_fail_before"] = audit.n_fail
+                    schema_audit["gap_fill_fail_after"] = audit2.n_fail
+                    return schema_audit, patched
+
+                ctx.log("L1 gap-fill didn't reduce FAILs — keeping original")
+            else:
+                ctx.log("L1 gap-fill produced too-short output — keeping original")
+
+            schema_audit = audit_to_dict(audit)
+            schema_audit["gap_fill_attempted"] = True
+            schema_audit["gap_fill_fail_before"] = audit.n_fail
+            return schema_audit, markdown
+        except Exception:
+            logger.exception("Schema validation failed for task %s", ctx.task_id)
+            return {"error": "validator_exception"}, markdown
 
     def _appendix_section(self) -> str:
         return """## 附录 A — 希望项目方准备的文件清单
