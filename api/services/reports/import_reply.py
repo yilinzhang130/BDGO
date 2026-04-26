@@ -251,7 +251,9 @@ class ImportReplyService(ReportService):
             llm_used_hint=bool(inp.to_company_hint),
         )
 
-        suggested_commands = self._build_suggested_commands(company=company, status=status)
+        suggested_commands = self._build_suggested_commands(
+            company=company, status=status, perspective=inp.perspective
+        )
 
         return ReportResult(
             markdown=markdown,
@@ -358,7 +360,13 @@ class ImportReplyService(ReportService):
 
     # ── Lifecycle chips ─────────────────────────────────────
 
-    def _build_suggested_commands(self, *, company: str, status: str) -> list[dict]:
+    def _build_suggested_commands(
+        self,
+        *,
+        company: str,
+        status: str,
+        perspective: Literal["buyer", "seller"] | None = None,
+    ) -> list[dict]:
         """Reuse the same status-driven chip mapping as /log."""
         chips: list[dict] = [
             {
@@ -376,14 +384,20 @@ class ImportReplyService(ReportService):
                 }
             )
         elif status == "ts_signed":
+            # After TS signed, the BD's natural next step is to *draft* the
+            # definitive License Agreement. Route to /draft-license, not
+            # /legal review — review needs contract text, which doesn't
+            # exist yet (we're drafting it). Previously this chip claimed
+            # "Draft" but fired /legal review, leaving the user stuck.
+            our_role = "licensee" if perspective == "buyer" else "licensor"
+            counterparty_role = "licensor" if our_role == "licensee" else "licensee"
             chips.append(
                 {
                     "label": "Draft License Agreement",
                     "command": (
-                        f'/legal contract_type=license party_position="乙方"'
-                        f' counterparty="{company}"'
+                        f'/draft-license {counterparty_role}="{company}" our_role={our_role}'
                     ),
-                    "slug": "legal-review",
+                    "slug": "draft-license",
                 }
             )
         elif status == "meeting":

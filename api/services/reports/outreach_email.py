@@ -368,18 +368,15 @@ class OutreachEmailService(ReportService):
 
         # Purpose-specific downstream
         downstream: list[dict] = []
-        if inp.purpose == "cold_outreach":
-            downstream.append(
-                {
-                    "label": "Draft CDA / NDA",
-                    "command": (
-                        f'/legal contract_type=cda party_position="乙方"'
-                        f' counterparty="{inp.to_company}"'
-                    ),
-                    "slug": "legal-review",
-                }
-            )
-        elif inp.purpose == "cda_followup":
+        # Note: cold_outreach previously offered a "Draft CDA / NDA" chip
+        # routing to /legal contract_type=cda — but /legal reviews existing
+        # contracts (needs contract_text) and there's no /draft-cda service.
+        # The chip was misleading and broke when clicked. Removed: the
+        # natural next event after sending cold outreach is logging the
+        # send (covered by the universal /log chip above) and waiting for
+        # a reply. When a reply arrives, /import-reply takes over the
+        # status-driven chip handoff.
+        if inp.purpose == "cda_followup":
             downstream.append(
                 {
                     "label": "Run DD Checklist",

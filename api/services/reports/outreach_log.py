@@ -211,15 +211,30 @@ class OutreachLogService(ReportService):
                 }
             ]
         if inp.status == "ts_signed":
+            # After TS signed, the BD's natural next step is to *draft* the
+            # definitive License Agreement. Route to /draft-license, not
+            # /legal review — review needs contract text, which doesn't
+            # exist yet (we're drafting it). Previously this chip claimed
+            # "Draft" but fired /legal review, leaving the user stuck.
+            #
+            # Pre-fill what we can from the log context:
+            #   perspective=seller → we sell → our_role=licensor, licensee=to_company
+            #   perspective=buyer  → we buy  → our_role=licensee, licensor=to_company
+            #   perspective=None   → default to seller (most common BD pattern)
+            our_role = "licensee" if inp.perspective == "buyer" else "licensor"
+            counterparty_role = "licensor" if our_role == "licensee" else "licensee"
+            cmd_parts = [
+                "/draft-license",
+                f' {counterparty_role}="{inp.to_company}"',
+                f" our_role={our_role}",
+            ]
+            if inp.asset_context:
+                cmd_parts.append(f' asset_name="{inp.asset_context}"')
             return [
                 {
                     "label": "Draft License Agreement",
-                    "command": (
-                        f'/legal contract_type=license party_position="乙方"'
-                        f' counterparty="{inp.to_company}"'
-                        + (f' project_name="{inp.asset_context}"' if inp.asset_context else "")
-                    ),
-                    "slug": "legal-review",
+                    "command": "".join(cmd_parts),
+                    "slug": "draft-license",
                 }
             ]
         if inp.status in ("sent", "replied", "meeting"):

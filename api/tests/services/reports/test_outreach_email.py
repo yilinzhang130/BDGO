@@ -141,21 +141,27 @@ def test_compose_markdown_includes_metadata_and_body():
     assert "Body here." in md
 
 
-def test_suggested_commands_cold_outreach_offers_log_and_cda():
-    """Cold outreach → /log first, then /legal cda."""
+def test_suggested_commands_cold_outreach_offers_log_only():
+    """Cold outreach → /log only. The previous "Draft CDA / NDA" chip
+    routed to /legal contract_type=cda, but /legal is review mode and
+    requires contract_text the user doesn't have yet (the partner hasn't
+    sent a CDA — that's exactly what we're waiting for). The natural
+    next event is a partner reply, which is handled by /import-reply
+    when it arrives, with status-driven chips of its own.
+    """
     svc = OutreachEmailService()
     inp = OutreachEmailInput(to_company="Eli Lilly", purpose="cold_outreach")
     sc = svc._build_suggested_commands(inp)
-    assert len(sc) == 2
-    slugs = [c["slug"] for c in sc]
-    assert slugs == ["outreach-log", "legal-review"]
+    assert len(sc) == 1
+    assert sc[0]["slug"] == "outreach-log"
     log_chip = sc[0]
     assert log_chip["command"].startswith("/log")
     assert 'to_company="Eli Lilly"' in log_chip["command"]
     assert "purpose=cold_outreach" in log_chip["command"]
     assert "status=sent" in log_chip["command"]
-    cda_chip = sc[1]
-    assert "contract_type=cda" in cda_chip["command"]
+    # Critically: NO /legal contract_type=cda chip — that was the broken
+    # closed-loop bug.
+    assert not any("contract_type=cda" in c["command"] for c in sc)
 
 
 def test_suggested_commands_cda_followup_offers_log_and_dd():
