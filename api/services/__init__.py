@@ -21,6 +21,7 @@ from services.reports.disease_landscape import DiseaseLandscapeService
 from services.reports.draft_codev import DraftCoDevService
 from services.reports.draft_license import DraftLicenseService
 from services.reports.draft_mta import DraftMTAService
+from services.reports.draft_spa import DraftSPAService
 from services.reports.draft_ts import DraftTSService
 from services.reports.import_reply import ImportReplyService
 from services.reports.ip_landscape import IPLandscapeService
@@ -48,6 +49,7 @@ REPORT_SERVICES: dict[str, ReportService] = {
     DraftCoDevService.slug: DraftCoDevService(),
     DraftLicenseService.slug: DraftLicenseService(),
     DraftMTAService.slug: DraftMTAService(),
+    DraftSPAService.slug: DraftSPAService(),
     DraftTSService.slug: DraftTSService(),
     ImportReplyService.slug: ImportReplyService(),
     IPLandscapeService.slug: IPLandscapeService(),

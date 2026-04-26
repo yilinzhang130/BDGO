@@ -39,6 +39,7 @@ _SCHEMA_BY_MODE: dict[str, str] = {
     "draft_mta": "draft_mta_main.yaml",
     "draft_license": "draft_license_main.yaml",
     "draft_codev": "draft_codev_main.yaml",
+    "draft_spa": "draft_spa_main.yaml",
     "data_room": "data_room_main.yaml",
     "bd_synthesize": "bd_synthesize_main.yaml",
     "company_analysis": "company_analysis_main.yaml",

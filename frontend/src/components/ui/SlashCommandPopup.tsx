@@ -67,6 +67,11 @@ export const SLASH_COMMANDS: Omit<
     slug: "draft-codev",
     example: "某 KRAS G12D 与 BeiGene 共同开发 50/50 全球分成",
   },
+  {
+    alias: "draft-spa",
+    slug: "draft-spa",
+    example: "某 biotech 被 MNC 全资收购 EV 5亿美元 cash 80% stock 20%",
+  },
 ];
 
 export function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
