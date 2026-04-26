@@ -287,10 +287,17 @@ class RNPVValuationService(ReportService):
         md_filename = f"rnpv_{slug}.md"
         ctx.save_file(md_filename, markdown, format="md")
 
+        # After valuing an asset, the natural BD next step is to draft a TS
+        # using the rNPV as the price anchor. Route to /draft-ts, not /legal
+        # contract_type=ts review — review needs contract_text and there's
+        # no TS yet (we're drafting it). Pre-fill asset/indication/phase +
+        # counterparty=licensor (we're valuing as a buyer).
         ts_command = (
-            f'/legal contract_type=ts party_position="乙方"'
-            f' counterparty="{inp.company_name}"'
-            f' project_name="{inp.asset_name} ({inp.indication})"'
+            f"/draft-ts our_role=licensee"
+            f' licensor="{inp.company_name}"'
+            f' asset_name="{inp.asset_name}"'
+            f' indication="{inp.indication}"'
+            f' phase="{inp.phase}"'
         )
 
         return ReportResult(
@@ -316,7 +323,7 @@ class RNPVValuationService(ReportService):
                     {
                         "label": "Draft Term Sheet",
                         "command": ts_command,
-                        "slug": "legal-review",
+                        "slug": "draft-ts",
                     }
                 ],
             },

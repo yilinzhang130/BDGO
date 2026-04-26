@@ -190,7 +190,11 @@ def test_chips_always_offers_seller_dd_prep(svc):
     assert 'asset_name="PEG-001"' in dd["command"]
 
 
-def test_chips_licensing_offers_cda(svc):
+def test_chips_licensing_does_not_offer_broken_cda_chip(svc):
+    """Previously: licensing/partnership purpose offered "Draft CDA / NDA"
+    routing to /legal contract_type=cda — but /legal is review-mode and
+    needs contract_text the user doesn't have, plus there's no /draft-cda
+    service. The chip was a dead-end. Removed in fix."""
     inp = DataRoomInput(
         company_name="Peg-Bio",
         asset_name="PEG-001",
@@ -200,13 +204,14 @@ def test_chips_licensing_offers_cda(svc):
         purpose="licensing",
     )
     chips = svc._build_suggested_commands(inp)
-    cda = next((c for c in chips if c["slug"] == "legal-review"), None)
-    assert cda is not None
-    assert "contract_type=cda" in cda["command"]
-    assert 'project_name="PEG-001 (NSCLC)"' in cda["command"]
+    assert not any(c["slug"] == "legal-review" for c in chips), (
+        "Broken CDA chip should not appear; user can /legal manually when they have a CDA to review"
+    )
+    # The valuable seller-DD-prep chip should still be there
+    assert any(c["slug"] == "dd-checklist" for c in chips)
 
 
-def test_chips_partnership_offers_cda(svc):
+def test_chips_partnership_does_not_offer_broken_cda_chip(svc):
     inp = DataRoomInput(
         company_name="Peg-Bio",
         asset_name="PEG-001",
@@ -215,7 +220,7 @@ def test_chips_partnership_offers_cda(svc):
         purpose="partnership",
     )
     chips = svc._build_suggested_commands(inp)
-    assert any(c["slug"] == "legal-review" for c in chips)
+    assert not any(c["slug"] == "legal-review" for c in chips)
 
 
 @pytest.mark.parametrize("purpose", ["acquisition", "dd_response"])
@@ -232,7 +237,10 @@ def test_chips_acquisition_or_dd_response_no_cda(svc, purpose):
     assert not any(c["slug"] == "legal-review" for c in chips)
 
 
-def test_chips_project_name_omits_indication_when_absent(svc):
+def test_chips_dd_prep_present_regardless_of_indication(svc):
+    """The DD-prep chip is the always-on seller value-add — must work
+    even without indication. (Previously this test verified project_name
+    formatting on the now-removed CDA chip.)"""
     inp = DataRoomInput(
         company_name="Peg-Bio",
         asset_name="PEG-001",
@@ -242,9 +250,9 @@ def test_chips_project_name_omits_indication_when_absent(svc):
         # no indication
     )
     chips = svc._build_suggested_commands(inp)
-    cda = next(c for c in chips if c["slug"] == "legal-review")
-    # Project name has just the asset, no parenthesized indication
-    assert 'project_name="PEG-001"' in cda["command"]
+    dd = next(c for c in chips if c["slug"] == "dd-checklist")
+    assert 'company="Peg-Bio"' in dd["command"]
+    assert 'asset_name="PEG-001"' in dd["command"]
 
 
 # ── Schema ──────────────────────────────────────────────────
