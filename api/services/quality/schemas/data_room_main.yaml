@@ -1,0 +1,111 @@
+# Data Room Checklist — Schema v0.1
+#
+# 校验 /dataroom 服务输出的 8-category 数据室文件清单。
+# 关键校验点：
+#   1. 8 个固定 category 全部存在（Clinical / CMC / Nonclinical / Regulatory /
+#      IP / Quality / Commercial / Corporate）
+#   2. 概览节存在
+#   3. 每个 category 都至少含一个 🔴 (必须) 标记的 item — 没有 🔴 说明 LLM
+#      把所有项都标可选了，违反"每 category 5-10 条 🔴 必须"
+#   4. 数据室搭建 Tips 节存在
+#   5. 总体使用了 🔴/🟡/🟢 三级优先级标记（至少各 1 次）
+
+report_type: data_room_checklist
+schema_version: "0.1"
+
+# 8-category 表格 + 概览 + tips 通常在 1500-5000 字
+target_total_words:
+  min: 1200
+  max: 6000
+
+sections:
+  - id: overview
+    name: 概览 (Overview)
+    heading_patterns:
+      - '概览|Overview|总览'
+    required: true
+
+  - id: clinical_data
+    name: Clinical Data
+    heading_patterns:
+      - '一、Clinical|^\s*1[\.、]\s*Clinical|临床数据'
+    required: true
+    must_contain_one_of:
+      - '🔴'
+
+  - id: cmc_manufacturing
+    name: CMC / Manufacturing
+    heading_patterns:
+      - '二、CMC|^\s*2[\.、]\s*CMC|CMC.*Manufacturing|Manufacturing'
+    required: true
+    must_contain_one_of:
+      - '🔴'
+
+  - id: nonclinical_tox
+    name: Nonclinical / Tox
+    heading_patterns:
+      - '三、Nonclinical|^\s*3[\.、]\s*Nonclinical|Tox'
+    required: true
+    must_contain_one_of:
+      - '🔴'
+
+  - id: regulatory
+    name: Regulatory
+    heading_patterns:
+      - '四、Regulatory|^\s*4[\.、]\s*Regulatory|监管'
+    required: true
+    must_contain_one_of:
+      - '🔴'
+
+  - id: ip_exclusivity
+    name: IP & Exclusivity
+    heading_patterns:
+      - '五、IP|^\s*5[\.、]\s*IP|IP\s*&|Exclusivity|知识产权'
+    required: true
+    must_contain_one_of:
+      - '🔴'
+
+  - id: quality_gmp
+    name: Quality / GMP
+    heading_patterns:
+      - '六、Quality|^\s*6[\.、]\s*Quality|GMP'
+    required: true
+    must_contain_one_of:
+      - '🔴'
+
+  - id: commercial_market
+    name: Commercial / Market
+    heading_patterns:
+      - '七、Commercial|^\s*7[\.、]\s*Commercial|商业|Market'
+    required: true
+    must_contain_one_of:
+      - '🔴'
+
+  - id: corporate_legal
+    name: Corporate & Legal
+    heading_patterns:
+      - '八、Corporate|^\s*8[\.、]\s*Corporate|公司治理|Legal'
+    required: true
+    must_contain_one_of:
+      - '🔴'
+
+  - id: data_room_tips
+    name: 数据室搭建 Tips
+    heading_patterns:
+      - 'Tips|搭建建议|搭建 ?Tips'
+    required: true
+
+# ══════════════════════════════════════════════
+# 写作 quality 规则 — 禁用 marketing / hyperbole
+# ══════════════════════════════════════════════
+quality_rules:
+  banned_patterns:
+    - pattern: '完美的|perfect\s+(?:asset|deal)'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: 'fantastic|industry-leading|best-in-class'
+      category: marketing_hyperbole
+      severity: medium
+    - pattern: '极具吸引力|绝佳'
+      category: marketing_hyperbole
+      severity: medium
