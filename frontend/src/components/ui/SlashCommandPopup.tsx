@@ -62,6 +62,11 @@ export const SLASH_COMMANDS: Omit<
     slug: "draft-license",
     example: "某 KRAS G12D 全球独家许可 升级为正式 License Agreement",
   },
+  {
+    alias: "draft-codev",
+    slug: "draft-codev",
+    example: "某 KRAS G12D 与 BeiGene 共同开发 50/50 全球分成",
+  },
 ];
 
 export function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {
