@@ -257,3 +257,28 @@ class TestBuildPlanConstraint:
         text = build_plan_constraint("X", selected)
         assert "s2: kept" in text
         assert "dropped" not in text
+
+
+class TestToolInventoryStaysSynced:
+    """The planner system prompt lists every available tool by name.
+    If a service is registered but not listed here, the planner LLM
+    won't know it exists and won't propose using it — silent feature
+    invisibility. This is the kind of drift X-58 caught after the
+    /draft-X family landed: 8 services existed but planner only
+    knew about ~17 of them.
+    """
+
+    def test_every_registered_service_appears_in_planner_prompt(self):
+        from planner import PLANNER_SYSTEM_PROMPT
+        from services import REPORT_SERVICES
+
+        missing: list[str] = []
+        for slug, svc in REPORT_SERVICES.items():
+            tool_name = svc.chat_tool_name
+            if tool_name and tool_name not in PLANNER_SYSTEM_PROMPT:
+                missing.append(f"{slug} → {tool_name}")
+        assert not missing, (
+            "Planner system prompt is out of sync with REPORT_SERVICES. "
+            "These chat_tool_names are missing from PLANNER_SYSTEM_PROMPT "
+            f"and the planner can't propose them: {missing}"
+        )

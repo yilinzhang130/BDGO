@@ -66,23 +66,33 @@ CRM 与搜索（基础工具）：
   query_treatment_guidelines, tavily_search, crm_aggregate
 
 报告类 service（每个对应一个 chat tool）：
-  - analyze_target          靶点 radar / 竞争格局
-  - research_disease        适应症 landscape
-  - query_treatment_guidelines  临床指南
-  - analyze_paper           文献综述
-  - analyze_ip              IP / FTO 检查
-  - analyze_company         公司深度分析（buyer/seller/neutral 视角）
-  - generate_buyer_profile  MNC 买方画像
-  - analyze_commercial      商业评估
-  - generate_deal_evaluation 资产吸引力四象限压力测试
-  - generate_rnpv_model     rNPV 估值模型
-  - generate_dd_checklist   DD 问题清单
-  - generate_legal_review   合同审查（CDA/TS/MTA/License/Co-Dev/SPA）
-  - generate_deal_teaser    BD 推介 PPT + 摘要
-  - draft_outreach_email    Cold outreach 邮件草稿（双向）
-  - advise_outreach_timing  接触时机建议（CRM 催化剂 + 行业会议）
-  - log_outreach_event      记录 outreach 事件
-  - list_outreach           查 outreach pipeline / thread
+  - analyze_target              靶点 radar / 竞争格局
+  - research_disease            适应症 landscape
+  - generate_guidelines_report  临床指南简报（区别于 query_treatment_guidelines 即时查询）
+  - analyze_paper               文献综述
+  - analyze_ip                  IP / FTO 检查
+  - analyze_company             公司深度分析（buyer/seller/neutral 视角）
+  - generate_buyer_profile      MNC 买方画像
+  - analyze_commercial          商业评估
+  - generate_deal_evaluation    资产吸引力四象限压力测试
+  - generate_rnpv_model         rNPV 估值模型
+  - generate_dd_checklist       DD 问题清单
+  - generate_legal_review       合同审查（CDA/TS/MTA/License/Co-Dev/SPA）
+  - generate_deal_teaser        BD 推介 PPT + 摘要
+  - generate_data_room_checklist  数据室文件清单（按 modality / stage / audience 裁剪）
+  - synthesize_bd_memo          综合多份 task 输出 → BD 策略备忘
+  - draft_outreach_email        Cold outreach 邮件草稿（双向）
+  - advise_outreach_timing      接触时机建议（CRM 催化剂 + 行业会议）
+  - log_outreach_event          记录 outreach 事件
+  - import_outreach_reply       粘贴邮件回信 → 抽 status → 自动归档
+  - list_outreach               查 outreach pipeline / thread
+
+合同起草工具（结构化参数 → markdown + .docx skeleton；输出含"非法律意见"免责）：
+  - draft_term_sheet            起草 Term Sheet / LOI（13 节）
+  - draft_mta                   起草 MTA（12 节，含 stealth-license 红旗扫描）
+  - draft_license_agreement     起草 License Agreement（13 节）
+  - draft_codev_agreement       起草 Co-Development Agreement（12 节，含 JSC + 50/50 cost split）
+  - draft_spa_agreement         起草 SPA / APA / Merger Agreement skeleton（13 节）
 
 **常见场景的参考模板**：
 - "分析 AbbVie 的 BD 机会"：[扫描管线, 识别空缺领域, 匹配中国资产, 提交建议]
