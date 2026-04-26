@@ -105,6 +105,26 @@ MINIMAX_PER_KEY_CONCURRENCY = int(os.environ.get("MINIMAX_PER_KEY_CONCURRENCY", 
 MINIMAX_MODEL = os.environ.get("MINIMAX_MODEL", "MiniMax-M1-80k")
 MINIMAX_ANTHROPIC_VERSION = "2023-06-01"
 
+# Auth header style for MiniMax requests. The standard pay-as-you-go API
+# accepts Anthropic's "x-api-key" header; the MiniMax Token Plan / Coding
+# Plan API requires "Authorization: Bearer <key>" instead. Keys issued on
+# the Coding Plan use the "sk-cp-" prefix — we auto-detect those even if
+# MINIMAX_AUTH_STYLE is left at the default, so users can paste the key
+# without setting an extra flag.
+#
+# Override explicitly via env var ``MINIMAX_AUTH_STYLE=bearer`` if you have
+# a non-prefixed Token-Plan key.
+MINIMAX_AUTH_STYLE = os.environ.get("MINIMAX_AUTH_STYLE", "x-api-key").strip().lower()
+if MINIMAX_AUTH_STYLE not in ("x-api-key", "bearer"):
+    _logger.warning(
+        "Unknown MINIMAX_AUTH_STYLE=%r; falling back to x-api-key. Valid: x-api-key | bearer",
+        MINIMAX_AUTH_STYLE,
+    )
+    MINIMAX_AUTH_STYLE = "x-api-key"
+# Auto-detect Coding-Plan keys regardless of explicit setting.
+if MINIMAX_KEY.startswith("sk-cp-"):
+    MINIMAX_AUTH_STYLE = "bearer"
+
 # ─────────────────────────────────────────────────────────────
 # Paths
 # ─────────────────────────────────────────────────────────────

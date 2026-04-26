@@ -145,10 +145,11 @@ async def generate_plan(
     client = get_client()
     try:
         async with acquire_for(model) as (api_key, _pool):
-            headers = {
-                "x-api-key": api_key,
-                "Content-Type": "application/json",
-            }
+            headers: dict[str, str] = {"Content-Type": "application/json"}
+            if getattr(model, "auth_style", "x-api-key") == "bearer":
+                headers["Authorization"] = f"Bearer {api_key}"
+            else:
+                headers["x-api-key"] = api_key
             if model.anthropic_version:
                 headers["anthropic-version"] = model.anthropic_version
             resp = await client.post(
@@ -355,10 +356,11 @@ async def summarize_history(
     client = get_client()
     try:
         async with acquire_for(model) as (api_key, _pool):
-            headers = {
-                "x-api-key": api_key,
-                "Content-Type": "application/json",
-            }
+            headers: dict[str, str] = {"Content-Type": "application/json"}
+            if getattr(model, "auth_style", "x-api-key") == "bearer":
+                headers["Authorization"] = f"Bearer {api_key}"
+            else:
+                headers["x-api-key"] = api_key
             if model.anthropic_version:
                 headers["anthropic-version"] = model.anthropic_version
             resp = await client.post(

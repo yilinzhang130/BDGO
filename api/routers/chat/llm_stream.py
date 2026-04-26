@@ -248,7 +248,11 @@ async def call_minimax_stream(
 
     try:
         async with acquire_for(model) as (api_key, pool):
-            headers = {**static_headers, "x-api-key": api_key}
+            headers = {**static_headers}
+            if getattr(model, "auth_style", "x-api-key") == "bearer":
+                headers["Authorization"] = f"Bearer {api_key}"
+            else:
+                headers["x-api-key"] = api_key
 
             for attempt in range(_MAX_529_RETRIES):
                 state = _StreamState()
