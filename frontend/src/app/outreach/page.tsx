@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   deleteOutreachEvent,
   fetchOutreachEvents,
@@ -21,6 +22,7 @@ import {
   type OutreachListResponse,
 } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
+import { ImportReplyModal } from "@/components/outreach/ImportReplyModal";
 
 // Status filter options. Empty value = "All".
 const STATUS_OPTIONS = [
@@ -54,6 +56,7 @@ function formatDate(iso: string): string {
 }
 
 export default function OutreachPage() {
+  const router = useRouter();
   const [data, setData] = useState<OutreachListResponse | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -63,6 +66,8 @@ export default function OutreachPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [importReplyOpen, setImportReplyOpen] = useState(false);
+  const [importReplyCompany, setImportReplyCompany] = useState<string | undefined>(undefined);
 
   // Debounce the search box so we don't fire a request per keystroke.
   useEffect(() => {
@@ -121,21 +126,45 @@ export default function OutreachPage() {
     <div style={{ minHeight: "100vh", background: "#F8FAFF", padding: "32px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h1
+        <div
+          style={{
+            marginBottom: 24,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontSize: 28,
+                fontWeight: 700,
+                color: "#0F172A",
+                margin: "0 0 6px",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Outreach 工作台
+            </h1>
+            <p style={{ fontSize: 14, color: "#64748B", margin: 0 }}>
+              BD 外联 pipeline · 共 {total} 条记录
+            </p>
+          </div>
+          <button
+            onClick={() => router.push("/chat?context=outreach")}
             style={{
-              fontSize: 28,
-              fontWeight: 700,
-              color: "#0F172A",
-              margin: "0 0 6px",
-              letterSpacing: "-0.01em",
+              padding: "7px 14px",
+              fontSize: 13,
+              border: "1px solid #E2E8F0",
+              borderRadius: 8,
+              background: "#fff",
+              color: "#334155",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
           >
-            Outreach 工作台
-          </h1>
-          <p style={{ fontSize: 14, color: "#64748B", margin: 0 }}>
-            BD 外联 pipeline · 共 {total} 条记录
-          </p>
+            💬 在 chat 里讨论
+          </button>
         </div>
 
         {/* Filters */}
@@ -184,6 +213,41 @@ export default function OutreachPage() {
               </option>
             ))}
           </select>
+          <button
+            onClick={() => router.push("/outreach/compose")}
+            style={{
+              padding: "9px 16px",
+              border: "none",
+              borderRadius: 8,
+              background: "#2563EB",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            + Compose
+          </button>
+          <button
+            onClick={() => {
+              setImportReplyCompany(undefined);
+              setImportReplyOpen(true);
+            }}
+            style={{
+              padding: "9px 16px",
+              border: "1px solid #CBD5E1",
+              borderRadius: 8,
+              background: "#fff",
+              color: "#0F172A",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            + 导入回信
+          </button>
         </div>
 
         {/* Error */}
@@ -254,10 +318,21 @@ export default function OutreachPage() {
                 threadEvents={
                   expandedId === row.id ? sameCompanyEvents.filter((e) => e.id !== row.id) : []
                 }
+                onImportReply={(company) => {
+                  setImportReplyCompany(company);
+                  setImportReplyOpen(true);
+                }}
               />
             ))
           )}
         </div>
+
+        <ImportReplyModal
+          open={importReplyOpen}
+          onClose={() => setImportReplyOpen(false)}
+          onArchived={() => void load()}
+          defaultCompany={importReplyCompany}
+        />
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -306,9 +381,11 @@ interface RowProps {
   onToggle: () => void;
   onDelete: (e: React.MouseEvent) => void;
   threadEvents: OutreachEvent[];
+  onImportReply: (company: string) => void;
 }
 
-function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents }: RowProps) {
+function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents, onImportReply }: RowProps) {
+  const router = useRouter();
   const badge = STATUS_BADGE[row.status] || {
     bg: "#F3F4F6",
     color: "#4B5563",
@@ -409,6 +486,45 @@ function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents }: RowPro
               )}
             </div>
           )}
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onImportReply(row.to_company);
+              }}
+              style={{
+                padding: "6px 14px",
+                border: "1px solid #2563EB",
+                borderRadius: 7,
+                background: "#fff",
+                color: "#2563EB",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              + 导入回信
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(
+                  `/chat?context=outreach&company=${encodeURIComponent(row.to_company)}&event_id=${row.id}`,
+                );
+              }}
+              style={{
+                padding: "6px 14px",
+                fontSize: 12,
+                border: "1px solid #E2E8F0",
+                borderRadius: 7,
+                background: "#fff",
+                color: "#334155",
+                cursor: "pointer",
+              }}
+            >
+              💬 在 chat 讨论这条
+            </button>
+          </div>
           {threadEvents.length > 0 && (
             <div>
               <div style={detailLabelStyle}>同对手历史 ({threadEvents.length})</div>
