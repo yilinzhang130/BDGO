@@ -6,7 +6,7 @@ import { DOCS_VERSION, DOCS_UPDATED, DOCS_BODY, DOCS_TOC } from "./content";
 
 export default function DocsPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "#F8FAFF", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F5F4EE", fontFamily: "Inter, sans-serif" }}>
       <LandingNav />
 
       <div

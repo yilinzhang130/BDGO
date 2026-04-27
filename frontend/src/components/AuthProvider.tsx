@@ -85,6 +85,8 @@ export function useAuth(): AuthContextValue {
 const PUBLIC_PATHS = [
   "/login",
   "/",
+  "/apply",
+  "/changelog",
   "/share",
   "/privacy",
   "/terms",

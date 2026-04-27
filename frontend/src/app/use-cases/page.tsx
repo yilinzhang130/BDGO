@@ -97,7 +97,7 @@ const scenarios: Section[] = [
 
 export default function UseCasesPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "#F8FAFF", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F5F4EE", fontFamily: "Inter, sans-serif" }}>
       <LandingNav />
 
       {/* Hero */}
@@ -308,7 +308,7 @@ function SectionCard({ section }: { section: Section }) {
       </div>
       <div
         style={{
-          background: "#F8FAFF",
+          background: "#F5F4EE",
           borderRadius: 12,
           padding: "20px 22px",
           alignSelf: "start",

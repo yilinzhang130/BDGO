@@ -50,7 +50,7 @@ const measures = [
 
 export default function SecurityPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "#F8FAFF", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F5F4EE", fontFamily: "Inter, sans-serif" }}>
       <LandingNav />
 
       {/* Hero */}

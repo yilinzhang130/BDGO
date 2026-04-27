@@ -4,7 +4,7 @@ import { POSTS, TAG_COLORS } from "./posts";
 
 export default function BlogPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "#F8FAFF", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F5F4EE", fontFamily: "Inter, sans-serif" }}>
       <LandingNav />
 
       <div
@@ -107,7 +107,7 @@ export default function BlogPage() {
 
         <div
           style={{
-            background: "#F8FAFF",
+            background: "#F5F4EE",
             border: "1px dashed #CBD5E1",
             borderRadius: 16,
             padding: "24px",

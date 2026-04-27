@@ -6,7 +6,9 @@ import { Sidebar } from "./Sidebar";
 const MARKETING_ROUTES = [
   "/about",
   "/api-docs",
+  "/apply",
   "/blog",
+  "/changelog",
   "/contact",
   "/docs",
   "/features",

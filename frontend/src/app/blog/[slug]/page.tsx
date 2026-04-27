@@ -17,7 +17,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const tc = TAG_COLORS[post.tag];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F8FAFF", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F5F4EE", fontFamily: "Inter, sans-serif" }}>
       <LandingNav />
 
       <article style={{ maxWidth: 720, margin: "0 auto", padding: "48px 32px 80px" }}>

@@ -112,7 +112,7 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "#F8FAFF", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F5F4EE", fontFamily: "Inter, sans-serif" }}>
       <LandingNav />
 
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "56px 32px 80px" }}>
@@ -159,7 +159,7 @@ export default function TermsPage() {
           style={{
             marginTop: 48,
             padding: "20px",
-            background: "#F8FAFF",
+            background: "#F5F4EE",
             border: "1px solid #E8EFFE",
             borderRadius: 12,
           }}
