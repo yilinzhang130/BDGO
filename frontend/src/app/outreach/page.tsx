@@ -21,6 +21,7 @@ import {
   type OutreachListResponse,
 } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
+import { ImportReplyModal } from "@/components/outreach/ImportReplyModal";
 
 // Status filter options. Empty value = "All".
 const STATUS_OPTIONS = [
@@ -63,6 +64,8 @@ export default function OutreachPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [importReplyOpen, setImportReplyOpen] = useState(false);
+  const [importReplyCompany, setImportReplyCompany] = useState<string | undefined>(undefined);
 
   // Debounce the search box so we don't fire a request per keystroke.
   useEffect(() => {
@@ -184,6 +187,22 @@ export default function OutreachPage() {
               </option>
             ))}
           </select>
+          <button
+            onClick={() => { setImportReplyCompany(undefined); setImportReplyOpen(true); }}
+            style={{
+              padding: "9px 16px",
+              border: "none",
+              borderRadius: 8,
+              background: "#2563EB",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            + 导入回信
+          </button>
         </div>
 
         {/* Error */}
@@ -254,10 +273,18 @@ export default function OutreachPage() {
                 threadEvents={
                   expandedId === row.id ? sameCompanyEvents.filter((e) => e.id !== row.id) : []
                 }
+                onImportReply={(company) => { setImportReplyCompany(company); setImportReplyOpen(true); }}
               />
             ))
           )}
         </div>
+
+        <ImportReplyModal
+          open={importReplyOpen}
+          onClose={() => setImportReplyOpen(false)}
+          onArchived={() => void load()}
+          defaultCompany={importReplyCompany}
+        />
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -306,9 +333,10 @@ interface RowProps {
   onToggle: () => void;
   onDelete: (e: React.MouseEvent) => void;
   threadEvents: OutreachEvent[];
+  onImportReply: (company: string) => void;
 }
 
-function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents }: RowProps) {
+function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents, onImportReply }: RowProps) {
   const badge = STATUS_BADGE[row.status] || {
     bg: "#F3F4F6",
     color: "#4B5563",
@@ -409,6 +437,24 @@ function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents }: RowPro
               )}
             </div>
           )}
+          <div style={{ marginBottom: 12 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onImportReply(row.to_company); }}
+              style={{
+                padding: "6px 14px",
+                border: "1px solid #2563EB",
+                borderRadius: 7,
+                background: "#fff",
+                color: "#2563EB",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              + 导入回信
+            </button>
+          </div>
+
           {threadEvents.length > 0 && (
             <div>
               <div style={detailLabelStyle}>同对手历史 ({threadEvents.length})</div>
