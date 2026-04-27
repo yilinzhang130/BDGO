@@ -309,5 +309,11 @@ BD GO = deal lifecycle（交易生命周期，0→签约）
 
 ---
 
+## 9. 变更日志快照
+
+面向用户的产品变更记录见 [CHANGELOG.md](./CHANGELOG.md)，格式遵循 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 规范。每个 Phase 完成后同步更新。
+
+---
+
 **文档版本**：v1.0（2026-04-27）
 **下次更新**：Phase 1 完成时（约 2026-05-11）
