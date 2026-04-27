@@ -135,6 +135,10 @@ interface Props {
   activeIndex: number;
   onSelect: (cmd: SlashCommand) => void;
   onHover: (index: number) => void;
+  // Categories the caller doesn't want surfaced in the popup. The user
+  // can still type the alias by hand and submit (backend stays compatible);
+  // this only suppresses the suggestion UI.
+  hideCategories?: SlashCommand["category"][];
   // When report-services fetch fails, the popup still renders (commands
   // come from the static SLASH_COMMANDS list) but display_name + description
   // fall back to the bare slug. Surface the failure so users know clicks
@@ -149,10 +153,15 @@ export function SlashCommandPopup({
   activeIndex,
   onSelect,
   onHover,
+  hideCategories = [],
   servicesError,
   servicesLoading,
   onRetryServices,
 }: Props) {
+  const visible =
+    hideCategories.length === 0
+      ? commands
+      : commands.filter((c) => !hideCategories.includes(c.category));
   const errorBanner = servicesError ? (
     <div
       style={{
@@ -191,7 +200,7 @@ export function SlashCommandPopup({
     </div>
   ) : null;
 
-  if (commands.length === 0) {
+  if (visible.length === 0) {
     return (
       <div style={popupStyle}>
         {errorBanner}
@@ -217,7 +226,7 @@ export function SlashCommandPopup({
       >
         Report commands · ↑↓ navigate · ↵ select · esc dismiss
       </div>
-      {commands.map((cmd, i) => {
+      {visible.map((cmd, i) => {
         const active = i === activeIndex;
         return (
           <div
