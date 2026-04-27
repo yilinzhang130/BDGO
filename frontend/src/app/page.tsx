@@ -602,16 +602,16 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
   }
 
   // resources
-  const releases: [string, string, string | null][] = [
-    ["v0.9.2", "AIDD 流水线 GA · 2026.04.26", "NEW"],
-    ["v0.9.1", "DEF 痛点引擎公测", null],
-    ["v0.9.0", "BD GO 多 Agent 协作", null],
-    ["所有版本", "Release Notes →", null],
+  const releases: [string, string, string | null, string][] = [
+    ["v0.9.2", "AIDD 流水线 GA · 2026.04.26", "NEW", "/blog/v0-9-2-aidd-ga"],
+    ["v0.9.1", "DEF 痛点引擎公测", null, "/blog/v0-9-1-def-beta"],
+    ["v0.9.0", "BD GO 工作台开放", null, "/blog/v0-9-0-bd-go-launch"],
+    ["所有版本", "Release Notes →", null, "/blog"],
   ];
   const blog: [string, string, string][] = [
-    ["从 BD 到立项的 4 小时", "工程实践", "/blog"],
-    ["DEF 是什么 · 设计原理", "产品思考", "/blog"],
-    ["AIDD 流水线技术白皮书", "技术博客", "/blog"],
+    ["从 BD 到立项的 4 小时", "工程实践", "/blog/bd-to-project-in-4-hours"],
+    ["DEF 是什么 · 设计原理", "产品思考", "/blog/def-design-principles"],
+    ["AIDD 流水线技术白皮书", "技术博客", "/blog/aidd-pipeline-whitepaper"],
     ["API 文档", "Developer", "/api-docs"],
   ];
   return (
@@ -619,10 +619,10 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <div>
           <div style={eyebrow}>更新</div>
-          {releases.map(([v, d, badge]) => (
+          {releases.map(([v, d, badge, href]) => (
             <Link
               key={v}
-              href="/blog"
+              href={href}
               style={{
                 display: "flex",
                 alignItems: "baseline",

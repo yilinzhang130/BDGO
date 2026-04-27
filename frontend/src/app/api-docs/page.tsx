@@ -13,6 +13,7 @@ const endpoints = [
   { method: "GET", path: "/api/companies/{name}/deals", desc: "某公司的授权交易记录" },
   { method: "GET", path: "/api/assets", desc: "管线资产列表，支持按靶点、适应症、阶段过滤" },
   { method: "GET", path: "/api/assets/{company}/{name}", desc: "单个资产详情" },
+  { method: "GET", path: "/api/assets/{company}/{name}/trials", desc: "某资产关联的临床试验" },
   { method: "GET", path: "/api/clinical", desc: "临床试验数据，支持按 NCT / 公司 / 状态查询" },
   { method: "GET", path: "/api/clinical/{record_id}", desc: "单条临床记录" },
   { method: "GET", path: "/api/deals", desc: "授权交易记录，支持按年份、类型、金额过滤" },
