@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   filterCommands,
   SLASH_COMMANDS,
@@ -66,6 +67,12 @@ export function ChatInputBar({
   slashServicesLoading?: boolean;
   onRetrySlashServices?: () => void;
 }) {
+  const searchParams = useSearchParams();
+  const ctxType = searchParams?.get("context");
+  const ctxCompany = searchParams?.get("company");
+  const [ctxDismissed, setCtxDismissed] = useState(false);
+  const showCtxBar = !!ctxType && !ctxDismissed;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -96,6 +103,42 @@ export function ChatInputBar({
   return (
     <div className="chat-input-wrapper">
       <div className="chat-input-container">
+        {showCtxBar && (
+          <div
+            data-testid="context-bar"
+            style={{
+              padding: "5px 10px",
+              margin: "0 0 4px",
+              fontSize: 12,
+              color: "var(--text-secondary)",
+              background: "var(--accent-light)",
+              border: "1px solid var(--border-light)",
+              borderRadius: "var(--radius-sm, 6px)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span style={{ flex: 1 }}>
+              🎯 working on: {ctxType}
+              {ctxCompany ? ` · ${ctxCompany}` : ""}
+            </span>
+            <button
+              data-testid="context-bar-close"
+              onClick={() => setCtxDismissed(true)}
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                padding: 0,
+                color: "var(--text-muted)",
+                fontSize: 12,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {showMigrationBanner && (
           <div
             data-testid="slash-migration-banner"

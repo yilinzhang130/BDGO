@@ -1,7 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { ChatInputBar } from "../ChatInputBar";
 import { SLASH_COMMANDS, type SlashCommand } from "@/components/ui/SlashCommandPopup";
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+}));
+
+import { useSearchParams } from "next/navigation";
 
 // P1-7 banner test: when the user types an exact C-class alias, a
 // migration hint appears above the textarea. Other queries (including
@@ -33,6 +39,40 @@ function renderBar(input: string) {
     />,
   );
 }
+
+const mockUseSearchParams = vi.mocked(useSearchParams);
+
+beforeEach(() => {
+  mockUseSearchParams.mockReturnValue(new URLSearchParams() as ReturnType<typeof useSearchParams>);
+});
+
+describe("<ChatInputBar /> context bar", () => {
+  it("renders context bar when ?context= is present", () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams("context=outreach&company=Pfizer") as ReturnType<typeof useSearchParams>,
+    );
+    renderBar("");
+    const bar = screen.getByTestId("context-bar");
+    expect(bar).toBeInTheDocument();
+    expect(bar.textContent).toContain("outreach");
+    expect(bar.textContent).toContain("Pfizer");
+  });
+
+  it("does not render context bar when no ?context= param", () => {
+    renderBar("");
+    expect(screen.queryByTestId("context-bar")).not.toBeInTheDocument();
+  });
+
+  it("close button hides the context bar", () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams("context=outreach") as ReturnType<typeof useSearchParams>,
+    );
+    renderBar("");
+    expect(screen.getByTestId("context-bar")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("context-bar-close"));
+    expect(screen.queryByTestId("context-bar")).not.toBeInTheDocument();
+  });
+});
 
 describe("<ChatInputBar /> migration banner", () => {
   it("shows the banner when input is exactly /email (a C-class alias)", () => {

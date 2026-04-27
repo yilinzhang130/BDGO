@@ -126,21 +126,38 @@ export default function OutreachPage() {
     <div style={{ minHeight: "100vh", background: "#F8FAFF", padding: "32px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h1
+        <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <h1
+              style={{
+                fontSize: 28,
+                fontWeight: 700,
+                color: "#0F172A",
+                margin: "0 0 6px",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Outreach 工作台
+            </h1>
+            <p style={{ fontSize: 14, color: "#64748B", margin: 0 }}>
+              BD 外联 pipeline · 共 {total} 条记录
+            </p>
+          </div>
+          <button
+            onClick={() => router.push("/chat?context=outreach")}
             style={{
-              fontSize: 28,
-              fontWeight: 700,
-              color: "#0F172A",
-              margin: "0 0 6px",
-              letterSpacing: "-0.01em",
+              padding: "7px 14px",
+              fontSize: 13,
+              border: "1px solid #E2E8F0",
+              borderRadius: 8,
+              background: "#fff",
+              color: "#334155",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
           >
-            Outreach 工作台
-          </h1>
-          <p style={{ fontSize: 14, color: "#64748B", margin: 0 }}>
-            BD 外联 pipeline · 共 {total} 条记录
-          </p>
+            💬 在 chat 里讨论
+          </button>
         </div>
 
         {/* Filters */}
@@ -357,7 +374,15 @@ interface RowProps {
   onImportReply: (company: string) => void;
 }
 
-function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents, onImportReply }: RowProps) {
+function OutreachRow({
+  row,
+  expanded,
+  onToggle,
+  onDelete,
+  threadEvents,
+  onImportReply,
+}: RowProps) {
+  const router = useRouter();
   const badge = STATUS_BADGE[row.status] || {
     bg: "#F3F4F6",
     color: "#4B5563",
@@ -458,9 +483,12 @@ function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents, onImport
               )}
             </div>
           )}
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
             <button
-              onClick={(e) => { e.stopPropagation(); onImportReply(row.to_company); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onImportReply(row.to_company);
+              }}
               style={{
                 padding: "6px 14px",
                 border: "1px solid #2563EB",
@@ -474,8 +502,26 @@ function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents, onImport
             >
               + 导入回信
             </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(
+                  `/chat?context=outreach&company=${encodeURIComponent(row.to_company)}&event_id=${row.id}`,
+                );
+              }}
+              style={{
+                padding: "6px 14px",
+                fontSize: 12,
+                border: "1px solid #E2E8F0",
+                borderRadius: 7,
+                background: "#fff",
+                color: "#334155",
+                cursor: "pointer",
+              }}
+            >
+              💬 在 chat 讨论这条
+            </button>
           </div>
-
           {threadEvents.length > 0 && (
             <div>
               <div style={detailLabelStyle}>同对手历史 ({threadEvents.length})</div>

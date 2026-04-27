@@ -18,6 +18,7 @@ import { ChatHeaderControls } from "@/components/chat/ChatHeaderControls";
 import { ChatInputBar } from "@/components/chat/ChatInputBar";
 import { ChatEmptyState } from "@/components/chat/ChatEmptyState";
 import { ChatTitleEditor } from "@/components/chat/ChatTitleEditor";
+import Link from "next/link";
 
 export default function ChatPage() {
   const {
@@ -239,6 +240,34 @@ export default function ChatPage() {
             onRename={(next) => activeId && renameSession(activeId, next)}
           />
           <div className="chat-header-actions">
+            <Link
+              href="/outreach"
+              style={{
+                fontSize: 12,
+                padding: "3px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--border-light)",
+                color: "var(--text-secondary)",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              📊 Outreach
+            </Link>
+            <Link
+              href="/watchlist"
+              style={{
+                fontSize: 12,
+                padding: "3px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--border-light)",
+                color: "var(--text-secondary)",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              📋 Watchlist
+            </Link>
             <ModelPicker compact />
             <ChatHeaderControls
               searchMode={searchMode}
