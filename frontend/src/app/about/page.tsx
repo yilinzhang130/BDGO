@@ -1,6 +1,52 @@
 import { LandingNav } from "@/components/LandingNav";
 import Link from "next/link";
 
+const team = [
+  {
+    name: "蒋晓阳",
+    suffix: "CFA",
+    role: "创始人 & CEO",
+    bio: "20 年华尔街及跨境投行、并购、投资经验。曾任 ISI Group 中国区总经理、罗仕证券 (Roth Capital) 医疗资深分析师。",
+  },
+  {
+    name: "陶琨",
+    suffix: "CFA",
+    role: "管理合伙人 · 美国业务",
+    bio: "20 年华尔街及跨境投行 + 医药技术授权交易经验。曾任罗仕证券中国研究总监、Connective Capital 资深分析师。",
+  },
+  {
+    name: "郑帆",
+    role: "管理合伙人",
+    bio: "深度参与 30+ 个全球生命科学授权及跨境金融交易。曾任罗仕证券医疗板块资深研究员；神经介入医疗技术公司天使投资人。",
+  },
+  {
+    name: "姚恁工",
+    role: "管理合伙人",
+    bio: "30+ 年医疗背景，7 年 AstraZeneca China。共同创办 Cyberpharm Investment 与 Sino-Octa Holdings；多年上海仁济医院从业经验。",
+  },
+  {
+    name: "叶多",
+    role: "中国业务管理合伙人",
+    bio: "25+ 年制药行业。曾任 GSK 中国 BD/AM 负责人、GSK 中国领导团队成员；前 GE Healthcare 张江工厂项目经理。",
+  },
+  {
+    name: "马赛",
+    role: "雅法-上洛 CEO",
+    bio: "GSK 中国/美国/英国/日本 14 年。参与卫材并购、广东天普二个创新蛋白药物市场化（年销破 10 亿，被武田收购）；参与艾迪药业创建（2020 年科创板 IPO）。",
+  },
+  {
+    name: "张艺林",
+    suffix: "CFA",
+    role: "雅法基金合伙人",
+    bio: "10 年生物医药投资及产业经验。曾任百普赛斯 CVC 投资负责人；先后任职费森尤斯卡比、贝朗、诺华、安图生物。",
+  },
+  {
+    name: "黎琦",
+    role: "BD 总监",
+    bio: "海外医药行业分析、投融资及 licensing 业务经验。参与 15+ 跨境交易项目；维护 300+ 中国医药公司联络。",
+  },
+];
+
 const principles = [
   {
     title: "三条产品线一根主线",
@@ -106,10 +152,9 @@ export default function AboutPage() {
             起点
           </h2>
           <p style={{ fontSize: 15, color: "#475569", lineHeight: 1.85, margin: "0 0 14px" }}>
-            BD Go 来自雅法资本（YAFO
-            Capital）。雅法是一家专注生物医药的投资机构，我们在做投资和投后管理的过程中，对 BD
-            与立项这件事有相对完整的一手观察——从一个 license 的问询到 term
-            sheet、从一个候选靶点到立项包，整条路径上每一处卡点都见过。
+            BD Go 来自雅法资本（YAFO Capital）。雅法成立于 2013
+            年，是一家专注生物医药的跨境交易投行——过去十年累积推进了大量海外项目进入中国、协助多家中国公司完成海外授权，跨境授权交易数量连续三年中国第一。十年里我们在
+            term sheet 桌的两边都坐过，对 BD 与立项这件事有相对完整的一手观察。
           </p>
           <p style={{ fontSize: 15, color: "#475569", lineHeight: 1.85, margin: "0 0 14px" }}>
             最重的卡点不是判断本身，是判断之前要做的信息整理工作。BD
@@ -126,6 +171,155 @@ export default function AboutPage() {
             我们不打算覆盖所有人。BD Go 是给已经在做药、做 BD、做立项的人用的——它不是为"看看 AI
             能干嘛"的好奇心准备的，它是为这件事下周二的投决会准备的。
           </p>
+        </div>
+      </div>
+
+      {/* Track record strip */}
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 32px 56px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {[
+            ["2013", "雅法资本成立"],
+            ["10+ 年", "跨境交易经验"],
+            ["20+ 亿美元", "团队累计交易额"],
+            ["三年第一", "中国跨境授权交易（2022–2024）"],
+          ].map(([metric, label]) => (
+            <div
+              key={label}
+              style={{
+                background: "#fff",
+                borderRadius: 12,
+                border: "1px solid #E8EFFE",
+                padding: "20px 22px",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: "#1E3A8A",
+                  letterSpacing: "-0.02em",
+                  marginBottom: 6,
+                }}
+              >
+                {metric}
+              </div>
+              <div style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Team */}
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px 64px" }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#64748B",
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            marginBottom: 8,
+            textAlign: "center",
+          }}
+        >
+          团队
+        </div>
+        <h2
+          style={{
+            fontSize: 22,
+            fontWeight: 800,
+            color: "#0F172A",
+            textAlign: "center",
+            margin: "0 0 28px",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          做 BD Go 的人
+        </h2>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {team.map((m) => (
+            <div
+              key={m.name}
+              style={{
+                background: "#fff",
+                borderRadius: 14,
+                border: "1px solid #E8EFFE",
+                padding: "22px 24px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: "#0F172A",
+                  marginBottom: 4,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {m.name}
+                {m.suffix && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#1E3A8A",
+                      background: "#EEF2FF",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      marginLeft: 8,
+                      letterSpacing: ".05em",
+                    }}
+                  >
+                    {m.suffix}
+                  </span>
+                )}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#2563EB",
+                  marginBottom: 10,
+                  letterSpacing: ".02em",
+                }}
+              >
+                {m.role}
+              </div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.7 }}>{m.bio}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Offices */}
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 32px 64px", textAlign: "center" }}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: "#94A3B8",
+            letterSpacing: ".12em",
+            textTransform: "uppercase",
+            marginBottom: 10,
+          }}
+        >
+          全球网络
+        </div>
+        <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.8 }}>
+          总部上海 · 波士顿 · 洛杉矶 · 东京 · 米兰 · 阿姆斯特丹 · 都柏林
         </div>
       </div>
 
