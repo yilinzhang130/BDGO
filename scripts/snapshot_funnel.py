@@ -28,10 +28,10 @@ def _fetch_funnel(days: int) -> dict:
             """
             SELECT status, COUNT(*) AS cnt
             FROM outreach_log
-            WHERE created_at >= NOW() - (%s || ' days')::INTERVAL
+            WHERE created_at >= NOW() - %s * INTERVAL '1 day'
             GROUP BY status
             """,
-            (str(days),),
+            (days,),
         )
         rows = cur.fetchall()
 
@@ -69,11 +69,11 @@ def _fetch_slash_usage(days: int) -> list[dict]:
             """
             SELECT slug, COUNT(*) AS cnt
             FROM report_history
-            WHERE created_at >= NOW() - (%s || ' days')::INTERVAL
+            WHERE created_at >= NOW() - %s * INTERVAL '1 day'
             GROUP BY slug
             ORDER BY cnt DESC
             """,
-            (str(days),),
+            (days,),
         )
         rows = cur.fetchall()
 
