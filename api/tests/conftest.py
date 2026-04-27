@@ -63,6 +63,24 @@ if "crm_db" not in sys.modules:
     _stub._TABLE_ALIAS = {}
     sys.modules["crm_db"] = _stub
 
+# certifi's cacert.pem may be absent in the Homebrew Python environment
+# (the file exists in the package but the actual .pem is missing).
+# Redirect to the macOS system CA bundle so httpx.Client() can initialise
+# at module-level without raising FileNotFoundError.
+if "certifi" not in sys.modules:
+    _certifi_stub = types.ModuleType("certifi")
+    _certifi_stub.where = lambda: "/etc/ssl/cert.pem"
+    sys.modules["certifi"] = _certifi_stub
+
+# services/quality/schema_validator.py imports ``yaml`` (PyYAML) which may
+# not be installed in the test runner's Python environment.
+if "yaml" not in sys.modules:
+    _yaml_stub = types.ModuleType("yaml")
+    _yaml_stub.safe_load = lambda stream: {}
+    _yaml_stub.dump = lambda data, **kw: ""
+    _yaml_stub.YAMLError = Exception
+    sys.modules["yaml"] = _yaml_stub
+
 
 # ════════════════════���══════════════════════════════════════��════
 # 用户 fixtures — 各种权限的模拟用户 dict
