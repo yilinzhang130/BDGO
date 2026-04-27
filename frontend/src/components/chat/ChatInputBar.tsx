@@ -186,8 +186,14 @@ export function ChatInputBar({
           </div>
 
           <button
-            onClick={onSend}
-            disabled={!input.trim() || isStreaming || input.startsWith("/")}
+            onClick={() => {
+              if (slashOpen && filtered.length > 0) {
+                onSlashSelect(filtered[slashActiveIndex]);
+              } else if (!input.startsWith("/")) {
+                onSend();
+              }
+            }}
+            disabled={!input.trim() || isStreaming || slashParsing}
             className="chat-send-btn"
           >
             {isStreaming ? "\u2026" : "\u2191"}
