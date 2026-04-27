@@ -80,8 +80,10 @@ export default function ApiDocsPage() {
             flexWrap: "wrap",
           }}
         >
-          <Link
+          <a
             href="/api/public/docs"
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               fontSize: 14,
               fontWeight: 600,
@@ -92,8 +94,8 @@ export default function ApiDocsPage() {
               textDecoration: "none",
             }}
           >
-            打开交互式文档 →
-          </Link>
+            打开交互式文档 ↗
+          </a>
           <Link
             href="/settings/api-keys"
             style={{

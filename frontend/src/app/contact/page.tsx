@@ -10,7 +10,19 @@ export default function ContactPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In production this would POST to an endpoint
+    // No backend inquiry endpoint yet — open the user's mail client with
+    // a prefilled message instead of silently dropping the form data.
+    const subject = `[BD Go] ${form.company || form.name || "新留言"}`;
+    const body = [
+      `姓名: ${form.name}`,
+      `邮箱: ${form.email}`,
+      `公司: ${form.company}`,
+      "",
+      form.message,
+    ].join("\n");
+    window.location.href = `mailto:hello@bdgo.ai?subject=${encodeURIComponent(
+      subject,
+    )}&body=${encodeURIComponent(body)}`;
     setSent(true);
   };
 

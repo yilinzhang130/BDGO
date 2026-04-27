@@ -545,18 +545,19 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
   }
 
   if (kind === "pricing") {
-    const tiers: [string, string, string, string][] = [
-      ["Starter", "免费", "5 个 Agent · 月 50 次查询", T.fg3],
-      ["Team", "¥ 4,800 / 席 / 月", "全部 Agent · 立项报告 · DEF 接入", T.brand],
-      ["Enterprise", "面议", "AIDD 流水线 · 私有部署 · SSO", T.accent2],
+    const tiers: [string, string, string, string, string][] = [
+      ["Free", "¥0", "先看看产品长什么样 · 不绑卡", T.fg3, "/pricing#free"],
+      ["Team", "¥9,800 / 月", "BD 团队日常 · 5 席 · 月 50 份报告", T.brand, "/pricing#team"],
+      ["Pro", "¥24,800 / 月", "活跃交易团队 · 不限次 · DEF 接入", T.accent2, "/pricing#pro"],
+      ["Enterprise", "联系销售", "AIDD 流水线 · SSO · 私有部署", T.accent3, "/pricing#enterprise"],
     ];
     return (
-      <div style={{ ...wrap, minWidth: 480 }}>
-        <div style={eyebrow}>三档定价</div>
-        {tiers.map(([n, p, d, c]) => (
+      <div style={{ ...wrap, minWidth: 520 }}>
+        <div style={eyebrow}>四档定价</div>
+        {tiers.map(([n, p, d, c, href]) => (
           <Link
             key={n}
-            href="/pricing"
+            href={href}
             style={{
               display: "grid",
               gridTemplateColumns: "110px 1fr auto",
@@ -607,11 +608,11 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
     ["v0.9.0", "BD GO 多 Agent 协作", null],
     ["所有版本", "Release Notes →", null],
   ];
-  const blog: [string, string][] = [
-    ["从 BD 到立项的 4 小时", "工程实践"],
-    ["DEF 是什么 · 设计原理", "产品思考"],
-    ["AIDD 流水线技术白皮书", "技术博客"],
-    ["API 文档", "Developer"],
+  const blog: [string, string, string][] = [
+    ["从 BD 到立项的 4 小时", "工程实践", "/blog"],
+    ["DEF 是什么 · 设计原理", "产品思考", "/blog"],
+    ["AIDD 流水线技术白皮书", "技术博客", "/blog"],
+    ["API 文档", "Developer", "/api-docs"],
   ];
   return (
     <div style={wrap}>
@@ -664,10 +665,10 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
         </div>
         <div>
           <div style={eyebrow}>博客 · 文档</div>
-          {blog.map(([t, d]) => (
+          {blog.map(([t, d, href]) => (
             <Link
               key={t}
-              href="/blog"
+              href={href}
               style={{
                 display: "block",
                 padding: "7px 10px",
