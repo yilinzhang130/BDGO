@@ -20,6 +20,7 @@ export const zh: Record<string, string> = {
   "nav.buyers": "买方",
   "nav.deals": "交易",
   "nav.dashboard": "仪表盘",
+  "nav.sell": "我要卖",
   "nav.watchlist": "关注",
   "nav.outreach": "外联",
   "nav.catalysts": "催化剂",

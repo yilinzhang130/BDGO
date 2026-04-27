@@ -20,6 +20,7 @@ export const en: Record<string, string> = {
   "nav.buyers": "Buyers",
   "nav.deals": "Deals",
   "nav.dashboard": "Dashboard",
+  "nav.sell": "Sell-side",
   "nav.watchlist": "Watchlist",
   "nav.outreach": "Outreach",
   "nav.catalysts": "Catalysts",

@@ -88,6 +88,7 @@ from routers import (
     outreach,
     reports,
     search,
+    sell,
     stats,
     tasks,
     upload,
@@ -274,6 +275,7 @@ app.include_router(
     watchlist.router, prefix="/api/watchlist", tags=["watchlist"], dependencies=_auth
 )
 app.include_router(outreach.router, prefix="/api/outreach", tags=["outreach"], dependencies=_auth)
+app.include_router(sell.router, prefix="/api/sell", tags=["sell"], dependencies=_auth)
 app.include_router(aidd_sso.router, prefix="/api", tags=["aidd-sso"], dependencies=_auth)
 app.include_router(inbox.router, prefix="/api/inbox", tags=["inbox"], dependencies=_auth)
 app.include_router(
