@@ -1,6 +1,7 @@
 import { LandingNav } from "@/components/LandingNav";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { DOCS_VERSION, DOCS_UPDATED, DOCS_BODY, DOCS_TOC } from "./content";
 
 export default function DocsPage() {
@@ -113,7 +114,9 @@ export default function DocsPage() {
               color: "#0F172A",
             }}
           >
-            <Markdown remarkPlugins={[remarkGfm]}>{DOCS_BODY}</Markdown>
+            <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+              {DOCS_BODY}
+            </Markdown>
           </div>
         </div>
       </div>

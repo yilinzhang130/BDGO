@@ -230,7 +230,12 @@ export function SlashCommandPopup({
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
-                {cmd.displayName}
+                {cmd.displayName === cmd.slug
+                  ? cmd.slug
+                      .split("-")
+                      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                      .join(" ")
+                  : cmd.displayName}
               </span>
               <span
                 style={{
@@ -243,7 +248,7 @@ export function SlashCommandPopup({
                   whiteSpace: "nowrap",
                 }}
               >
-                {cmd.description}
+                {cmd.description || (cmd.example ? `e.g. ${cmd.example}` : "")}
               </span>
             </span>
             {cmd.estimatedSeconds ? (
