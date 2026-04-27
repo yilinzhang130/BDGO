@@ -112,9 +112,7 @@ export function ChatInputBar({
               gap: 6,
             }}
           >
-            <span style={{ flex: 1 }}>
-              💡 这个功能已迁到 Outreach 工作台（即将上线），更好用
-            </span>
+            <span style={{ flex: 1 }}>💡 这个功能已迁到 Outreach 工作台（即将上线），更好用</span>
             <a
               href="#"
               onClick={(e) => e.preventDefault()}

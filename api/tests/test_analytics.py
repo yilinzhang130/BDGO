@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-
 # ---------------------------------------------------------------------------
 # Helper — reuse the same pattern as test_team_router.py
 # ---------------------------------------------------------------------------
