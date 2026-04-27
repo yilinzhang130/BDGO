@@ -218,4 +218,39 @@ describe("<SlashCommandPopup />", () => {
     expect(options[1]).toHaveAttribute("aria-selected", "true");
     expect(options[0]).toHaveAttribute("aria-selected", "false");
   });
+
+  // P1-7: production wiring passes ["C"] so the 5 outreach-workspace
+  // commands stay typeable but disappear from suggestions. The popup
+  // applies the filter itself so the test can pass the raw catalogue.
+  describe("hideCategories filter", () => {
+    it("hides C-class (24 of 29 visible) when hideCategories=['C']", () => {
+      render(
+        <SlashCommandPopup
+          commands={COMMANDS}
+          activeIndex={0}
+          onSelect={() => {}}
+          onHover={() => {}}
+          hideCategories={["C"]}
+        />,
+      );
+      expect(screen.getAllByRole("option")).toHaveLength(24);
+      expect(screen.queryByText("/email")).not.toBeInTheDocument();
+      expect(screen.queryByText("/log")).not.toBeInTheDocument();
+      expect(screen.getByText("/paper")).toBeInTheDocument();
+    });
+
+    it("shows all 29 when hideCategories=[]", () => {
+      render(
+        <SlashCommandPopup
+          commands={COMMANDS}
+          activeIndex={0}
+          onSelect={() => {}}
+          onHover={() => {}}
+          hideCategories={[]}
+        />,
+      );
+      expect(screen.getAllByRole("option")).toHaveLength(29);
+      expect(screen.getByText("/email")).toBeInTheDocument();
+    });
+  });
 });
