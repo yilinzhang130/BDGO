@@ -545,18 +545,19 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
   }
 
   if (kind === "pricing") {
-    const tiers: [string, string, string, string][] = [
-      ["Starter", "免费", "5 个 Agent · 月 50 次查询", T.fg3],
-      ["Team", "¥ 4,800 / 席 / 月", "全部 Agent · 立项报告 · DEF 接入", T.brand],
-      ["Enterprise", "面议", "AIDD 流水线 · 私有部署 · SSO", T.accent2],
+    const tiers: [string, string, string, string, string][] = [
+      ["Free", "¥0", "先看看产品长什么样 · 不绑卡", T.fg3, "/pricing#free"],
+      ["Team", "¥9,800 / 月", "BD 团队日常 · 5 席 · 月 50 份报告", T.brand, "/pricing#team"],
+      ["Pro", "¥24,800 / 月", "活跃交易团队 · 不限次 · DEF 接入", T.accent2, "/pricing#pro"],
+      ["Enterprise", "联系销售", "AIDD 流水线 · SSO · 私有部署", T.accent3, "/pricing#enterprise"],
     ];
     return (
-      <div style={{ ...wrap, minWidth: 480 }}>
-        <div style={eyebrow}>三档定价</div>
-        {tiers.map(([n, p, d, c]) => (
+      <div style={{ ...wrap, minWidth: 520 }}>
+        <div style={eyebrow}>四档定价</div>
+        {tiers.map(([n, p, d, c, href]) => (
           <Link
             key={n}
-            href="/pricing"
+            href={href}
             style={{
               display: "grid",
               gridTemplateColumns: "110px 1fr auto",
