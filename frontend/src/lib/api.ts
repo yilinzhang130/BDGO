@@ -593,6 +593,31 @@ export const checkWatchlist = (entity_type: string, entity_key: string) =>
   get<{ watched: boolean; id?: number }>(`${BASE}/watchlist/check`, { entity_type, entity_key });
 
 // ═══════════════════════════════════════════
+// Sell-side workspace (Phase 2, P2-1) — backs the /sell page
+// ═══════════════════════════════════════════
+
+export interface SellAsset {
+  id: number;
+  entity_key: string;
+  notes: string | null;
+  added_at: string | null;
+  outreach_count: number;
+  last_outreach_at: string | null;
+  crm_metadata: Record<string, unknown> | null;
+}
+
+export interface SellAssetsResponse {
+  data: SellAsset[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export const fetchSellAssets = (params?: { page?: number; page_size?: number }) =>
+  get<SellAssetsResponse>(`${BASE}/sell/assets`, params || {});
+
+// ═══════════════════════════════════════════
 // Outreach (Phase 1, P1-3) — backs the /outreach workspace page
 // ═══════════════════════════════════════════
 

@@ -166,6 +166,22 @@ const Icon = {
       <path d="M14.5 1.5L10 14l-2.5-5.5L2 6l12.5-4.5z" />
     </svg>
   ),
+  briefcase: (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="1.5" y="4.5" width="13" height="9" rx="1.5" />
+      <path d="M5.5 4.5V3a1 1 0 011-1h3a1 1 0 011 1v1.5" />
+      <path d="M1.5 9h13" />
+    </svg>
+  ),
   clock: (
     <svg
       width="12"
@@ -315,6 +331,7 @@ const getNews = (t: TFn): NavItem[] => [
 
 const getTools = (t: TFn): NavItem[] => [
   { href: "/dashboard", label: t("nav.dashboard"), icon: Icon.grid },
+  { href: "/sell", label: t("nav.sell"), icon: Icon.briefcase },
   { href: "/watchlist", label: t("nav.watchlist"), icon: Icon.star },
   { href: "/outreach", label: t("nav.outreach"), icon: Icon.send },
   { href: "/catalysts", label: t("nav.catalysts"), icon: Icon.zap },
