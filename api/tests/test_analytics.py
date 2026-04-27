@@ -62,9 +62,7 @@ def test_track_event_background_args(client, ext_headers, external_user):
             headers=ext_headers,
             json={"event": "slash_used", "properties": {"slash": "/outreach"}},
         )
-    mock_write.assert_called_once_with(
-        external_user["id"], "slash_used", {"slash": "/outreach"}
-    )
+    mock_write.assert_called_once_with(external_user["id"], "slash_used", {"slash": "/outreach"})
 
 
 def test_track_event_requires_auth(client):
@@ -149,9 +147,7 @@ def test_outreach_funnel_custom_days(client, admin_headers):
     """?days=7 is passed through to the response."""
     mock_tx, mock_cur = _mock_tx(rows_list=[])
     with patch("routers.analytics.transaction", mock_tx):
-        data = client.get(
-            "/api/analytics/outreach-funnel?days=7", headers=admin_headers
-        ).json()
+        data = client.get("/api/analytics/outreach-funnel?days=7", headers=admin_headers).json()
 
     assert data["window_days"] == 7
     sql_call = mock_cur.execute.call_args
