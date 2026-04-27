@@ -115,7 +115,7 @@ export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F8FAFF", fontFamily: "Inter, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F5F4EE", fontFamily: "Inter, sans-serif" }}>
       <LandingNav />
 
       {/* Hero */}
@@ -268,7 +268,7 @@ export default function PricingPage() {
               <div
                 key={q}
                 style={{
-                  background: "#F8FAFF",
+                  background: "#F5F4EE",
                   border: "1px solid #E8EFFE",
                   borderRadius: 12,
                   padding: "20px 24px",

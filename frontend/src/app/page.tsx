@@ -76,7 +76,7 @@ const fontSerif =
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
-  const ctaHref = user ? "/chat" : "/login";
+  const ctaHref = user ? "/chat" : "/apply";
 
   const [theme, setTheme] = useState<Theme>("light");
 
@@ -603,10 +603,10 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
 
   // resources
   const releases: [string, string, string | null, string][] = [
-    ["v0.9.2", "AIDD 流水线 GA · 2026.04.26", "NEW", "/blog/v0-9-2-aidd-ga"],
-    ["v0.9.1", "DEF 痛点引擎公测", null, "/blog/v0-9-1-def-beta"],
-    ["v0.9.0", "BD GO 工作台开放", null, "/blog/v0-9-0-bd-go-launch"],
-    ["所有版本", "Release Notes →", null, "/blog"],
+    ["v0.9.2", "AIDD 流水线 GA · 2026.04.26", "NEW", "/changelog"],
+    ["v0.9.1", "DEF 痛点引擎公测", null, "/changelog"],
+    ["v0.9.0", "BD GO 工作台开放", null, "/changelog"],
+    ["所有版本", "版本记录 →", null, "/changelog"],
   ];
   const blog: [string, string, string][] = [
     ["从 BD 到立项的 4 小时", "工程实践", "/blog/bd-to-project-in-4-hours"],

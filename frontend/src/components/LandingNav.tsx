@@ -67,7 +67,7 @@ export function LandingNav() {
           登录
         </Link>
         <Link
-          href="/login"
+          href="/apply"
           style={{
             fontSize: 13,
             fontWeight: 600,
