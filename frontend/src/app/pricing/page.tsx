@@ -274,9 +274,7 @@ export default function PricingPage() {
                   padding: "20px 24px",
                 }}
               >
-                <div
-                  style={{ fontSize: 14, fontWeight: 700, color: "#0F172A", marginBottom: 6 }}
-                >
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A", marginBottom: 6 }}>
                   {q}
                 </div>
                 <div style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.7 }}>{a}</div>
