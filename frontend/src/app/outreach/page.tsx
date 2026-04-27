@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   deleteOutreachEvent,
   fetchOutreachEvents,
@@ -54,6 +55,7 @@ function formatDate(iso: string): string {
 }
 
 export default function OutreachPage() {
+  const router = useRouter();
   const [data, setData] = useState<OutreachListResponse | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -184,6 +186,22 @@ export default function OutreachPage() {
               </option>
             ))}
           </select>
+          <button
+            onClick={() => router.push("/outreach/compose")}
+            style={{
+              padding: "9px 16px",
+              background: "#2563EB",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            + Compose
+          </button>
         </div>
 
         {/* Error */}
