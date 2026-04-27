@@ -65,9 +65,9 @@ const DARK: Tokens = {
 };
 
 const fontSans =
-  '"Space Grotesk", "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+  '"Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", -apple-system, sans-serif';
 const fontMono = '"JetBrains Mono", ui-monospace, Menlo, monospace';
-const fontSerif = '"Instrument Serif", "Noto Serif SC", "Songti SC", "STSong", Georgia, serif';
+const fontSerif = '"Noto Serif SC", "Songti SC", "STSong", "Instrument Serif", Georgia, serif';
 
 // ---------------------------------------------------------------------------
 // Page
@@ -120,9 +120,7 @@ export default function LandingPage() {
         html { scroll-behavior: smooth; }
       `}</style>
 
-      <ThemeToggle theme={theme} onChange={setTheme} T={T} />
-
-      <Nav T={T} ctaHref={ctaHref} authReady={!loading} authed={!!user} />
+      <Nav T={T} ctaHref={ctaHref} authReady={!loading} authed={!!user} theme={theme} onThemeChange={setTheme} />
 
       <Hero T={T} dark={dark} ctaHref={ctaHref} />
 
@@ -139,66 +137,6 @@ export default function LandingPage() {
       <FooterCTA T={T} dark={dark} ctaHref={ctaHref} />
 
       <FooterMeta T={T} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Theme toggle (floating, top-right)
-// ---------------------------------------------------------------------------
-
-function ThemeToggle({
-  theme,
-  onChange,
-  T,
-}: {
-  theme: Theme;
-  onChange: (t: Theme) => void;
-  T: Tokens;
-}) {
-  const seg = (active: boolean): React.CSSProperties => ({
-    padding: "5px 12px",
-    borderRadius: 999,
-    fontSize: 11,
-    fontFamily: fontMono,
-    letterSpacing: ".06em",
-    fontWeight: 600,
-    cursor: "pointer",
-    background: active ? T.brand : "transparent",
-    color: active ? "#fff" : T.fg2,
-    border: "none",
-    transition: "background 0.15s, color 0.15s",
-  });
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 16,
-        right: 16,
-        zIndex: 1000,
-        display: "flex",
-        gap: 2,
-        padding: 3,
-        borderRadius: 999,
-        background: `${T.bg}CC`,
-        backdropFilter: "blur(10px)",
-        border: `1px solid ${T.border}`,
-      }}
-    >
-      <button
-        onClick={() => onChange("light")}
-        style={seg(theme === "light")}
-        aria-label="Light theme"
-      >
-        ☀ Light
-      </button>
-      <button
-        onClick={() => onChange("dark")}
-        style={seg(theme === "dark")}
-        aria-label="Dark theme"
-      >
-        ☾ Dark
-      </button>
     </div>
   );
 }
@@ -237,11 +175,15 @@ function Nav({
   ctaHref,
   authReady,
   authed,
+  theme,
+  onThemeChange,
 }: {
   T: Tokens;
   ctaHref: string;
   authReady: boolean;
   authed: boolean;
+  theme: Theme;
+  onThemeChange: (t: Theme) => void;
 }) {
   const [open, setOpen] = useState<MegaKind>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -401,6 +343,39 @@ function Nav({
         <Link href="/blog" style={{ ...link, fontSize: 13 }}>
           博客
         </Link>
+        <div
+          style={{
+            display: "flex",
+            gap: 2,
+            padding: 3,
+            borderRadius: 999,
+            background: T.bgAlt,
+            border: `1px solid ${T.border}`,
+          }}
+        >
+          {(["light", "dark"] as Theme[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => onThemeChange(t)}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 999,
+                fontSize: 11,
+                fontFamily: fontMono,
+                letterSpacing: ".06em",
+                fontWeight: 600,
+                cursor: "pointer",
+                background: theme === t ? T.brand : "transparent",
+                color: theme === t ? "#fff" : T.fg2,
+                border: "none",
+                transition: "background 0.15s, color 0.15s",
+              }}
+              aria-label={t === "light" ? "Light theme" : "Dark theme"}
+            >
+              {t === "light" ? "☀ Light" : "☾ Dark"}
+            </button>
+          ))}
+        </div>
         {authReady &&
           (authed ? (
             <Link
@@ -820,7 +795,8 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
                 lineHeight: 0.9,
                 letterSpacing: "-0.04em",
                 marginTop: 8,
-                fontStyle: "italic",
+                fontWeight: 700,
+                fontSynthesis: "none",
                 background: dark
                   ? `linear-gradient(180deg, ${T.fg} 0%, ${T.accent1} 100%)`
                   : `linear-gradient(180deg, ${T.brand} 0%, ${T.accent1} 100%)`,

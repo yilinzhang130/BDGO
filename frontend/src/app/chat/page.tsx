@@ -265,7 +265,13 @@ export default function ChatPage() {
 
         <div className="chat-history" ref={scrollRef}>
           {isEmpty ? (
-            <ChatEmptyState onSuggestionClick={handleSend} />
+            <ChatEmptyState
+              onSuggestionClick={handleSend}
+              onCommandPrefill={(cmd) => {
+                setInput(cmd);
+                inputRef.current = cmd;
+              }}
+            />
           ) : (
             <div className="chat-messages">
               {messages.map((m) => (
