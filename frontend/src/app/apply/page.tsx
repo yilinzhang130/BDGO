@@ -104,8 +104,8 @@ export default function ApplyPage() {
             让判断先于信息
           </h1>
           <p style={{ fontSize: 15, color: TEXT2, lineHeight: 1.7, margin: 0 }}>
-            BD Go 现在面向邀请制早期团队开放。告诉我们你的工作背景，
-            我们会在 2 个工作日内回复并发送邀请码。
+            BD Go 现在面向邀请制早期团队开放。告诉我们你的工作背景， 我们会在 2
+            个工作日内回复并发送邀请码。
           </p>
         </div>
 
@@ -137,14 +137,11 @@ export default function ApplyPage() {
               >
                 ✓
               </div>
-              <h3
-                style={{ fontSize: 20, fontWeight: 700, color: TEXT, margin: "0 0 10px" }}
-              >
+              <h3 style={{ fontSize: 20, fontWeight: 700, color: TEXT, margin: "0 0 10px" }}>
                 申请已提交
               </h3>
               <p style={{ fontSize: 14, color: TEXT2, lineHeight: 1.6, margin: "0 0 24px" }}>
-                我们会在 2 个工作日内审核并发送邀请码到你的邮箱。
-                如有急需可直接联系{" "}
+                我们会在 2 个工作日内审核并发送邀请码到你的邮箱。 如有急需可直接联系{" "}
                 <a href="mailto:hello@bdgo.ai" style={{ color: ACCENT }}>
                   hello@bdgo.ai
                 </a>
@@ -181,8 +178,7 @@ export default function ApplyPage() {
                 </div>
                 <div>
                   <label style={labelStyle}>
-                    公司 / 机构{" "}
-                    <span style={{ color: ACCENT, fontWeight: 400 }}>*</span>
+                    公司 / 机构 <span style={{ color: ACCENT, fontWeight: 400 }}>*</span>
                   </label>
                   <input
                     required
@@ -223,8 +219,7 @@ export default function ApplyPage() {
               {/* Why */}
               <div>
                 <label style={labelStyle}>
-                  为什么需要 BD Go？{" "}
-                  <span style={{ color: ACCENT, fontWeight: 400 }}>*</span>
+                  为什么需要 BD Go？ <span style={{ color: ACCENT, fontWeight: 400 }}>*</span>
                 </label>
                 <textarea
                   required
@@ -259,7 +254,9 @@ export default function ApplyPage() {
                 提交申请
               </button>
 
-              <p style={{ fontSize: 11, color: TEXT2, textAlign: "center", margin: 0, opacity: 0.7 }}>
+              <p
+                style={{ fontSize: 11, color: TEXT2, textAlign: "center", margin: 0, opacity: 0.7 }}
+              >
                 提交即表示同意我们的{" "}
                 <Link href="/privacy" style={{ color: TEXT2 }}>
                   隐私政策
