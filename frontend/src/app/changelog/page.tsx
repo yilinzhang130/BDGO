@@ -53,8 +53,7 @@ const releases = [
     date: "2026-03-20",
     badge: null,
     title: "BD GO 工作台开放",
-    summary:
-      "BD Go 的对话工作台正式开放给所有受邀团队。一个输入框，连着一整条 BD 工作流。",
+    summary: "BD Go 的对话工作台正式开放给所有受邀团队。一个输入框，连着一整条 BD 工作流。",
     items: [
       "对话工作台向所有受邀团队开放",
       "接通监管申报、临床试验、文献、学术会议等公开数据源",
@@ -73,7 +72,9 @@ export default function ChangelogPage() {
       <LandingNav />
 
       {/* Hero */}
-      <div style={{ textAlign: "center", padding: "64px 32px 48px", maxWidth: 640, margin: "0 auto" }}>
+      <div
+        style={{ textAlign: "center", padding: "64px 32px 48px", maxWidth: 640, margin: "0 auto" }}
+      >
         <div
           style={{
             display: "inline-block",
