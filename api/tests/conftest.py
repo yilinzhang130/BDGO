@@ -70,8 +70,9 @@ if "crm_db" not in sys.modules:
 # first — if its where() resolves to a real file, leave it alone.
 if "certifi" not in sys.modules:
     try:
-        import certifi as _real_certifi  # type: ignore[import-untyped]
         import os as _os
+
+        import certifi as _real_certifi  # type: ignore[import-untyped]
 
         if not _os.path.exists(_real_certifi.where()):
             raise ImportError("certifi cacert.pem missing on disk")

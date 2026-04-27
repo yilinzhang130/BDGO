@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -50,12 +50,7 @@ export default function FunnelPage() {
     if (user && !isAdmin) router.replace("/chat");
   }, [user, isAdmin, router]);
 
-  useEffect(() => {
-    if (!isAdmin) return;
-    load(days);
-  }, [isAdmin, days]);
-
-  async function load(d: number) {
+  const load = useCallback(async (d: number) => {
     setLoading(true);
     setError(null);
     try {
@@ -74,7 +69,12 @@ export default function FunnelPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void load(days);
+  }, [isAdmin, days, load]);
 
   if (!user) return null;
   if (!isAdmin) return null;

@@ -14,7 +14,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Allow running from the repo root without installing the package
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
@@ -100,7 +100,7 @@ def main() -> None:
     slash = _fetch_slash_usage(args.days)
 
     snapshot = {
-        "snapshot_at": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "snapshot_at": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "window_days": args.days,
         "funnel": funnel,
         "slash_usage": slash,

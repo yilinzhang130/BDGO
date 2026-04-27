@@ -94,7 +94,12 @@ def insert_event(
                 notes,
             ),
         )
-        return cur.fetchone()[0]
+        # auth_db's pool sets cursor_factory=RealDictCursor by default, so
+        # fetchone() returns a dict. Subscript by column name, not index —
+        # the original ``[0]`` raised KeyError(0) in production whenever this
+        # ran against PG; it only surfaced after /api/outreach added real-DB
+        # integration coverage.
+        return int(cur.fetchone()["id"])
 
 
 # ─────────────────────────────────────────────────────────────
