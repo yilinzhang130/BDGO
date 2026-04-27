@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from auth import get_current_user
 from auth_db import transaction
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 router = APIRouter()
 
@@ -103,4 +103,78 @@ def list_sell_assets(
         "page_size": page_size,
         "total": total,
         "total_pages": max(1, -(-total // page_size)),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Single-asset detail endpoint — backs the /sell/[assetId] workspace
+# ---------------------------------------------------------------------------
+
+
+@router.get("/assets/{asset_id}")
+def get_sell_asset(asset_id: int, user: dict = Depends(get_current_user)):
+    """Return a single sell-side asset with full augmentation.
+
+    Used by the /sell/[assetId] detail page (P2-2). Same shape as one
+    item in the list endpoint, plus a recent-outreach preview (5 events)
+    and a placeholder ``timeline`` array the Overview tab can render
+    without a second round-trip.
+    """
+    user_id = user["id"]
+    with transaction() as cur:
+        cur.execute(
+            "SELECT id, entity_key, notes, added_at "
+            "FROM user_watchlists "
+            "WHERE id = %s AND user_id = %s AND entity_type = 'asset'",
+            (asset_id, user_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Sell-side asset not found")
+
+        key = row["entity_key"]
+
+        # Outreach stats — same best-effort match as the list endpoint.
+        cur.execute(
+            "SELECT COUNT(*) AS cnt, MAX(created_at) AS last_at "
+            "FROM outreach_log "
+            "WHERE user_id = %s AND asset_context ILIKE %s",
+            (user_id, f"%{key}%"),
+        )
+        stats = cur.fetchone() or {}
+
+        # Recent outreach preview — keep it small (5) so the Overview
+        # tab can render without paginating; full pipeline lives at
+        # /outreach.
+        cur.execute(
+            "SELECT id, to_company, to_contact, status, purpose, "
+            "subject, created_at "
+            "FROM outreach_log "
+            "WHERE user_id = %s AND asset_context ILIKE %s "
+            "ORDER BY created_at DESC LIMIT 5",
+            (user_id, f"%{key}%"),
+        )
+        recent = cur.fetchall() or []
+
+    last_at = stats.get("last_at")
+    return {
+        "id": row["id"],
+        "entity_key": key,
+        "notes": row["notes"],
+        "added_at": row["added_at"].isoformat() if row["added_at"] else None,
+        "outreach_count": int(stats.get("cnt") or 0),
+        "last_outreach_at": last_at.isoformat() if last_at else None,
+        "crm_metadata": None,
+        "recent_outreach": [
+            {
+                "id": r["id"],
+                "to_company": r["to_company"],
+                "to_contact": r.get("to_contact"),
+                "status": r["status"],
+                "purpose": r["purpose"],
+                "subject": r.get("subject"),
+                "created_at": r["created_at"].isoformat() if r.get("created_at") else "",
+            }
+            for r in recent
+        ],
     }
