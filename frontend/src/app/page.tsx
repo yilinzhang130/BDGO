@@ -607,11 +607,11 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
     ["v0.9.0", "BD GO 多 Agent 协作", null],
     ["所有版本", "Release Notes →", null],
   ];
-  const blog: [string, string][] = [
-    ["从 BD 到立项的 4 小时", "工程实践"],
-    ["DEF 是什么 · 设计原理", "产品思考"],
-    ["AIDD 流水线技术白皮书", "技术博客"],
-    ["API 文档", "Developer"],
+  const blog: [string, string, string][] = [
+    ["从 BD 到立项的 4 小时", "工程实践", "/blog"],
+    ["DEF 是什么 · 设计原理", "产品思考", "/blog"],
+    ["AIDD 流水线技术白皮书", "技术博客", "/blog"],
+    ["API 文档", "Developer", "/api-docs"],
   ];
   return (
     <div style={wrap}>
@@ -664,10 +664,10 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
         </div>
         <div>
           <div style={eyebrow}>博客 · 文档</div>
-          {blog.map(([t, d]) => (
+          {blog.map(([t, d, href]) => (
             <Link
               key={t}
-              href="/blog"
+              href={href}
               style={{
                 display: "block",
                 padding: "7px 10px",
