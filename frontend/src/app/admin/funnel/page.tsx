@@ -130,18 +130,9 @@ export default function FunnelPage() {
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 gap-4">
-                  <RateCard
-                    label="Draft → Sent"
-                    rate={funnel.draft_to_sent_rate}
-                  />
-                  <RateCard
-                    label="Sent → Replied"
-                    rate={funnel.sent_to_replied_rate}
-                  />
-                  <RateCard
-                    label="Replied → Signed"
-                    rate={funnel.replied_to_signed_rate}
-                  />
+                  <RateCard label="Draft → Sent" rate={funnel.draft_to_sent_rate} />
+                  <RateCard label="Sent → Replied" rate={funnel.sent_to_replied_rate} />
+                  <RateCard label="Replied → Signed" rate={funnel.replied_to_signed_rate} />
                 </div>
               </div>
             )}
@@ -162,17 +153,13 @@ export default function FunnelPage() {
                           <th className="text-left px-4 py-2 text-gray-500 font-medium">
                             Slug / Alias
                           </th>
-                          <th className="text-right px-4 py-2 text-gray-500 font-medium">
-                            Calls
-                          </th>
+                          <th className="text-right px-4 py-2 text-gray-500 font-medium">Calls</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {slashUsage.data.map((row) => (
                           <tr key={row.slug} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 font-mono text-gray-700">
-                              /{row.slug}
-                            </td>
+                            <td className="px-4 py-2 font-mono text-gray-700">/{row.slug}</td>
                             <td className="px-4 py-2 text-right text-gray-900 font-medium">
                               {row.count.toLocaleString()}
                             </td>
@@ -209,8 +196,8 @@ function FunnelCard({
   const bg = accent
     ? "bg-green-50 border-green-200"
     : muted
-    ? "bg-gray-50 border-gray-200"
-    : "bg-white border-gray-200";
+      ? "bg-gray-50 border-gray-200"
+      : "bg-white border-gray-200";
   const text = accent ? "text-green-700" : muted ? "text-gray-400" : "text-gray-900";
 
   return (
@@ -237,8 +224,7 @@ function RateCard({ label, rate }: { label: string; rate: number }) {
 
 function authHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
-  const token =
-    localStorage.getItem("auth_token") ?? sessionStorage.getItem("auth_token");
+  const token = localStorage.getItem("auth_token") ?? sessionStorage.getItem("auth_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

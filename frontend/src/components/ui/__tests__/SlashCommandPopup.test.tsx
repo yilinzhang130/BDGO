@@ -127,10 +127,10 @@ describe("SLASH_COMMANDS category metadata", () => {
   });
 
   it("C-class is exactly the 5 outreach-workspace migrations", () => {
-    const cClass = SLASH_COMMANDS.filter((c) => c.category === "C").map((c) => c.alias).sort();
-    expect(cClass).toEqual(
-      ["batch-email", "email", "import-reply", "log", "outreach"].sort(),
-    );
+    const cClass = SLASH_COMMANDS.filter((c) => c.category === "C")
+      .map((c) => c.alias)
+      .sort();
+    expect(cClass).toEqual(["batch-email", "email", "import-reply", "log", "outreach"].sort());
   });
 
   it("all /draft-X are B-class (form-driven workspace migration)", () => {

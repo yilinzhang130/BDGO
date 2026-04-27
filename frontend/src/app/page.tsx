@@ -67,7 +67,8 @@ const DARK: Tokens = {
 const fontSans =
   '"Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", -apple-system, sans-serif';
 const fontMono = '"JetBrains Mono", ui-monospace, Menlo, monospace';
-const fontSerif = '"PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif';
+const fontSerif =
+  '"PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif';
 
 // ---------------------------------------------------------------------------
 // Page
@@ -120,7 +121,14 @@ export default function LandingPage() {
         html { scroll-behavior: smooth; }
       `}</style>
 
-      <Nav T={T} ctaHref={ctaHref} authReady={!loading} authed={!!user} theme={theme} onThemeChange={setTheme} />
+      <Nav
+        T={T}
+        ctaHref={ctaHref}
+        authReady={!loading}
+        authed={!!user}
+        theme={theme}
+        onThemeChange={setTheme}
+      />
 
       <Hero T={T} dark={dark} ctaHref={ctaHref} />
 
