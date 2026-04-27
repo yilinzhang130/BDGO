@@ -313,6 +313,18 @@ CREATE TABLE IF NOT EXISTS watchlist_shares (
 );
 CREATE INDEX IF NOT EXISTS idx_watchlist_shares_recipient
     ON watchlist_shares (shared_with_id);
+
+-- Analytics event log (P1-9): append-only, admin-readable, any-user writable.
+-- properties_json stores arbitrary key-value pairs per event.
+CREATE TABLE IF NOT EXISTS analytics_event (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    event_name VARCHAR(100) NOT NULL,
+    properties_json TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_event_user_created
+    ON analytics_event (user_id, created_at DESC);
 """
 
 # ---------------------------------------------------------------------------
