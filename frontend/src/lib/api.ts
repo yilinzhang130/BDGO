@@ -593,6 +593,74 @@ export const checkWatchlist = (entity_type: string, entity_key: string) =>
   get<{ watched: boolean; id?: number }>(`${BASE}/watchlist/check`, { entity_type, entity_key });
 
 // ═══════════════════════════════════════════
+// Outreach (Phase 1, P1-3) — backs the /outreach workspace page
+// ═══════════════════════════════════════════
+
+export interface OutreachEvent {
+  id: number;
+  to_company: string;
+  to_contact: string | null;
+  purpose: string;
+  channel: string;
+  status: string;
+  asset_context: string | null;
+  perspective: string | null;
+  subject: string | null;
+  notes: string | null;
+  session_id: string | null;
+  created_at: string;
+}
+
+export interface OutreachListResponse {
+  data: OutreachEvent[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface OutreachPipelineRow {
+  company: string;
+  statuses: Record<string, number>;
+  total_events: number;
+  last_touched: string;
+}
+
+export interface OutreachPipelineResponse {
+  data: OutreachPipelineRow[];
+  company_count: number;
+  event_count: number;
+  recent_days: number | null;
+}
+
+export const fetchOutreachPipeline = (params?: { recent_days?: number }) =>
+  get<OutreachPipelineResponse>(`${BASE}/outreach/pipeline`, params || {});
+
+export const fetchOutreachEvents = (params: Record<string, string | number>) =>
+  get<OutreachListResponse>(`${BASE}/outreach/events`, params);
+
+export const fetchOutreachEvent = (id: number) =>
+  get<OutreachEvent>(`${BASE}/outreach/events/${id}`);
+
+export interface OutreachCreateBody {
+  to_company: string;
+  purpose: string;
+  channel?: string;
+  status?: string;
+  to_contact?: string;
+  asset_context?: string;
+  perspective?: string;
+  subject?: string;
+  notes?: string;
+  session_id?: string;
+}
+
+export const createOutreachEvent = (body: OutreachCreateBody) =>
+  post<OutreachEvent>(`${BASE}/outreach/events`, body);
+
+export const deleteOutreachEvent = (id: number) => del(`${BASE}/outreach/events/${id}`);
+
+// ═══════════════════════════════════════════
 // Report Sharing
 // ═══════════════════════════════════════════
 

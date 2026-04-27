@@ -21,6 +21,7 @@ export const en: Record<string, string> = {
   "nav.deals": "Deals",
   "nav.dashboard": "Dashboard",
   "nav.watchlist": "Watchlist",
+  "nav.outreach": "Outreach",
   "nav.catalysts": "Catalysts",
   "nav.reports": "Reports",
   "nav.conference": "Conferences",

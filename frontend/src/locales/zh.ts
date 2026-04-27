@@ -21,6 +21,7 @@ export const zh: Record<string, string> = {
   "nav.deals": "交易",
   "nav.dashboard": "仪表盘",
   "nav.watchlist": "关注",
+  "nav.outreach": "外联",
   "nav.catalysts": "催化剂",
   "nav.reports": "报告",
   "nav.conference": "会议洞察",

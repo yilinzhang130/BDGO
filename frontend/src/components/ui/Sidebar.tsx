@@ -151,6 +151,21 @@ const Icon = {
       <path d="M5 6.5h6M5 9h6M5 11.5h3" />
     </svg>
   ),
+  send: (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14.5 1.5L7.5 8.5" />
+      <path d="M14.5 1.5L10 14l-2.5-5.5L2 6l12.5-4.5z" />
+    </svg>
+  ),
   clock: (
     <svg
       width="12"
@@ -301,6 +316,7 @@ const getNews = (t: TFn): NavItem[] => [
 const getTools = (t: TFn): NavItem[] => [
   { href: "/dashboard", label: t("nav.dashboard"), icon: Icon.grid },
   { href: "/watchlist", label: t("nav.watchlist"), icon: Icon.star },
+  { href: "/outreach", label: t("nav.outreach"), icon: Icon.send },
   { href: "/catalysts", label: t("nav.catalysts"), icon: Icon.zap },
   { href: "/reports", label: t("nav.reports"), icon: Icon.fileText },
   { href: "/conference", label: t("nav.conference"), icon: Icon.presentation },
