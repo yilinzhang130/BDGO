@@ -658,8 +658,7 @@ export interface OutreachCreateBody {
 export const createOutreachEvent = (body: OutreachCreateBody) =>
   post<OutreachEvent>(`${BASE}/outreach/events`, body);
 
-export const deleteOutreachEvent = (id: number) =>
-  del(`${BASE}/outreach/events/${id}`);
+export const deleteOutreachEvent = (id: number) => del(`${BASE}/outreach/events/${id}`);
 
 // ═══════════════════════════════════════════
 // Report Sharing

@@ -98,9 +98,7 @@ def pipeline(
     user: dict = Depends(get_current_user),
 ):
     """Per-company status counts. Mirrors OutreachListService pipeline view."""
-    rows = outreach_db.status_counts_per_company(
-        user_id=user["id"], recent_days=recent_days
-    )
+    rows = outreach_db.status_counts_per_company(user_id=user["id"], recent_days=recent_days)
 
     by_company: dict[str, dict] = {}
     for r in rows:

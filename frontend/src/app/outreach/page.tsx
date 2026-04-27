@@ -340,9 +340,7 @@ function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents }: RowPro
           )}
         </div>
         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {row.asset_context && (
-            <div style={{ fontWeight: 500 }}>{row.asset_context}</div>
-          )}
+          {row.asset_context && <div style={{ fontWeight: 500 }}>{row.asset_context}</div>}
           {row.subject && (
             <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>{row.subject}</div>
           )}
@@ -363,9 +361,7 @@ function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents }: RowPro
             {badge.label}
           </span>
         </div>
-        <div style={{ fontSize: 11, color: "#94A3B8" }}>
-          {row.purpose.replace(/_/g, " ")}
-        </div>
+        <div style={{ fontSize: 11, color: "#94A3B8" }}>{row.purpose.replace(/_/g, " ")}</div>
         <div>
           <button
             onClick={onDelete}
@@ -386,7 +382,13 @@ function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents }: RowPro
 
       {/* Expanded detail panel */}
       {expanded && (
-        <div style={{ padding: "16px 18px 20px 18px", background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+        <div
+          style={{
+            padding: "16px 18px 20px 18px",
+            background: "#F8FAFC",
+            borderBottom: "1px solid #E2E8F0",
+          }}
+        >
           {row.notes && (
             <div style={{ marginBottom: 12 }}>
               <div style={detailLabelStyle}>备注</div>
@@ -422,13 +424,24 @@ function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents }: RowPro
                       padding: "4px 0",
                     }}
                   >
-                    <span style={{ minWidth: 84, color: "#94A3B8", fontVariantNumeric: "tabular-nums" }}>
+                    <span
+                      style={{ minWidth: 84, color: "#94A3B8", fontVariantNumeric: "tabular-nums" }}
+                    >
                       {formatDate(e.created_at)}
                     </span>
-                    <span style={{ minWidth: 60, color: STATUS_BADGE[e.status]?.color || "#64748B" }}>
+                    <span
+                      style={{ minWidth: 60, color: STATUS_BADGE[e.status]?.color || "#64748B" }}
+                    >
                       {STATUS_BADGE[e.status]?.label || e.status}
                     </span>
-                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span
+                      style={{
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {e.subject || e.notes || e.purpose}
                     </span>
                   </div>

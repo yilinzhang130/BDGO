@@ -126,21 +126,15 @@ def test_list_events_paginates_and_filters(integration_client):
         assert len(body["data"]) == 3
 
         # Filter by company
-        r = integration_client.get(
-            "/api/outreach/events?company=Pfizer", headers=_auth(token)
-        )
+        r = integration_client.get("/api/outreach/events?company=Pfizer", headers=_auth(token))
         assert r.json()["total"] == 2
 
         # Filter by status
-        r = integration_client.get(
-            "/api/outreach/events?status=replied", headers=_auth(token)
-        )
+        r = integration_client.get("/api/outreach/events?status=replied", headers=_auth(token))
         assert r.json()["total"] == 1
 
         # Pagination
-        r = integration_client.get(
-            "/api/outreach/events?page=1&page_size=2", headers=_auth(token)
-        )
+        r = integration_client.get("/api/outreach/events?page=1&page_size=2", headers=_auth(token))
         body = r.json()
         assert body["page"] == 1
         assert body["page_size"] == 2
@@ -173,9 +167,7 @@ def test_search_matches_subject_and_notes(integration_client):
 
         r = integration_client.get("/api/outreach/events?search=IRF5", headers=_auth(token))
         assert r.json()["total"] == 1
-        r = integration_client.get(
-            "/api/outreach/events?search=pipeline", headers=_auth(token)
-        )
+        r = integration_client.get("/api/outreach/events?search=pipeline", headers=_auth(token))
         assert r.json()["total"] == 1
     finally:
         _cleanup(email)
@@ -240,21 +232,15 @@ def test_event_is_user_scoped(integration_client):
         assert r.json()["total"] == 0
 
         # B cannot fetch A's event by id
-        r = integration_client.get(
-            f"/api/outreach/events/{event_id}", headers=_auth(token_b)
-        )
+        r = integration_client.get(f"/api/outreach/events/{event_id}", headers=_auth(token_b))
         assert r.status_code == 404
 
         # B cannot delete A's event
-        r = integration_client.delete(
-            f"/api/outreach/events/{event_id}", headers=_auth(token_b)
-        )
+        r = integration_client.delete(f"/api/outreach/events/{event_id}", headers=_auth(token_b))
         assert r.status_code == 404
 
         # A still has it
-        r = integration_client.get(
-            f"/api/outreach/events/{event_id}", headers=_auth(token_a)
-        )
+        r = integration_client.get(f"/api/outreach/events/{event_id}", headers=_auth(token_a))
         assert r.status_code == 200
     finally:
         _cleanup(email_a)
@@ -277,16 +263,12 @@ def test_delete_event(integration_client):
         )
         event_id = r.json()["id"]
 
-        r = integration_client.delete(
-            f"/api/outreach/events/{event_id}", headers=_auth(token)
-        )
+        r = integration_client.delete(f"/api/outreach/events/{event_id}", headers=_auth(token))
         assert r.status_code == 200
         assert r.json()["deleted"] is True
 
         # Subsequent GET 404s
-        r = integration_client.get(
-            f"/api/outreach/events/{event_id}", headers=_auth(token)
-        )
+        r = integration_client.get(f"/api/outreach/events/{event_id}", headers=_auth(token))
         assert r.status_code == 404
     finally:
         _cleanup(email)
@@ -330,9 +312,7 @@ def test_list_filter_invalid_status_rejected(integration_client):
     email = _fresh_email()
     _, token = _register_user(integration_client, email)
     try:
-        r = integration_client.get(
-            "/api/outreach/events?status=not-real", headers=_auth(token)
-        )
+        r = integration_client.get("/api/outreach/events?status=not-real", headers=_auth(token))
         assert r.status_code == 400
     finally:
         _cleanup(email)
