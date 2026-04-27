@@ -499,25 +499,25 @@ function Mega({ T, kind }: { T: Tokens; kind: Exclude<MegaKind, null> }) {
   }
 
   if (kind === "solutions") {
-    const roles: [string, string][] = [
-      ["BD 团队", "竞品 / 交易 / 会议情报"],
-      ["立项委员会", "未满足需求 + 立项打分"],
-      ["AI4S 研究员", "靶点反查 + Portfolio"],
-      ["IR / 战略", "全球管线追踪"],
+    const roles: [string, string, string][] = [
+      ["BD 团队", "竞品 / 交易 / 会议情报", "/use-cases#role-bd"],
+      ["立项委员会", "未满足需求 + 立项打分", "/use-cases#role-ic"],
+      ["AI4S 研究员", "靶点反查 + Portfolio", "/use-cases#role-ai4s"],
+      ["IR / 战略", "全球管线追踪", "/use-cases#role-ir"],
     ];
-    const scenes: [string, string][] = [
-      ["AACR / ASCO 跟会", "实时摘要 + 中国公司聚合"],
-      ["JPM 周尽调", "13F + 交易 + 管线"],
-      ["靶点立项", "DEF + AIDD 串联"],
-      ["竞品对标", "管线 / IP / 交易雷达"],
+    const scenes: [string, string, string][] = [
+      ["AACR / ASCO 跟会", "实时摘要 + 中国公司聚合", "/use-cases#scene-aacr"],
+      ["JPM 周尽调", "批量公司画像 + 会前一页纸", "/use-cases#scene-jpm"],
+      ["靶点立项", "DEF + AIDD 串联", "/use-cases#scene-target"],
+      ["竞品对标", "管线 / IP / 交易雷达", "/use-cases#scene-comp"],
     ];
-    const renderCol = (label: string, items: [string, string][]) => (
+    const renderCol = (label: string, items: [string, string, string][]) => (
       <div>
         <div style={eyebrow}>{label}</div>
-        {items.map(([t, d]) => (
+        {items.map(([t, d, href]) => (
           <Link
             key={t}
-            href="/use-cases"
+            href={href}
             style={{
               display: "block",
               padding: "8px 10px",
@@ -2030,7 +2030,7 @@ function Products({ T, ctaHref }: { T: Tokens; ctaHref: string }) {
             desc="疾病 × 终点 × 前沿三维交叉，自动找出未满足的立项窗口。"
             features={["未满足需求矩阵", "靶点优先级", "差异化机会画像"]}
             cta="进入 DEF →"
-            href="/features"
+            href="/features#def"
           />
           <ProductCard
             T={T}
@@ -2040,7 +2040,7 @@ function Products({ T, ctaHref }: { T: Tokens; ctaHref: string }) {
             desc="结构、ADMET、可成药性、IP 一条流水线跑完，输出立项打分。"
             features={["ESMFold/ESM2", "靶点 ↔ 适应症反查", "Portfolio 对比"]}
             cta="进入 AIDD →"
-            href="/features"
+            href="/features#aidd"
           />
         </div>
       </div>
