@@ -617,6 +617,23 @@ export interface SellAssetsResponse {
 export const fetchSellAssets = (params?: { page?: number; page_size?: number }) =>
   get<SellAssetsResponse>(`${BASE}/sell/assets`, params || {});
 
+export interface SellAssetRecentOutreach {
+  id: number;
+  to_company: string;
+  to_contact: string | null;
+  status: string;
+  purpose: string;
+  subject: string | null;
+  created_at: string;
+}
+
+export interface SellAssetDetail extends SellAsset {
+  recent_outreach: SellAssetRecentOutreach[];
+}
+
+export const fetchSellAsset = (id: number | string) =>
+  get<SellAssetDetail>(`${BASE}/sell/assets/${id}`);
+
 // ═══════════════════════════════════════════
 // Outreach (Phase 1, P1-3) — backs the /outreach workspace page
 // ═══════════════════════════════════════════
