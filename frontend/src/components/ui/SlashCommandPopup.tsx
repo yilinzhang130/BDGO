@@ -12,7 +12,19 @@ export interface SlashCommand {
   description: string;
   example: string; // sample query shown in the help bubble + missing-args hint
   estimatedSeconds?: number;
+  // Workspace-refactor classification (ROADMAP Phase 1):
+  //   A = pure analysis (single input → single report). Stays in chat slash.
+  //   B = workflow node (structured inputs / state). Migrating to workspace forms.
+  //   C = state-write or list-view. Already moved to workspace; slash will hide.
+  // Used by ChatInputBar / popup to filter and by docs to label deprecation.
+  category: "A" | "B" | "C";
 }
+
+export const SLASH_CATEGORY_LABELS: Record<SlashCommand["category"], string> = {
+  A: "分析",
+  B: "流程（即将迁出）",
+  C: "已迁出 outreach 工作台",
+};
 
 // Canonical alias → slug map. Kept in frontend because the short names are
 // UX decisions, not part of the backend contract.
@@ -23,77 +35,87 @@ export const SLASH_COMMANDS: Omit<
   SlashCommand,
   "displayName" | "description" | "estimatedSeconds"
 >[] = [
-  { alias: "paper", slug: "paper-analysis", example: "KRAS G12C 耐药机制 综述 最近3年 15篇" },
-  { alias: "mnc", slug: "buyer-profile", example: "AstraZeneca 肿瘤管线" },
+  { alias: "paper", slug: "paper-analysis", example: "KRAS G12C 耐药机制 综述 最近3年 15篇", category: "A" },
+  { alias: "mnc", slug: "buyer-profile", example: "AstraZeneca 肿瘤管线", category: "A" },
   {
     alias: "buyers",
     slug: "buyer-matching",
     example: 'target="KRAS G12C" indication="NSCLC 一线" phase="Phase 2" top_n=5',
+    category: "B",
   },
-  { alias: "dd", slug: "dd-checklist", example: "某 KRAS G12C 抑制剂 III期 BIC 买方视角" },
+  { alias: "dd", slug: "dd-checklist", example: "某 KRAS G12C 抑制剂 III期 BIC 买方视角", category: "B" },
   {
     alias: "faq",
     slug: "dd-faq",
     example:
       'asset_context="KRAS G12D 抑制剂 NSCLC 2L Phase2 ORR42%" meeting_stage=data_room counterparty="AstraZeneca"',
+    category: "B",
   },
-  { alias: "commercial", slug: "commercial-assessment", example: "三阴乳腺癌 ADC 中国市场" },
-  { alias: "disease", slug: "disease-landscape", example: "特发性肺纤维化 全球竞争格局" },
-  { alias: "target", slug: "target-radar", example: "IRF5 自免 全球在研" },
-  { alias: "ip", slug: "ip-landscape", example: "GLP-1 口服小分子 FTO" },
-  { alias: "guidelines", slug: "clinical-guidelines", example: "NSCLC 一线 NCCN 2025" },
-  { alias: "evaluate", slug: "deal-evaluator", example: "某 Claudin18.2 ADC 临床II期 买方吸引力" },
-  { alias: "rnpv", slug: "rnpv-valuation", example: "某 KRAS G12C 抑制剂 NSCLC 二线 上市概率35%" },
-  { alias: "teaser", slug: "deal-teaser", example: "某 BCMA CAR-T 临床I期 寻求海外授权" },
-  { alias: "legal", slug: "legal-review", example: "Term Sheet v3 重点看里程碑与终止条款" },
-  { alias: "email", slug: "outreach-email", example: "向默沙东 BD 介绍我们的 KRAS G12D 资产" },
+  { alias: "commercial", slug: "commercial-assessment", example: "三阴乳腺癌 ADC 中国市场", category: "A" },
+  { alias: "disease", slug: "disease-landscape", example: "特发性肺纤维化 全球竞争格局", category: "A" },
+  { alias: "target", slug: "target-radar", example: "IRF5 自免 全球在研", category: "A" },
+  { alias: "ip", slug: "ip-landscape", example: "GLP-1 口服小分子 FTO", category: "A" },
+  { alias: "guidelines", slug: "clinical-guidelines", example: "NSCLC 一线 NCCN 2025", category: "A" },
+  { alias: "evaluate", slug: "deal-evaluator", example: "某 Claudin18.2 ADC 临床II期 买方吸引力", category: "A" },
+  { alias: "rnpv", slug: "rnpv-valuation", example: "某 KRAS G12C 抑制剂 NSCLC 二线 上市概率35%", category: "A" },
+  { alias: "teaser", slug: "deal-teaser", example: "某 BCMA CAR-T 临床I期 寻求海外授权", category: "B" },
+  { alias: "legal", slug: "legal-review", example: "Term Sheet v3 重点看里程碑与终止条款", category: "A" },
+  { alias: "email", slug: "outreach-email", example: "向默沙东 BD 介绍我们的 KRAS G12D 资产", category: "C" },
   {
     alias: "batch-email",
     slug: "batch-outreach",
     example:
       'companies=["AstraZeneca","Pfizer","Merck","Novartis","BMS"] asset_context="KRAS G12D 抑制剂 Phase 2 NSCLC"',
+    category: "C",
   },
-  { alias: "company", slug: "company-analysis", example: "Biogen" },
-  { alias: "synthesize", slug: "bd-synthesize", example: "Q2 自免 BD 策略 重点 IRF5 / TYK2" },
-  { alias: "timing", slug: "timing-advisor", example: "某 Claudin18.2 ADC 何时启动海外 BD" },
+  { alias: "company", slug: "company-analysis", example: "Biogen", category: "A" },
+  { alias: "synthesize", slug: "bd-synthesize", example: "Q2 自免 BD 策略 重点 IRF5 / TYK2", category: "A" },
+  { alias: "timing", slug: "timing-advisor", example: "某 Claudin18.2 ADC 何时启动海外 BD", category: "B" },
   {
     alias: "meeting",
     slug: "meeting-brief",
     example:
       'counterparty="AstraZeneca" meeting_purpose=intro_pitch asset_context="KRAS G12D 抑制剂 Phase 2"',
+    category: "B",
   },
-  { alias: "log", slug: "outreach-log", example: "2026-04-25 与诺华 BD 通话 讨论 IRF5 资产" },
-  { alias: "outreach", slug: "outreach-list", example: "IRF5 自免 找潜在买方 Top 10" },
+  { alias: "log", slug: "outreach-log", example: "2026-04-25 与诺华 BD 通话 讨论 IRF5 资产", category: "C" },
+  { alias: "outreach", slug: "outreach-list", example: "IRF5 自免 找潜在买方 Top 10", category: "C" },
   {
     alias: "import-reply",
     slug: "import-reply",
     example: "（粘贴对方邮件正文，自动归档为 outreach 记录）",
+    category: "C",
   },
-  { alias: "dataroom", slug: "data-room", example: "某 BCMA CAR-T 临床II期 海外授权 数据室清单" },
+  { alias: "dataroom", slug: "data-room", example: "某 BCMA CAR-T 临床II期 海外授权 数据室清单", category: "B" },
   {
     alias: "draft-ts",
     slug: "draft-ts",
     example: "某 KRAS G12D 全球独家许可 首付2000万 里程碑3亿",
+    category: "B",
   },
   {
     alias: "draft-mta",
     slug: "draft-mta",
     example: "某 anti-PD1 抗体 转让给 Stanford 用于联合用药研究",
+    category: "B",
   },
   {
     alias: "draft-license",
     slug: "draft-license",
     example: "某 KRAS G12D 全球独家许可 升级为正式 License Agreement",
+    category: "B",
   },
   {
     alias: "draft-codev",
     slug: "draft-codev",
     example: "某 KRAS G12D 与 BeiGene 共同开发 50/50 全球分成",
+    category: "B",
   },
   {
     alias: "draft-spa",
     slug: "draft-spa",
     example: "某 biotech 被 MNC 全资收购 EV 5亿美元 cash 80% stock 20%",
+    category: "B",
   },
 ];
 

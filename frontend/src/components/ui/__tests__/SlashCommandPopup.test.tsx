@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import {
   filterCommands,
   SlashCommandPopup,
+  SLASH_CATEGORY_LABELS,
   SLASH_COMMANDS,
   type SlashCommand,
 } from "../SlashCommandPopup";
@@ -102,6 +103,47 @@ describe("SLASH_COMMANDS catalogue", () => {
   });
 });
 
+// ── Workspace-refactor category invariants (ROADMAP Phase 1, P1-1) ──
+//
+// Each command must declare a category so Phase 1 PRs can:
+//   - hide C-class from popup (PR 7)
+//   - drive workspace deep-links (PR 8)
+//   - mark deprecated commands in docs (PR 10)
+// Distribution numbers below are the Phase 1 baseline — bump them when
+// new services are added or existing ones are reclassified, so silent
+// drift of the slash inventory shows up in CI.
+
+describe("SLASH_COMMANDS category metadata", () => {
+  it("every command has a category in {A, B, C}", () => {
+    for (const c of SLASH_COMMANDS) {
+      expect(c.category).toMatch(/^[ABC]$/);
+    }
+  });
+
+  it("category distribution matches Phase 1 baseline (A=12, B=12, C=5)", () => {
+    const counts: Record<SlashCommand["category"], number> = { A: 0, B: 0, C: 0 };
+    for (const c of SLASH_COMMANDS) counts[c.category] += 1;
+    expect(counts).toEqual({ A: 12, B: 12, C: 5 });
+  });
+
+  it("C-class is exactly the 5 outreach-workspace migrations", () => {
+    const cClass = SLASH_COMMANDS.filter((c) => c.category === "C").map((c) => c.alias).sort();
+    expect(cClass).toEqual(
+      ["batch-email", "email", "import-reply", "log", "outreach"].sort(),
+    );
+  });
+
+  it("all /draft-X are B-class (form-driven workspace migration)", () => {
+    const drafts = SLASH_COMMANDS.filter((c) => c.alias.startsWith("draft-"));
+    for (const c of drafts) expect(c.category).toBe("B");
+  });
+
+  it("SLASH_CATEGORY_LABELS covers all categories", () => {
+    expect(Object.keys(SLASH_CATEGORY_LABELS).sort()).toEqual(["A", "B", "C"]);
+    for (const v of Object.values(SLASH_CATEGORY_LABELS)) expect(v.length).toBeGreaterThan(0);
+  });
+});
+
 // ── SlashCommandPopup render ──────────────────────────────
 
 describe("<SlashCommandPopup />", () => {
@@ -113,6 +155,7 @@ describe("<SlashCommandPopup />", () => {
       description: "Buyer profile for MNC pharma",
       example: "Pfizer 肿瘤管线",
       estimatedSeconds: 60,
+      category: "A",
     },
     {
       alias: "draft-spa",
@@ -120,6 +163,7 @@ describe("<SlashCommandPopup />", () => {
       displayName: "Draft SPA / Merger",
       description: "Generate SPA skeleton",
       example: "某 biotech 被 MNC 收购",
+      category: "B",
     },
   ];
 
