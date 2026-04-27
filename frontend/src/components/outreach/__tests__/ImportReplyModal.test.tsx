@@ -36,7 +36,9 @@ describe("<ImportReplyModal />", () => {
   it("falls back to editable form when parse fails", async () => {
     mockedGenerate.mockRejectedValueOnce(new Error("network error"));
 
-    render(<ImportReplyModal open={true} onClose={noop} onArchived={noop} defaultCompany="Pfizer" />);
+    render(
+      <ImportReplyModal open={true} onClose={noop} onArchived={noop} defaultCompany="Pfizer" />,
+    );
 
     const textarea = screen.getByPlaceholderText(/粘贴对方的邮件正文/);
     fireEvent.change(textarea, { target: { value: "some reply content" } });
@@ -56,7 +58,13 @@ describe("<ImportReplyModal />", () => {
       task_id: "t1",
       status: "done",
       result: {
-        meta: { to_company: "Roche", status: "replied", next_step: "schedule call", keywords: "ADC", notes: "interested" },
+        meta: {
+          to_company: "Roche",
+          status: "replied",
+          next_step: "schedule call",
+          keywords: "ADC",
+          notes: "interested",
+        },
       },
     });
     mockedCreate.mockResolvedValueOnce({
@@ -77,9 +85,7 @@ describe("<ImportReplyModal />", () => {
     const onArchived = vi.fn();
     const onClose = vi.fn();
 
-    render(
-      <ImportReplyModal open={true} onClose={onClose} onArchived={onArchived} />,
-    );
+    render(<ImportReplyModal open={true} onClose={onClose} onArchived={onArchived} />);
 
     const textarea = screen.getByPlaceholderText(/粘贴对方的邮件正文/);
     fireEvent.change(textarea, { target: { value: "Roche replied positively" } });

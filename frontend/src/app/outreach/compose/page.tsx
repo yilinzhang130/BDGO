@@ -154,8 +154,7 @@ export default function ComposePage() {
     try {
       for (const { recipient, markdown } of results) {
         const subject =
-          markdown.split("\n")[0].replace(/^#+\s*/, "") ||
-          `Outreach — ${recipient.company}`;
+          markdown.split("\n")[0].replace(/^#+\s*/, "") || `Outreach — ${recipient.company}`;
         const body: OutreachCreateBody = {
           to_company: recipient.company,
           to_contact: recipient.contact || undefined,

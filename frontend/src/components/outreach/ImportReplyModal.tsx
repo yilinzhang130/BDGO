@@ -106,7 +106,11 @@ export function ImportReplyModal({ open, onClose, onArchived, defaultCompany }: 
         to_company: parsed.to_company,
         purpose: "follow_up",
         status: parsed.status,
-        notes: [parsed.notes, parsed.next_step ? `下一步：${parsed.next_step}` : "", parsed.keywords ? `关键词：${parsed.keywords}` : ""]
+        notes: [
+          parsed.notes,
+          parsed.next_step ? `下一步：${parsed.next_step}` : "",
+          parsed.keywords ? `关键词：${parsed.keywords}` : "",
+        ]
           .filter(Boolean)
           .join("\n"),
       });
@@ -132,7 +136,9 @@ export function ImportReplyModal({ open, onClose, onArchived, defaultCompany }: 
         justifyContent: "center",
         padding: "24px 16px",
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         style={{
@@ -145,20 +151,44 @@ export function ImportReplyModal({ open, onClose, onArchived, defaultCompany }: 
         }}
       >
         {/* Title row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 20,
+          }}
+        >
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0F172A", margin: 0 }}>
             导入对方回信
           </h2>
           <button
             onClick={onClose}
-            style={{ border: "none", background: "transparent", fontSize: 18, color: "#94A3B8", cursor: "pointer", padding: 4 }}
+            style={{
+              border: "none",
+              background: "transparent",
+              fontSize: 18,
+              color: "#94A3B8",
+              cursor: "pointer",
+              padding: 4,
+            }}
           >
             ✕
           </button>
         </div>
 
         {err && (
-          <div style={{ padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 8, color: "#991B1B", fontSize: 13, marginBottom: 16 }}>
+          <div
+            style={{
+              padding: "10px 14px",
+              background: "#FEF2F2",
+              border: "1px solid #FCA5A5",
+              borderRadius: 8,
+              color: "#991B1B",
+              fontSize: 13,
+              marginBottom: 16,
+            }}
+          >
             {err}
           </div>
         )}
@@ -219,7 +249,9 @@ export function ImportReplyModal({ open, onClose, onArchived, defaultCompany }: 
                   style={inputStyle}
                 >
                   {REPLY_STATUSES.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
                   ))}
                 </select>
               </Field>
@@ -268,7 +300,16 @@ export function ImportReplyModal({ open, onClose, onArchived, defaultCompany }: 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: "#64748B",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          marginBottom: 5,
+        }}
+      >
         {label}
       </div>
       {children}

@@ -126,7 +126,14 @@ export default function OutreachPage() {
     <div style={{ minHeight: "100vh", background: "#F8FAFF", padding: "32px 24px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {/* Header */}
-        <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div
+          style={{
+            marginBottom: 24,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+          }}
+        >
           <div>
             <h1
               style={{
@@ -311,7 +318,10 @@ export default function OutreachPage() {
                 threadEvents={
                   expandedId === row.id ? sameCompanyEvents.filter((e) => e.id !== row.id) : []
                 }
-                onImportReply={(company) => { setImportReplyCompany(company); setImportReplyOpen(true); }}
+                onImportReply={(company) => {
+                  setImportReplyCompany(company);
+                  setImportReplyOpen(true);
+                }}
               />
             ))
           )}
@@ -374,14 +384,7 @@ interface RowProps {
   onImportReply: (company: string) => void;
 }
 
-function OutreachRow({
-  row,
-  expanded,
-  onToggle,
-  onDelete,
-  threadEvents,
-  onImportReply,
-}: RowProps) {
+function OutreachRow({ row, expanded, onToggle, onDelete, threadEvents, onImportReply }: RowProps) {
   const router = useRouter();
   const badge = STATUS_BADGE[row.status] || {
     bg: "#F3F4F6",
