@@ -88,6 +88,7 @@ export function useSlashCommand(getInput: () => string, setInput: (v: string) =>
           description: svc?.description || "",
           example: base.example,
           estimatedSeconds: svc?.estimated_seconds,
+          category: base.category,
         };
       }),
     [reportServices],

@@ -1,0 +1,17 @@
+{
+  "snapshot_at": "2026-04-27T00:00:00Z",
+  "window_days": 30,
+  "note": "Pre-workspace-refactor baseline (P1-9). Run scripts/snapshot_funnel.py with DATABASE_URL set to populate real numbers.",
+  "funnel": {
+    "draft_count": 0,
+    "sent_count": 0,
+    "replied_count": 0,
+    "signed_count": 0,
+    "dropped_count": 0,
+    "draft_to_sent_rate": 0.0,
+    "sent_to_replied_rate": 0.0,
+    "replied_to_signed_rate": 0.0,
+    "window_days": 30
+  },
+  "slash_usage": []
+}

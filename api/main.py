@@ -74,6 +74,7 @@ from llm_pool import close_pool, init_pool
 from routers import (
     admin,
     aidd_sso,
+    analytics,
     assets,
     buyers,
     catalysts,
@@ -84,6 +85,7 @@ from routers import (
     deals,
     inbox,
     ip,
+    outreach,
     reports,
     search,
     stats,
@@ -271,6 +273,9 @@ app.include_router(
 app.include_router(
     watchlist.router, prefix="/api/watchlist", tags=["watchlist"], dependencies=_auth
 )
+app.include_router(
+    outreach.router, prefix="/api/outreach", tags=["outreach"], dependencies=_auth
+)
 app.include_router(aidd_sso.router, prefix="/api", tags=["aidd-sso"], dependencies=_auth)
 app.include_router(inbox.router, prefix="/api/inbox", tags=["inbox"], dependencies=_auth)
 app.include_router(
@@ -287,6 +292,11 @@ app.include_router(plan_templates_router.router)
 # The webhook endpoint is intentionally public (Stripe signs the body).
 # Checkout + subscription use their own Depends(get_current_user) internally.
 app.include_router(billing_router.router)
+
+# Analytics — event ingestion + funnel metrics (P1-9)
+app.include_router(
+    analytics.router, prefix="/api/analytics", tags=["analytics"], dependencies=_auth
+)
 
 # Team features (P3-14): member directory + user notifications
 app.include_router(team_router.router, dependencies=_auth)

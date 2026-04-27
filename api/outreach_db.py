@@ -94,7 +94,12 @@ def insert_event(
                 notes,
             ),
         )
-        return cur.fetchone()[0]
+        # auth_db's pool sets cursor_factory=RealDictCursor by default, so
+        # fetchone() returns a dict. Subscript by column name, not index —
+        # the original ``[0]`` raised KeyError(0) in production whenever this
+        # ran against PG; it only surfaced after /api/outreach added real-DB
+        # integration coverage.
+        return int(cur.fetchone()["id"])
 
 
 # ─────────────────────────────────────────────────────────────
@@ -102,19 +107,21 @@ def insert_event(
 # ─────────────────────────────────────────────────────────────
 
 
-def list_events(
+def _build_event_filters(
     user_id: str,
     *,
-    company: str | None = None,
-    status: str | None = None,
-    purpose: str | None = None,
-    perspective: str | None = None,
-    recent_days: int | None = None,
-    limit: int = 100,
-) -> list[dict[str, Any]]:
-    """Return events for a user, optionally filtered. Newest first.
+    company: str | None,
+    status: str | None,
+    purpose: str | None,
+    perspective: str | None,
+    recent_days: int | None,
+    search: str | None = None,
+) -> tuple[list[str], list[Any]]:
+    """Shared WHERE-clause builder for list_events / count_events.
 
-    All filters are AND-ed. ``company`` matches case-insensitively (substring).
+    Kept as a module-private helper so the router and the report service
+    agree on what each filter parameter actually means (especially the
+    case-insensitive substring matches on `company` and `search`).
     """
     where = ["user_id = %s"]
     params: list[Any] = [user_id]
@@ -134,20 +141,111 @@ def list_events(
     if recent_days is not None and recent_days > 0:
         where.append("created_at >= NOW() - (%s::int * INTERVAL '1 day')")
         params.append(recent_days)
+    if search:
+        # Search across the three free-text columns. ILIKE on a small
+        # per-user table is fine; revisit if outreach_log grows huge.
+        where.append(
+            "(to_company ILIKE %s OR COALESCE(to_contact, '') ILIKE %s "
+            "OR COALESCE(subject, '') ILIKE %s OR COALESCE(notes, '') ILIKE %s)"
+        )
+        like = f"%{search}%"
+        params.extend([like, like, like, like])
+
+    return where, params
+
+
+def list_events(
+    user_id: str,
+    *,
+    company: str | None = None,
+    status: str | None = None,
+    purpose: str | None = None,
+    perspective: str | None = None,
+    recent_days: int | None = None,
+    search: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """Return events for a user, optionally filtered. Newest first.
+
+    All filters are AND-ed. ``company`` matches case-insensitively (substring).
+    ``search`` matches across to_company / to_contact / subject / notes.
+    """
+    where, params = _build_event_filters(
+        user_id,
+        company=company,
+        status=status,
+        purpose=purpose,
+        perspective=perspective,
+        recent_days=recent_days,
+        search=search,
+    )
 
     sql = (
         "SELECT id, to_company, to_contact, purpose, channel, status, "
         "asset_context, perspective, subject, notes, session_id, created_at "
         "FROM outreach_log WHERE " + " AND ".join(where) + " "
-        "ORDER BY created_at DESC LIMIT %s"
+        "ORDER BY created_at DESC LIMIT %s OFFSET %s"
     )
-    params.append(int(limit))
+    params.extend([int(limit), int(offset)])
 
     with transaction() as cur:
         cur.cursor_factory = RealDictCursor
         cur.execute(sql, tuple(params))
         rows = cur.fetchall()
     return [dict(r) for r in rows]
+
+
+def count_events(
+    user_id: str,
+    *,
+    company: str | None = None,
+    status: str | None = None,
+    purpose: str | None = None,
+    perspective: str | None = None,
+    recent_days: int | None = None,
+    search: str | None = None,
+) -> int:
+    """Count events matching the same filters as ``list_events``."""
+    where, params = _build_event_filters(
+        user_id,
+        company=company,
+        status=status,
+        purpose=purpose,
+        perspective=perspective,
+        recent_days=recent_days,
+        search=search,
+    )
+    sql = "SELECT COUNT(*) AS n FROM outreach_log WHERE " + " AND ".join(where)
+    with transaction() as cur:
+        cur.cursor_factory = RealDictCursor
+        cur.execute(sql, tuple(params))
+        row = cur.fetchone()
+    return int(row["n"]) if row else 0
+
+
+def get_event(user_id: str, event_id: int) -> dict[str, Any] | None:
+    """Fetch a single event, scoped to the owning user."""
+    with transaction() as cur:
+        cur.cursor_factory = RealDictCursor
+        cur.execute(
+            "SELECT id, to_company, to_contact, purpose, channel, status, "
+            "asset_context, perspective, subject, notes, session_id, created_at "
+            "FROM outreach_log WHERE id = %s AND user_id = %s",
+            (int(event_id), user_id),
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def delete_event(user_id: str, event_id: int) -> bool:
+    """Delete one event owned by the user. Returns True if a row was removed."""
+    with transaction() as cur:
+        cur.execute(
+            "DELETE FROM outreach_log WHERE id = %s AND user_id = %s RETURNING id",
+            (int(event_id), user_id),
+        )
+        return cur.fetchone() is not None
 
 
 # ─────────────────────────────────────────────────────────────

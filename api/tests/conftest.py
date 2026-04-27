@@ -63,6 +63,37 @@ if "crm_db" not in sys.modules:
     _stub._TABLE_ALIAS = {}
     sys.modules["crm_db"] = _stub
 
+# certifi's cacert.pem may be absent in the Homebrew Python environment
+# (the file exists in the package but the actual .pem is missing).
+# Redirect to the macOS system CA bundle so httpx.Client() can initialise
+# at module-level without raising FileNotFoundError. Try the real package
+# first — if its where() resolves to a real file, leave it alone.
+if "certifi" not in sys.modules:
+    try:
+        import os as _os
+
+        import certifi as _real_certifi  # type: ignore[import-untyped]
+
+        if not _os.path.exists(_real_certifi.where()):
+            raise ImportError("certifi cacert.pem missing on disk")
+    except ImportError:
+        _certifi_stub = types.ModuleType("certifi")
+        _certifi_stub.where = lambda: "/etc/ssl/cert.pem"
+        sys.modules["certifi"] = _certifi_stub
+
+# services/quality/schema_validator.py imports ``yaml`` (PyYAML). Only
+# install a stub if the real package is unavailable — schema-validator
+# tests parse real YAML and would silently break with a no-op stub.
+if "yaml" not in sys.modules:
+    try:
+        import yaml as _real_yaml  # noqa: F401  # type: ignore[import-untyped]
+    except ImportError:
+        _yaml_stub = types.ModuleType("yaml")
+        _yaml_stub.safe_load = lambda stream: {}
+        _yaml_stub.dump = lambda data, **kw: ""
+        _yaml_stub.YAMLError = Exception
+        sys.modules["yaml"] = _yaml_stub
+
 
 # ════════════════════���══════════════════════════════════════��════
 # 用户 fixtures — 各种权限的模拟用户 dict

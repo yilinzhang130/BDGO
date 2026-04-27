@@ -15,6 +15,16 @@ export function ChatEmptyState({
 }) {
   return (
     <div className="chat-empty">
+      <p
+        style={{
+          fontSize: 12,
+          color: "var(--text-muted)",
+          margin: "0 0 1.25rem",
+          letterSpacing: "0.01em",
+        }}
+      >
+        📋 也试试 Watchlist · 📊 Outreach（敬请期待）
+      </p>
       <h1 className="chat-title">
         <span className="brand-bd">BD</span>
         <span className="brand-go"> Go</span>
