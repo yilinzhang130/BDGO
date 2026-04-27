@@ -1,11 +1,23 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   filterCommands,
+  SLASH_COMMANDS,
   SlashCommandPopup,
   type SlashCommand,
 } from "@/components/ui/SlashCommandPopup";
+
+// Categories suppressed from the popup. C-class commands moved to the
+// Outreach workspace; keyboard nav must use the post-filter list so
+// activeIndex never lands on a hidden item.
+const HIDDEN_CATEGORIES: SlashCommand["category"][] = ["C"];
+
+// Aliases that trigger the "moved to Outreach" banner. Derived from
+// SLASH_COMMANDS so a category change in one place propagates here.
+const C_ALIASES = new Set(
+  SLASH_COMMANDS.filter((c) => HIDDEN_CATEGORIES.includes(c.category)).map((c) => c.alias),
+);
 
 /**
  * The composite input area at the bottom of the chat page:
@@ -59,7 +71,12 @@ export function ChatInputBar({
 
   const slashQuery = input.startsWith("/") ? input.slice(1).split(/\s/)[0] : null;
   const slashOpen = slashQuery !== null && !isStreaming;
-  const filtered = slashQuery === null ? [] : filterCommands(slashCommands, slashQuery);
+  const visibleCommands = useMemo(
+    () => slashCommands.filter((c) => !HIDDEN_CATEGORIES.includes(c.category)),
+    [slashCommands],
+  );
+  const filtered = slashQuery === null ? [] : filterCommands(visibleCommands, slashQuery);
+  const showMigrationBanner = slashQuery !== null && C_ALIASES.has(slashQuery);
 
   // Auto-resize textarea to fit content (capped at 140px).
   useEffect(() => {
@@ -79,6 +96,39 @@ export function ChatInputBar({
   return (
     <div className="chat-input-wrapper">
       <div className="chat-input-container">
+        {showMigrationBanner && (
+          <div
+            data-testid="slash-migration-banner"
+            style={{
+              padding: "6px 10px",
+              margin: "0 0 6px",
+              fontSize: 12,
+              color: "var(--text-secondary)",
+              background: "var(--accent-light)",
+              border: "1px solid var(--border-light)",
+              borderRadius: "var(--radius-sm, 6px)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span style={{ flex: 1 }}>
+              💡 这个功能已迁到 Outreach 工作台（即将上线），更好用
+            </span>
+            <a
+              href="#"
+              onClick={(e) => e.preventDefault()}
+              style={{
+                color: "var(--text-muted)",
+                textDecoration: "none",
+                cursor: "default",
+              }}
+              aria-disabled="true"
+            >
+              →
+            </a>
+          </div>
+        )}
         {attachments.length > 0 && (
           <div
             style={{
@@ -129,6 +179,7 @@ export function ChatInputBar({
                 activeIndex={slashActiveIndex}
                 onSelect={onSlashSelect}
                 onHover={onSlashActiveIndexChange}
+                hideCategories={HIDDEN_CATEGORIES}
                 servicesError={slashServicesError}
                 servicesLoading={slashServicesLoading}
                 onRetryServices={onRetrySlashServices}
