@@ -65,9 +65,9 @@ const DARK: Tokens = {
 };
 
 const fontSans =
-  '"Space Grotesk", "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+  '"Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", -apple-system, sans-serif';
 const fontMono = '"JetBrains Mono", ui-monospace, Menlo, monospace';
-const fontSerif = '"Instrument Serif", "Noto Serif SC", "Songti SC", "STSong", Georgia, serif';
+const fontSerif = '"PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif';
 
 // ---------------------------------------------------------------------------
 // Page
@@ -120,9 +120,7 @@ export default function LandingPage() {
         html { scroll-behavior: smooth; }
       `}</style>
 
-      <ThemeToggle theme={theme} onChange={setTheme} T={T} />
-
-      <Nav T={T} ctaHref={ctaHref} authReady={!loading} authed={!!user} />
+      <Nav T={T} ctaHref={ctaHref} authReady={!loading} authed={!!user} theme={theme} onThemeChange={setTheme} />
 
       <Hero T={T} dark={dark} ctaHref={ctaHref} />
 
@@ -139,66 +137,6 @@ export default function LandingPage() {
       <FooterCTA T={T} dark={dark} ctaHref={ctaHref} />
 
       <FooterMeta T={T} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Theme toggle (floating, top-right)
-// ---------------------------------------------------------------------------
-
-function ThemeToggle({
-  theme,
-  onChange,
-  T,
-}: {
-  theme: Theme;
-  onChange: (t: Theme) => void;
-  T: Tokens;
-}) {
-  const seg = (active: boolean): React.CSSProperties => ({
-    padding: "5px 12px",
-    borderRadius: 999,
-    fontSize: 11,
-    fontFamily: fontMono,
-    letterSpacing: ".06em",
-    fontWeight: 600,
-    cursor: "pointer",
-    background: active ? T.brand : "transparent",
-    color: active ? "#fff" : T.fg2,
-    border: "none",
-    transition: "background 0.15s, color 0.15s",
-  });
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 16,
-        right: 16,
-        zIndex: 1000,
-        display: "flex",
-        gap: 2,
-        padding: 3,
-        borderRadius: 999,
-        background: `${T.bg}CC`,
-        backdropFilter: "blur(10px)",
-        border: `1px solid ${T.border}`,
-      }}
-    >
-      <button
-        onClick={() => onChange("light")}
-        style={seg(theme === "light")}
-        aria-label="Light theme"
-      >
-        ☀ Light
-      </button>
-      <button
-        onClick={() => onChange("dark")}
-        style={seg(theme === "dark")}
-        aria-label="Dark theme"
-      >
-        ☾ Dark
-      </button>
     </div>
   );
 }
@@ -237,11 +175,15 @@ function Nav({
   ctaHref,
   authReady,
   authed,
+  theme,
+  onThemeChange,
 }: {
   T: Tokens;
   ctaHref: string;
   authReady: boolean;
   authed: boolean;
+  theme: Theme;
+  onThemeChange: (t: Theme) => void;
 }) {
   const [open, setOpen] = useState<MegaKind>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -756,7 +698,7 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
   return (
     <section
       style={{
-        padding: "72px 64px 96px",
+        padding: "44px 64px 56px",
         borderBottom: `1px solid ${T.rule}`,
         position: "relative",
       }}
@@ -765,7 +707,7 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
         style={{
           display: "grid",
           gridTemplateColumns: "1.05fr 1fr",
-          gap: 72,
+          gap: 56,
           alignItems: "start",
           maxWidth: 1820,
           margin: "0 auto",
@@ -786,7 +728,7 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
               letterSpacing: ".06em",
               fontFamily: fontMono,
               textTransform: "uppercase",
-              marginBottom: 56,
+              marginBottom: 28,
             }}
           >
             <span
@@ -803,24 +745,33 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
 
           <h1
             style={{
-              fontFamily: fontSerif,
-              fontWeight: 400,
+              fontFamily: fontSans,
+              fontWeight: 700,
               margin: 0,
               color: T.fg,
               letterSpacing: "-0.02em",
             }}
           >
-            <span style={{ display: "block", fontSize: 44, lineHeight: 1.05, color: T.fg2 }}>
+            <span
+              style={{
+                display: "block",
+                fontSize: 32,
+                lineHeight: 1.15,
+                color: T.fg2,
+                fontWeight: 500,
+              }}
+            >
               一句话，问出
             </span>
             <span
               style={{
                 display: "block",
-                fontSize: 168,
-                lineHeight: 0.9,
-                letterSpacing: "-0.04em",
-                marginTop: 8,
-                fontStyle: "italic",
+                fontSize: 88,
+                lineHeight: 1,
+                letterSpacing: "-0.03em",
+                marginTop: 4,
+                fontWeight: 800,
+                fontSynthesis: "none",
                 background: dark
                   ? `linear-gradient(180deg, ${T.fg} 0%, ${T.accent1} 100%)`
                   : `linear-gradient(180deg, ${T.brand} 0%, ${T.accent1} 100%)`,
@@ -831,7 +782,14 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
               立项决策
             </span>
             <span
-              style={{ display: "block", fontSize: 32, lineHeight: 1, marginTop: 10, color: T.fg3 }}
+              style={{
+                display: "block",
+                fontSize: 20,
+                lineHeight: 1.3,
+                marginTop: 12,
+                color: T.fg3,
+                fontWeight: 400,
+              }}
             >
               —— 一份完整的立项报告。
             </span>
@@ -840,11 +798,11 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
           <p
             style={{
               fontFamily: fontSans,
-              fontSize: 17,
-              lineHeight: 1.7,
+              fontSize: 15,
+              lineHeight: 1.65,
               color: T.fg2,
               maxWidth: 560,
-              marginTop: 48,
+              marginTop: 24,
               marginBottom: 0,
               fontWeight: 400,
             }}
@@ -854,7 +812,7 @@ function Hero({ T, dark, ctaHref }: { T: Tokens; dark: boolean; ctaHref: string 
             制药串起来的中文工作流。
           </p>
 
-          <div style={{ display: "flex", gap: 12, marginTop: 44, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 12, marginTop: 24, alignItems: "center" }}>
             <Link
               href={ctaHref}
               style={{
